@@ -1,0 +1,31 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* This file is for your main application CSS */
+
+/* 移除所有默认边距和填充 */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* 修复可能的滚动问题 */
+#messages {
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+/* 确保聊天界面占满整个视口 */
+.h-screen {
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+
+.w-screen {
+  width: 100vw !important;
+  max-width: 100vw !important;
+}

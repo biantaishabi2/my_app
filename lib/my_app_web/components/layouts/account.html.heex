@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="csrf-token" content={get_csrf_token()} />
+  <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+  <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
+  <.live_title suffix=" · AI助手">
+    <%= assigns[:page_title] || "账户" %>
+  </.live_title>
+  <style>
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      height: 100vh !important;
+      width: 100vw !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    
+    /* 背景渐变 */
+    .account-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%);
+      position: relative;
+    }
+    
+    /* 装饰性背景元素 */
+    .account-container::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 70%);
+      z-index: 0;
+      border-radius: 50%;
+    }
+    
+    .account-container::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 250px;
+      height: 250px;
+      background: radial-gradient(circle at center, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0) 70%);
+      z-index: 0;
+      border-radius: 50%;
+    }
+    
+    .account-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 20px;
+      background-color: white;
+      border-bottom: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      position: relative;
+      z-index: 2;
+    }
+    
+    .account-logo {
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #374151;
+    }
+    
+    .account-logo a {
+      text-decoration: none;
+      color: #374151;
+      display: flex;
+      align-items: center;
+    }
+    
+    /* 添加徽标图标 */
+    .account-logo a::before {
+      content: "🤖";
+      margin-right: 8px;
+      font-size: 1.4rem;
+    }
+    
+    .account-nav {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .account-nav a {
+      text-decoration: none;
+      color: #6b7280;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    
+    .account-nav a:hover {
+      color: #4f46e5;
+    }
+    
+    /* 内容区域样式 */
+    .account-content {
+      flex: 1;
+      padding: 40px 20px;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* 卡片效果 */
+    .account-content > div {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* 卡片顶部装饰条纹 */
+    .account-content > div::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #6366f1, #ec4899);
+      z-index: 1;
+    }
+    
+    /* 改进表单样式 */
+    input, textarea, select {
+      font-size: 16px; /* 防止iOS缩放 */
+      border-radius: 8px !important;
+      border: 1px solid #e5e7eb !important;
+      padding: 10px 12px !important;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+      outline: none !important;
+    }
+    
+    /* 按钮样式 */
+    .button, button, [type="button"], [type="submit"] {
+      min-height: 44px;
+      font-weight: 500;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none !important;
+    }
+    
+    .button:hover, button:hover, [type="button"]:hover, [type="submit"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25) !important;
+    }
+    
+    .button:active, button:active, [type="button"]:active, [type="submit"]:active {
+      transform: translateY(0);
+    }
+    
+    /* 链接样式 */
+    a.text-brand, .font-semibold.text-brand, a.font-semibold {
+      color: #4f46e5 !important;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    a.text-brand:hover, .font-semibold.text-brand:hover, a.font-semibold:hover {
+      color: #6366f1 !important;
+    }
+    
+    /* 标题样式 */
+    h1, h2, h3, .header {
+      color: #1f2937;
+    }
+    
+    @media (max-width: 768px) {
+      .account-content {
+        padding: 20px 15px;
+      }
+      
+      .account-content > div {
+        padding: 25px 20px;
+      }
+      
+      .account-header {
+        padding: 10px 15px;
+      }
+    }
+  </style>
+</head>
+<body class="h-full m-0 p-0">
+  <.flash_group flash={@flash} />
+  <div class="account-container">
+    <header class="account-header">
+      <div class="account-logo">
+        <a href="/">AI助手</a>
+      </div>
+      <nav class="account-nav">
+        <%= if @current_user do %>
+          <a href={~p"/chat"}>聊天</a>
+          <a href={~p"/users/settings"}>设置</a>
+          <form action={~p"/users/log_out"} method="post" style="display: inline;">
+            <input type="hidden" name="_csrf_token" value={get_csrf_token()}>
+            <input type="hidden" name="_method" value="delete">
+            <button type="submit" style="background: none !important; border: none; color: #6b7280; font-size: 0.9rem; font-weight: 500; padding: 0; cursor: pointer; min-height: auto; box-shadow: none !important;">
+              退出
+            </button>
+          </form>
+        <% else %>
+          <a href={~p"/users/register"}>注册</a>
+          <a href={~p"/users/log_in"}>登录</a>
+        <% end %>
+      </nav>
+    </header>
+    <main class="account-content">
+      <%= @inner_content %>
+    </main>
+  </div>
+</body>
+</html> 
