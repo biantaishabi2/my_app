@@ -245,31 +245,36 @@
         font-size: 15px;
       }
       
-      /* 调整输入区域 */
-      .input-container {
+      /* 调整输入区域 - 修改为仅在主内容区内定位 */
+      .main-content .input-container {
         padding: 8px 8px;
         position: fixed;
         bottom: 0;
+        /* 修改定位方式，确保不会覆盖侧边栏 */
         left: 0;
         right: 0;
+        width: 100%;
         background-color: white;
         border-top: 1px solid #e5e7eb;
-        z-index: 10;
+        z-index: 5; /* 降低z-index，确保低于侧边栏和背景遮罩 */
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
       }
       
       /* 确保消息容器不被输入框遮挡 */
       .messages-container {
-        padding-bottom: 100px;
+        padding-bottom: 170px; /* 增加底部内边距，从120px改为170px，确保最后一条消息完全可见 */
       }
       
       .message-input {
         padding: 8px;
         min-height: 36px;
         max-height: 80px;
+        font-size: 16px; /* 防止iOS缩放 */
       }
       
       .send-button {
         padding: 8px;
+        min-height: 36px;
       }
       
       /* 优化消息头部显示 */
@@ -286,8 +291,15 @@
       
       /* 键盘弹出时的样式 */
       .input-container.keyboard-active {
-        position: absolute;
-        bottom: 0;
+        position: fixed !important;
+        bottom: 0 !important;
+        transition: none !important;
+      }
+      
+      /* 确保最后一条消息和最后一个消息行有足够的底部间距 */
+      .ai-message-row:last-child,
+      .user-message-row:last-child {
+        margin-bottom: 40px !important; /* 为最后一条消息增加更多的底部间距，从20px改为40px */
       }
       
       /* 防止iOS Safari的弹性滚动影响布局 */
@@ -426,7 +438,7 @@
           <h2 class="text-xl font-medium truncate"><%= if @current_conversation, do: @current_conversation.title, else: "请选择或新建对话" %></h2>
         </div>
 
-        <!-- 消息区域 - 添加mobilePadding类用于移动设备 -->
+        <!-- 消息区域 -->
         <div id={"messages-container-#{@current_conversation && @current_conversation.id}"} class="messages-container">
           <%= if @current_conversation do %>
             <%= for {message, _idx} <- Enum.with_index(@messages) do %>
@@ -435,12 +447,12 @@
                 <div class={if message.role == "user", do: "message-wrapper user", else: "message-wrapper ai"}>
                   <div class={if message.role == "user", do: "avatar user", else: "avatar ai"}>
                     <%= if message.role == "assistant" do %>
-                      <!-- Robot icon (w-6 h-6) -->
+                      <!-- Robot icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                       </svg>
                     <% else %>
-                      <!-- Filled User SVG Icon to match AI icon style -->
+                      <!-- User icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="white">
                         <!-- Head -->
                         <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" />
@@ -484,7 +496,7 @@
                 </svg>
               </button>
             </form>
-            <!-- 美化的提示信息 -->
+            <!-- 提示信息 -->
             <div class="message-hint">
               <p>输入您的问题，AI助手将为您提供专业解答</p>
             </div>

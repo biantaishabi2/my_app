@@ -39,6 +39,8 @@ Hooks.MessageInput = {
       // 获取相关元素
       const inputContainer = document.querySelector('.input-container');
       const messagesContainer = document.querySelector('.messages-container');
+      const mainContent = document.querySelector('.main-content');
+      const sidebar = document.getElementById('sidebar');
       
       // 输入框获得焦点时
       this.el.addEventListener('focus', () => {
@@ -46,13 +48,25 @@ Hooks.MessageInput = {
         document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
         
         // 添加样式表示键盘已弹出
-        if (inputContainer) inputContainer.classList.add('keyboard-active');
+        if (inputContainer) {
+          inputContainer.classList.add('keyboard-active');
+          
+          // 确保侧边栏关闭，避免遮挡问题
+          if (sidebar && sidebar.classList.contains('show')) {
+            // 触发侧边栏关闭事件
+            const event = new CustomEvent('phx:sidebar-toggle', { detail: { show: false } });
+            window.dispatchEvent(event);
+          }
+        }
+        
+        // 滚动到底部，确保最新消息可见
         if (messagesContainer) {
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          
           // 短暂延迟后再次滚动到底部，解决某些设备上键盘弹出后滚动位置重置的问题
           setTimeout(() => {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }, 100);
+          }, 300);
         }
       });
       
@@ -63,31 +77,64 @@ Hooks.MessageInput = {
         
         // 移除键盘样式
         if (inputContainer) inputContainer.classList.remove('keyboard-active');
+        
+        // 再次确保滚动到底部
+        if (messagesContainer) {
+          setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }, 100);
+        }
       });
       
       // iOS 键盘弹起时的特殊处理
-      window.visualViewport.addEventListener('resize', () => {
-        if (document.activeElement === this.el) {
-          const viewportHeight = window.visualViewport.height;
-          const windowHeight = window.innerHeight;
-          
-          if (viewportHeight < windowHeight) {
-            // 键盘已弹出
-            if (inputContainer) {
-              // 调整输入容器位置
-              inputContainer.style.position = 'absolute';
-              inputContainer.style.bottom = `${windowHeight - viewportHeight}px`;
-            }
-          } else {
-            // 键盘已收起
-            if (inputContainer) {
-              // 恢复输入容器位置
-              inputContainer.style.position = 'fixed';
-              inputContainer.style.bottom = '0';
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+          if (document.activeElement === this.el) {
+            const viewportHeight = window.visualViewport.height;
+            const windowHeight = window.innerHeight;
+            
+            if (viewportHeight < windowHeight) {
+              // 键盘已弹出
+              if (inputContainer) {
+                // 确保输入容器固定在视口底部
+                inputContainer.style.position = 'fixed';
+                inputContainer.style.bottom = '0';
+                inputContainer.style.left = mainContent ? mainContent.offsetLeft + 'px' : '0';
+                inputContainer.style.width = mainContent ? mainContent.offsetWidth + 'px' : '100%';
+                
+                // 调整消息容器的内边距，确保所有内容可见
+                if (messagesContainer) {
+                  const keyboardHeight = windowHeight - viewportHeight;
+                  messagesContainer.style.paddingBottom = (170 + keyboardHeight) + 'px';
+                }
+                
+                // 确保滚动到最新消息
+                setTimeout(() => {
+                  if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 100);
+              }
+            } else {
+              // 键盘已收起
+              if (inputContainer) {
+                // 恢复输入容器默认样式
+                inputContainer.style.position = 'fixed';
+                inputContainer.style.bottom = '0';
+                inputContainer.style.left = mainContent ? mainContent.offsetLeft + 'px' : '0';
+                inputContainer.style.width = mainContent ? mainContent.offsetWidth + 'px' : '100%';
+              }
+              
+              if (messagesContainer) {
+                messagesContainer.style.paddingBottom = '170px';
+                
+                // 确保滚动到最新消息
+                setTimeout(() => {
+                  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 100);
+              }
             }
           }
-        }
-      });
+        });
+      }
     }
 
     // Listen for the clear event from the server
