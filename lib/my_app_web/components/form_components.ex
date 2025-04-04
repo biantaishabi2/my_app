@@ -189,11 +189,11 @@ defmodule MyAppWeb.FormComponents do
   def form_item_editor(assigns) do
     ~H"""
     <div class="bg-white rounded-lg shadow-lg p-6 mb-6" id={@id || "form-item-editor"}>
-      <h3 class="text-lg font-medium mb-4">
+      <h3 class="text-lg font-medium mb-4" id="item-editor-title">
         <%= if @item.id, do: "编辑表单项", else: "添加新表单项" %>
       </h3>
       
-      <form phx-submit={@on_save} phx-change="form_change" class="space-y-4">
+      <form id="form-item-form" phx-submit={@on_save} phx-change="form_change" class="space-y-4">
         <%= if @item.id do %>
           <input type="hidden" name="item[id]" value={@item.id} />
         <% end %>
@@ -210,6 +210,7 @@ defmodule MyAppWeb.FormComponents do
               <div class="flex space-x-2">
                 <button
                   type="button"
+                  id="text-input-type-btn"
                   phx-click="type_changed"
                   phx-value-type="text_input"
                   class={"px-3 py-2 border rounded-md #{if @item_type == "text_input" || @item.type == :text_input, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
@@ -218,6 +219,7 @@ defmodule MyAppWeb.FormComponents do
                 </button>
                 <button
                   type="button"
+                  id="radio-type-btn"
                   phx-click="type_changed"
                   phx-value-type="radio"
                   class={"px-3 py-2 border rounded-md #{if @item_type == "radio" || @item.type == :radio, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
@@ -239,6 +241,7 @@ defmodule MyAppWeb.FormComponents do
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="请输入表单项标签"
               id={if @item.id, do: "edit-item-label", else: "new-item-label"}
+              phx-value-id={if @item.id, do: "edit-item-label", else: "new-item-label"}
               phx-change="form_change"
             />
           </div>
@@ -270,7 +273,7 @@ defmodule MyAppWeb.FormComponents do
           <div class="pt-4 border-t border-gray-200">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
-              <button type="button" phx-click={@on_add_option} class="text-sm text-indigo-600 hover:text-indigo-800">
+              <button type="button" id="add-option-btn" phx-click={@on_add_option} class="text-sm text-indigo-600 hover:text-indigo-800">
                 + 添加选项
               </button>
             </div>
@@ -334,7 +337,7 @@ defmodule MyAppWeb.FormComponents do
             type="button"
             phx-click={@on_save}
             id="submit-form-item-btn"
-            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 submit-form-item-btn"
           >
             <%= if @item.id, do: "保存修改", else: "添加问题" %>
           </button>

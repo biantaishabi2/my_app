@@ -62,7 +62,7 @@ defmodule MyAppWeb.FormLive.EditTest do
       
       # 点击添加表单项按钮
       view
-      |> element("button", "添加问题")
+      |> element("#add-new-form-item-button")
       |> render_click()
       
       # 选择文本输入类型
@@ -83,7 +83,7 @@ defmodule MyAppWeb.FormLive.EditTest do
       
       # 保存新表单项
       view
-      |> element("button", "添加问题")
+      |> element("#submit-form-item-btn")
       |> render_click()
       
       # 验证表单项添加成功
@@ -99,7 +99,7 @@ defmodule MyAppWeb.FormLive.EditTest do
       
       # 点击添加表单项按钮
       view
-      |> element("button", "添加问题")
+      |> element("#add-new-form-item-button")
       |> render_click()
       
       # 选择单选按钮类型
@@ -142,7 +142,7 @@ defmodule MyAppWeb.FormLive.EditTest do
       
       # 保存新表单项
       view
-      |> element("button", "添加问题")
+      |> element("#submit-form-item-btn")
       |> render_click()
       
       # 验证表单项添加成功
@@ -176,7 +176,7 @@ defmodule MyAppWeb.FormLive.EditTest do
       
       # 保存修改
       view
-      |> element("button", "保存修改")
+      |> element("#submit-form-item-btn")
       |> render_click()
       
       # 验证表单项更新成功
