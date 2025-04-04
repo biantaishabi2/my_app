@@ -3,16 +3,14 @@ defmodule MyAppWeb.FormLive.Responses do
 
   alias MyApp.Forms
   alias MyApp.Responses
-  alias MyApp.Repo
   
   # 嵌入EEx模板文件
-  @external_resource index_path = "lib/my_app_web/live/form_live/responses/index.html.heex"
-  @external_resource show_path = "lib/my_app_web/live/form_live/responses/show.html.heex"
+  @external_resource _index_path = "lib/my_app_web/live/form_live/responses/index.html.heex"
+  @external_resource _show_path = "lib/my_app_web/live/form_live/responses/show.html.heex"
 
-  # 渲染函数 - 使用内嵌模板而不是Phoenix.View
+  # 直接定义内嵌模板以避免视图渲染问题
   @impl true
   def render(%{live_action: :show} = assigns) do
-    # 加载show.html.heex模板
     ~H"""
     <div class="container mx-auto p-6">
       <div class="flex justify-between items-center mb-6">
@@ -93,7 +91,7 @@ defmodule MyAppWeb.FormLive.Responses do
   end
 
   def render(assigns) do
-    # 加载index.html.heex模板
+    # 直接使用内嵌模板
     ~H"""
     <div class="container mx-auto p-6">
       <div class="flex justify-between items-center mb-6">
