@@ -97,6 +97,7 @@ defmodule MyAppWeb.FormLive.Submit do
             socket
             |> assign(:submitted, true)
             |> put_flash(:info, "表单提交成功")
+            |> push_navigate(to: ~p"/forms")
           }
           
         {:error, reason} ->
@@ -126,7 +127,7 @@ defmodule MyAppWeb.FormLive.Submit do
   # 验证表单数据
   defp validate_form_data(form_data, items_map) do
     Enum.reduce(items_map, %{}, fn {id, item}, errors ->
-      if item.required && (is_nil(form_data[id]) || form_data[id] == "") do
+      if item.required && (is_nil(form_data["#{id}"]) || form_data["#{id}"] == "") do
         Map.put(errors, id, "此字段为必填项")
       else
         errors

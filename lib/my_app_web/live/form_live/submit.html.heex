@@ -62,7 +62,7 @@
                         value={Map.get(@form_state || %{}, "#{item.id}", "")}
                         phx-change="validate"
                       />
-                      <%= if @errors[item.id] do %>
+                      <%= if @errors[item.id] and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
                         <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
@@ -113,7 +113,7 @@
                             phx-change="validate"
                           />
                         </div>
-                        <%= if @errors[item.id] do %>
+                        <%= if @errors[item.id] and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
                           <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
                         <% end %>
                       </fieldset>
