@@ -759,11 +759,12 @@
           <%= if @current_conversation do %>
             <form phx-submit="send_message" class="input-group">
               <textarea
-                id="live-message-input"
+                id="message-input"
                 name="message"
                 placeholder="输入消息..."
                 class="message-input"
-                phx-debounce="100"></textarea>
+                phx-debounce="100"
+                phx-hook="MessageInput"></textarea>
               <button type="submit" class="send-button">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 2L11 13"></path>
