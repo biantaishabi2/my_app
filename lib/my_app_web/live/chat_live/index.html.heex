@@ -540,7 +540,7 @@
     }
   </style>
 </head>
-<body id="page-body" class="h-full m-0 p-0 overflow-hidden" phx-hook="TestHook">
+<body id="page-body" class="h-full m-0 p-0 overflow-hidden" phx-hook="PageHook">
   <.flash_group flash={@flash} />
   <div class="chat-container">
     <div class="flex h-full w-full">
@@ -586,7 +586,7 @@
                     <% else %>
                       <!-- 编辑状态 -->
                       <form phx-submit="save_conversation_name" class="flex-grow flex items-center" phx-click-away="cancel_edit_name" onsubmit="event.target.querySelector('input[type=text]').blur(); return true;">
-                        <input type="hidden" name="conversation_id" value={conv.id}>
+                        <input type="hidden" name="id" value={conv.id}>
                         <input type="text" name="title" value={conv.title || "(无标题)"} 
                                class="bg-white text-gray-800 border border-sky-500 focus:outline-none focus:border-sky-600 w-full px-2 py-1 rounded"
                                phx-window-keydown="handle_edit_keydown"
@@ -785,14 +785,55 @@
   </div>
 
   <script>
-    // 不再重新定义 Hooks 对象，它们应该在 app.js 中统一定义和注册
-    /*
+    // 在window加载完成前修改LiveSocket的钩子
     window.Hooks = {
-      MessageInput: { ... },
-      EditInput: { ... },
-      PageHook: { ... }
+      // 处理消息输入的钩子
+      MessageInput: {
+        mounted() {
+          this.el.addEventListener("keydown", e => {
+            // 如果按下Shift+Enter，阻止表单提交，插入换行
+            if (e.key === "Enter" && e.shiftKey) {
+              e.stopPropagation();
+              e.preventDefault();
+              
+              const start = this.el.selectionStart;
+              const end = this.el.selectionEnd;
+              const value = this.el.value;
+              this.el.value = value.substring(0, start) + "\n" + value.substring(end);
+              this.el.selectionStart = this.el.selectionEnd = start + 1;
+            }
+          });
+        }
+      },
+      
+      // 处理编辑输入框的钩子
+      EditInput: {
+        mounted() {
+          // 设置延迟，确保在DOM完全渲染后执行
+          setTimeout(() => {
+            // 选择所有文本内容
+            this.el.select();
+            
+            // 在某些浏览器中，select()后还需要手动设置光标位置
+            try {
+              // 尝试将光标放在文本末尾
+              const length = this.el.value.length;
+              // 同时选择文本并定位光标
+              this.el.setSelectionRange(0, length);
+            } catch (e) {
+              console.log("无法设置选择范围:", e);
+            }
+          }, 50);
+        }
+      },
+      
+      // 页面钩子（如果已存在）
+      PageHook: {
+        mounted() {
+          console.log("Page hook mounted");
+        }
+      }
     };
-    */
     
     document.addEventListener('DOMContentLoaded', () => {
       initChat();

@@ -17,10 +17,6 @@ defmodule MyAppWeb.ChatLive.Index do
     # 记录挂载事件的调试日志，帮助我们跟踪频率
     IO.puts "MOUNTING ChatLive.Index for user #{current_user.id}"
 
-    # Initialize the message form changeset
-    # FIX: Call the correct changeset function from the Message schema module
-    message_changeset = MyApp.Chat.Message.changeset(%MyApp.Chat.Message{}, %{})
-
     # Determine initial conversation and messages
     {current_conversation, messages} = 
       case conversations do
@@ -41,10 +37,7 @@ defmodule MyAppWeb.ChatLive.Index do
       message_text: "",
       show_sidebar: true,
       editing_conversation_id: nil, # 新增 - 当前正在编辑的对话ID
-      deleting_conversation_id: nil,  # 新增 - 当前正在删除的对话ID
-      # ADDED: Initialize message_form
-      # FIX: Call the correct changeset function
-      message_form: to_form(MyApp.Chat.Message.changeset(%MyApp.Chat.Message{}, %{}))
+      deleting_conversation_id: nil  # 新增 - 当前正在删除的对话ID
     )}
   end
 
@@ -153,18 +146,13 @@ defmodule MyAppWeb.ChatLive.Index do
         # 6. Reload the conversation list (now includes the new one if created)
         conversations = Chat.list_conversations(current_user)
 
-        # 7. ADDED: Reset message_form after successful send
-        # FIX: Call the correct changeset function
-        message_changeset = MyApp.Chat.Message.changeset(%MyApp.Chat.Message{}, %{})
-
         {:noreply, 
           socket
           |> assign( 
              messages: final_reloaded_conversation.messages,
              current_conversation: final_reloaded_conversation, 
              conversations: conversations,
-             message_text: "", # 留作调试或状态指示
-             message_form: to_form(MyApp.Chat.Message.changeset(%MyApp.Chat.Message{}, %{}))
+             message_text: "" # 留作调试或状态指示
           )
           |> push_event("clear_message_input", %{}) # <--- 推送清空事件
         }
@@ -223,10 +211,7 @@ defmodule MyAppWeb.ChatLive.Index do
       conversations: updated_conversations, # Assign the list including the new temp one
       current_conversation: temp_new_conv, 
       messages: [], 
-      message_text: "", # Clear input
-      # ADDED: Initialize message_form
-      # FIX: Call the correct changeset function
-      message_form: to_form(MyApp.Chat.Message.changeset(%MyApp.Chat.Message{}, %{}))
+      message_text: "" # Clear input
     )}
   end
 
@@ -368,7 +353,7 @@ defmodule MyAppWeb.ChatLive.Index do
 
   # 新增的事件处理函数 - 保存编辑后的对话名称
   @impl true
-  def handle_event("save_conversation_name", %{"conversation_id" => id_str, "title" => title}, socket) do
+  def handle_event("save_conversation_name", %{"id" => id_str, "title" => title}, socket) do
     current_user = socket.assigns.current_user
     id = String.to_integer(id_str)
     IO.puts("保存对话名称: #{id}, 标题: #{title}")
@@ -378,7 +363,7 @@ defmodule MyAppWeb.ChatLive.Index do
     
     # 更新数据库中的对话标题
     case Chat.update_conversation_title(id, title, current_user) do
-      {:ok, _updated_conversation} ->
+      {:ok, updated_conversation} ->
         IO.puts("更新成功")
         # 更新对话列表
         updated_conversations = Enum.map(socket.assigns.conversations, fn conv ->
@@ -415,7 +400,7 @@ defmodule MyAppWeb.ChatLive.Index do
     
     if editing_id && Map.has_key?(params, "title") do
       # 有title但是没有id，使用当前编辑的id
-      handle_event("save_conversation_name", %{"conversation_id" => to_string(editing_id), "title" => params["title"]}, socket)
+      handle_event("save_conversation_name", %{"id" => to_string(editing_id), "title" => params["title"]}, socket)
     else
       # 其他情况，取消编辑状态
       {:noreply, assign(socket, editing_conversation_id: nil)}
@@ -432,26 +417,6 @@ defmodule MyAppWeb.ChatLive.Index do
   # 用于阻止事件冒泡的空函数
   @impl true
   def handle_event("void", _params, socket) do
-    {:noreply, socket}
-  end
-
-  # 新增：处理侧边栏滑动事件
-  @impl true
-  def handle_event("sidebar_swipe", %{"direction" => "right"}, socket) do
-    # 向右滑动，尝试打开侧边栏 (仅在移动设备上)
-    # 我们可以在这里添加逻辑，比如检查是否已经是打开状态等
-    # 暂时直接设置为打开
-    socket = assign(socket, :sidebar_open, true)
-    broadcast_sidebar_state(socket)
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("sidebar_swipe", %{"direction" => "left"}, socket) do
-    # 向左滑动，尝试关闭侧边栏 (仅在移动设备上)
-    # 暂时直接设置为关闭
-    socket = assign(socket, :sidebar_open, false)
-    broadcast_sidebar_state(socket)
     {:noreply, socket}
   end
 
@@ -481,11 +446,6 @@ defmodule MyAppWeb.ChatLive.Index do
     desktop_class = if show, do: "sidebar", else: "sidebar hidden"
     mobile_class = if show, do: "sidebar show", else: "sidebar"
     "#{desktop_class} #{mobile_class}"
-  end
-
-  defp broadcast_sidebar_state(socket) do
-    show = socket.assigns.show_sidebar
-    push_event(socket, "sidebar_toggled", %{show: show})
   end
 
 end
