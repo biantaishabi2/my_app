@@ -1,6 +1,6 @@
 # test/my_app/responses_test.exs
 defmodule MyApp.ResponsesTest do
-  use MyApp.DataCase, async: true
+  use MyApp.DataCase, async: false
 
   alias MyApp.Forms
   alias MyApp.Responses

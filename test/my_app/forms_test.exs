@@ -1,6 +1,6 @@
 # test/my_app/forms_test.exs
 defmodule MyApp.FormsTest do
-  use MyApp.DataCase, async: true
+  use MyApp.DataCase, async: false
 
   alias MyApp.Forms
   alias MyApp.Forms.Form # Assuming Form schema will be inside Forms context
