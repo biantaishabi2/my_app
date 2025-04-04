@@ -1,6 +1,6 @@
 # 自定义表单系统 TDD 计划
 
-**当前进度：编写测试**
+**当前进度：已完成核心功能测试用例编写，准备实现业务代码**
 
 **遵循 TDD 流程：先写失败的测试 -> 编写最少代码让测试通过 -> 重构。**
 
@@ -10,33 +10,51 @@
 
 1.  **基础 Form 创建与获取:**
     *   测试 `create_form/1`:
-        *   [ ] 成功创建一个只包含 `title` 的表单，状态为 `:draft`。
-        *   [ ] 创建时缺少 `title` 返回错误。
+        *   [x] 成功创建一个只包含 `title` 的表单，状态为 `:draft`。
+            *   (`test "create_form/1 with valid data creates a form"`)
+        *   [x] 创建时缺少 `title` 返回错误。
+            *   (`test "create_form/1 with invalid data returns error changeset"`)
     *   测试 `get_form/1`:
-        *   [ ] 成功获取已创建的表单。
-        *   [ ] 获取不存在的 `form_id` 返回 `nil` 或错误。
+        *   [x] 成功获取已创建的表单。
+            *   (`test "get_form/1 returns the form with given id"`)
+        *   [x] 获取不存在的 `form_id` 返回 `nil` 或错误。
+            *   (`test "get_form/1 returns nil for non-existent form id"`)
 
 2.  **添加核心 FormItem (Text Input):**
     *   测试 `add_form_item/2`:
-        *   [ ] 成功添加 `:text_input` 项 (含 `label`, `type`) 到表单。
-        *   [ ] `get_form/1` 能获取到新添加的项。
-        *   [ ] 添加缺少 `label` 或 `type` 的项返回错误。
-        *   [ ] 验证 `order` 是否正确生成。
+        *   [x] 成功添加 `:text_input` 项 (含 `label`, `type`) 到表单。
+            *   (`test "with valid data adds a text_input item to the form"`)
+        *   [x] `get_form/1` 能获取到新添加的项。
+            *   (验证包含在 `test "with valid data adds a text_input item to the form"` 内，后续可通过 `get_form` 预加载验证)
+        *   [x] 添加缺少 `label` 或 `type` 的项返回错误。
+            *   (`test "returns error changeset if label is missing"`)
+            *   (`test "returns error changeset if type is missing"`)
+        *   [x] 验证 `order` 是否正确生成。
+            *   (`test "assigns sequential order to newly added items"`)
 
 3.  **添加核心 FormItem (Radio) 及 Options:**
     *   测试 `add_form_item/2`:
-        *   [ ] 成功添加 `:radio` 项到表单。
+        *   [x] 成功添加 `:radio` 项到表单。
+            *   (`test "with valid data adds a radio item to the form"`)
     *   测试 `add_item_option/3`:
-        *   [ ] 成功为 `:radio` 项添加至少两个选项 (含 `label`, `value`)。
-        *   [ ] `get_form/1` 能获取到 `:radio` 项及其选项。
-        *   [ ] 添加缺少 `label` 或 `value` 的选项返回错误。
-        *   [ ] 验证选项 `order` 是否正确生成。
+        *   [x] 成功为 `:radio` 项添加至少两个选项 (含 `label`, `value`)。
+            *   (`test "with valid data adds an option to a radio item"`)
+        *   [x] `get_form/1` 能获取到 `:radio` 项及其选项。
+            *   (验证包含在 `test "with valid data adds an option to a radio item"` 内，后续可通过 `get_form` 预加载验证)
+        *   [x] 添加缺少 `label` 或 `value` 的选项返回错误。
+            *   (`test "returns error changeset if label is missing"`)
+            *   (`test "returns error changeset if value is missing"`)
+        *   [x] 验证选项 `order` 是否正确生成。
+            *   (`test "assigns sequential order to newly added options"`)
 
 4.  **发布 Form:**
     *   测试 `publish_form/1`:
-        *   [ ] 成功将 `:draft` 表单更新为 `:published`。
-        *   [ ] `get_form/1` 获取表单时状态为 `:published`。
-        *   [ ] (可选) 尝试发布已发布的表单。
+        *   [x] 成功将 `:draft` 表单更新为 `:published`。
+            *   (`test "changes the form status from :draft to :published"`)
+        *   [x] `get_form/1` 获取表单时状态为 `:published`。
+            *   (验证包含在 `test "changes the form status from :draft to :published"` 内)
+        *   [x] (可选) 尝试发布已发布的表单。
+            *   (`test "returns error if the form is already published"`)
 
 ---
 
@@ -46,25 +64,41 @@
 
 5.  **创建有效 Response:**
     *   测试 `create_response/2`:
-        *   [ ] 成功为 `:published` 表单提交有效响应（包含所有必填项）。
-        *   [ ] 验证 `answers_map` 结构和值的类型。
-        *   [ ] 验证 `:radio` 的 `value` 是有效选项之一。
-        *   [ ] 验证返回 `{:ok, response}` 且 `response` 包含正确 `form_id` 和 `submitted_at`。
+        *   [x] 成功为 `:published` 表单提交有效响应（包含所有必填项）。
+            *   (`test "with valid data creates a response and associated answers"`)
+        *   [x] 验证 `answers_map` 结构和值的类型。
+            *   (包含在 `test "with valid data creates a response and associated answers"` 的断言中)
+        *   [x] 验证 `:radio` 的 `value` 是有效选项之一。
+            *   (包含在 `test "with valid data creates a response and associated answers"` 的准备数据及断言中)
+        *   [x] 验证返回 `{:ok, response}` 且 `response` 包含正确 `form_id` 和 `submitted_at`。
+            *   (包含在 `test "with valid data creates a response and associated answers"` 的断言中)
 
 6.  **验证 Response 创建时的约束:**
     *   测试 `create_response/2` 失败场景：
-        *   [ ] 缺少必填 `:text_input` 答案返回错误。
-        *   [ ] 缺少必填 `:radio` 答案返回错误。
-        *   [ ] `:radio` 答案 `value` 无效返回错误。
-        *   [ ] 对 `:draft` 表单提交返回错误。
-        *   [ ] 对不存在的 `form_id` 提交返回错误。
+        *   [x] 缺少必填 `:text_input` 答案返回错误。
+            *   (`test "returns error if required text_input answer is missing"`)
+        *   [x] 缺少必填 `:radio` 答案返回错误。
+            *   (`test "returns error if required radio answer is missing"`)
+        *   [x] `:radio` 答案 `value` 无效返回错误。
+            *   (`test "returns error if radio answer value is not a valid option"`)
+        *   [x] 对 `:draft` 表单提交返回错误。
+            *   (`test "returns error when submitting to a non-published form"`)
+        *   [x] 对不存在的 `form_id` 提交返回错误。
+            *   (`test "returns error when submitting to a non-existent form_id"`)
 
 7.  **获取 Response:**
     *   测试 `get_response/1`:
-        *   [ ] 成功获取已创建的响应。
-        *   [ ] 验证获取到的 `Answer` 记录的 `form_item_id` 和 `value`。
+        *   [x] 成功获取已创建的响应。
+            *   (`test "returns the response with the given id, preloading answers"`)
+        *   [x] 验证获取到的 `Answer` 记录的 `form_item_id` 和 `value`。
+            *   (包含在 `test "returns the response with the given id, preloading answers"` 的注释掉的验证部分，需后续实现 `Answer` Schema 和预加载后取消注释)
+        *   [x] 获取不存在的 `response_id` 时，是否返回 `nil` 或错误。
+            *   (`test "returns nil if response id does not exist"`)
     *   测试 `list_responses_for_form/1`:
-        *   [ ] 成功列出指定 `form_id` 的所有响应。
+        *   [x] 成功列出指定 `form_id` 的所有响应。
+            *   (`test "returns all responses submitted for a given form"`)
+            *   (`test "returns an empty list if no responses exist for the form"`)
+            *   (`test "returns an empty list for a non-existent form_id"`)
 
 ---
 
@@ -86,4 +120,28 @@
     *   [ ] 测试 `validation_rules` 的应用
     *   [ ] 测试 `delete_response/1`
     *   [ ] 测试分析和摘要功能 (如果实现)
-    *   [ ] 测试 `Form`/`FormItem` 删除对 `Response`/`Answer` 的影响 
+    *   [ ] 测试 `Form`/`FormItem` 删除对 `Response`/`Answer` 的影响
+
+---
+
+## 待办事项和注意
+
+*   **后续测试覆盖**: 当前测试已覆盖阶段一、二的核心流程，但以下功能尚未编写测试 (对应阶段三及后续扩展)：
+    *   `Form`, `FormItem`, `ItemOption` 的 `update` 和 `delete` 操作。
+    *   `Response` 的 `delete` 操作。
+    *   其他 `FormItem` 类型 (`:checkbox`, `:textarea`, `:dropdown`, `:rating` 等) 的添加和响应验证。
+    *   `FormItem` 的 `validation_rules` (例如：文本格式、长度限制)。
+    *   表单项重新排序 (`reorder_form_items/2`)。
+    *   表单归档 (`archive_form/1`)。
+    *   响应者信息 (`respondent_info`) 的处理。
+    *   逻辑规则 (`LogicRule`) 相关功能 (如果计划实现)。
+    *   响应分析和摘要功能 (如果计划实现)。
+
+*   **取消注释预加载断言**: 在实现 Ecto Schema 和相应的 Context 函数后，**务必**回到以下测试用例中，取消关于预加载关联数据 (`items`, `options`, `answers`) 的断言注释，以确保数据关联正确：
+    *   `test/my_app/forms_test.exs`
+        *   `test "with valid data adds a text_input item to the form"` (验证 `items`)
+        *   `test "with valid data adds an option to a radio item"` (验证 `options`)
+        *   `test "changes the form status from :draft to :published"` (验证持久化状态 - 可通过 `get_form` 验证)
+    *   `test/my_app/responses_test.exs`
+        *   `test "with valid data creates a response and associated answers"` (验证 `answers`)
+        *   `test "returns the response with the given id, preloading answers"` (验证 `answers` 预加载和内容) 
