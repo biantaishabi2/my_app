@@ -23,6 +23,17 @@ defmodule MyAppWeb.Router do
     plug :put_secure_browser_headers
     plug :fetch_current_user
   end
+  
+  # 为表单相关页面创建单独的布局管道
+  pipeline :form_browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {MyAppWeb.Layouts, :form}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug :fetch_current_user
+  end
 
   pipeline :api do
     plug :accepts, ["json"]
@@ -80,6 +91,31 @@ defmodule MyAppWeb.Router do
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/chat", ChatLive.Index, :index
       live "/chat/:id", ChatLive.Index, :show
+    end
+  end
+  
+  # 表单系统管理路由
+  scope "/", MyAppWeb do
+    pipe_through [:form_browser, :require_authenticated_user]
+    
+    live_session :form_system,
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
+      live "/forms", FormLive.Index, :index
+      live "/forms/new", FormLive.Index, :new
+      live "/forms/:id", FormLive.Show, :show
+      live "/forms/:id/edit", FormLive.Edit, :edit
+      live "/forms/:id/responses", FormLive.Responses, :index
+      live "/forms/:form_id/responses/:id", FormLive.Responses, :show
+    end
+  end
+  
+  # 表单填写路由
+  scope "/", MyAppWeb do
+    pipe_through [:form_browser, :require_authenticated_user]
+    
+    live_session :form_submission,
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
+      live "/forms/:id/submit", FormLive.Submit, :new
     end
   end
 

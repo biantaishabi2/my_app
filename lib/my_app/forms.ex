@@ -126,5 +126,84 @@ defmodule MyApp.Forms do
     |> Repo.update()
   end
 
-  # Other function implementations will go here
-end 
+  @doc """
+  Returns a form changeset for the given form and attributes.
+
+  ## Examples
+
+      iex> change_form(form)
+      %Ecto.Changeset{data: %Form{}}
+
+  """
+  def change_form(%Form{} = form, attrs \\ %{}) do
+    Form.changeset(form, attrs)
+  end
+
+  @doc """
+  Lists all forms for a specific user.
+
+  ## Examples
+
+      iex> list_forms(user_id)
+      [%Form{}, ...]
+
+  """
+  def list_forms(user_id) do
+    Form
+    |> where([f], f.user_id == ^user_id)
+    |> order_by([f], desc: f.updated_at)
+    |> Repo.all()
+  end
+
+  @doc """
+  Updates a form.
+
+  ## Examples
+
+      iex> update_form(form, %{field: new_value})
+      {:ok, %Form{}}
+
+      iex> update_form(form, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_form(%Form{} = form, attrs) do
+    form
+    |> Form.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a form.
+
+  ## Examples
+
+      iex> delete_form(form)
+      {:ok, %Form{}}
+
+      iex> delete_form(form)
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def delete_form(%Form{} = form) do
+    Repo.delete(form)
+  end
+
+  @doc """
+  Gets a form with all its items and their options.
+
+  ## Examples
+
+      iex> get_form_with_items(123)
+      %Form{items: [%FormItem{options: [%ItemOption{}, ...]}, ...]}
+
+      iex> get_form_with_items(456)
+      nil
+
+  """
+  def get_form_with_items(id) do
+    Form
+    |> Repo.get(id)
+    |> Repo.preload(items: {from(i in FormItem, order_by: i.order), [options: from(o in ItemOption, order_by: o.order)]})
+  end
+end

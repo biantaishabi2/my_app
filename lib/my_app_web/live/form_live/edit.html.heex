@@ -1,0 +1,219 @@
+<div class="container mx-auto p-6">
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold"><%= @form.title %></h1>
+      <div class="text-sm text-gray-500">
+        状态: 
+        <%= case @form.status do %>
+          <% :draft -> %>
+            <span class="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">草稿</span>
+          <% :published -> %>
+            <span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs">已发布</span>
+        <% end %>
+      </div>
+    </div>
+    
+    <div class="flex gap-2">
+      <%= if @form.status == :draft do %>
+        <button 
+          phx-click="publish_form"
+          class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+          disabled={Enum.empty?(@form_items)}
+          title={if Enum.empty?(@form_items), do: "表单至少需要一个表单项才能发布", else: "发布表单"}
+        >
+          发布表单
+        </button>
+      <% end %>
+      
+      <a 
+        href={~p"/forms/#{@form.id}"}
+        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+      >
+        预览表单
+      </a>
+      
+      <a 
+        href={~p"/forms"}
+        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition"
+      >
+        返回列表
+      </a>
+    </div>
+  </div>
+  
+  <%= if @editing_form_info do %>
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-lg font-medium mb-4">编辑表单信息</h2>
+      
+      <.form
+        for={@form_changeset}
+        phx-submit="save_form_info"
+        class="space-y-4"
+      >
+        <div>
+          <label for="form_title" class="block text-sm font-medium text-gray-700 mb-1">表单标题</label>
+          <input
+            type="text"
+            id="form_title"
+            name="form[title]"
+            value={@form.title}
+            required
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        
+        <div>
+          <label for="form_description" class="block text-sm font-medium text-gray-700 mb-1">表单描述（可选）</label>
+          <textarea
+            id="form_description"
+            name="form[description]"
+            rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          ><%= @form.description %></textarea>
+        </div>
+        
+        <div class="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            phx-click="cancel_edit_form_info"
+            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            保存
+          </button>
+        </div>
+      </.form>
+    </div>
+  <% else %>
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-medium"><%= @form.title %></h2>
+          <%= if @form.description do %>
+            <div class="text-gray-600 mt-1"><%= @form.description %></div>
+          <% end %>
+        </div>
+        
+        <button
+          phx-click="edit_form_info"
+          class="text-indigo-600 hover:text-indigo-800"
+        >
+          编辑信息
+        </button>
+      </div>
+    </div>
+  <% end %>
+  
+  <%= if @editing_item do %>
+    <.form_item_editor
+      item={@current_item}
+      options={@item_options}
+      item_type={@item_type}
+      id="form-item-editor"
+      on_save="save_item"
+      on_cancel="cancel_edit_item"
+      on_add_option="add_option"
+      on_remove_option="remove_option"
+    />
+  <% end %>
+  
+  <div class="bg-white rounded-lg shadow-lg p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-medium">表单项</h2>
+      <button
+        phx-click="add_item"
+        class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition"
+        disabled={@editing_item}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+        </svg>
+        添加表单项
+      </button>
+    </div>
+    
+    <%= if Enum.empty?(@form_items) do %>
+      <div class="text-center py-12 bg-gray-50 rounded-md">
+        <div class="text-gray-400 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900">表单还没有表单项</h3>
+        <p class="mt-1 text-gray-500">点击"添加表单项"按钮开始创建您的第一个表单项。</p>
+      </div>
+    <% else %>
+      <div class="space-y-4" id="form-items-container" phx-hook="FormBuilder">
+        <%= for {item, index} <- Enum.with_index(@form_items) do %>
+          <div class="form-item-wrapper bg-white p-4 border rounded-md shadow-sm" id={"item-#{item.id}"} data-item-id={item.id} data-order={index + 1}>
+            <div class="flex justify-between items-center mb-2">
+              <div class="font-medium flex items-center">
+                <span class="w-8 h-8 flex items-center justify-center bg-indigo-100 text-indigo-700 rounded-full mr-2">
+                  <%= index + 1 %>
+                </span>
+                <%= item.label %> 
+                <%= if item.required do %>
+                  <span class="text-red-500 ml-1">*</span>
+                <% end %>
+                <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                  <%= case item.type do %>
+                    <% :text_input -> %>文本输入
+                    <% :radio -> %>单选
+                    <% _ -> %>未知类型
+                  <% end %>
+                </span>
+              </div>
+              <div class="flex space-x-2">
+                <button type="button" phx-click="edit_item" phx-value-id={item.id} class="text-indigo-600 hover:text-indigo-800">
+                  编辑
+                </button>
+                <button type="button" phx-click="delete_item" phx-value-id={item.id} class="text-red-600 hover:text-red-800"
+                        data-confirm="确定要删除这个表单项吗？">
+                  删除
+                </button>
+              </div>
+            </div>
+            
+            <%= if item.description do %>
+              <div class="text-sm text-gray-600 mt-1 mb-2"><%= item.description %></div>
+            <% end %>
+            
+            <div class="mt-2 bg-gray-50 p-3 rounded">
+              <%= case item.type do %>
+                <% :text_input -> %>
+                  <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                    示例文本输入
+                  </div>
+                
+                <% :radio -> %>
+                  <div class="space-y-2">
+                    <%= for option <- item.options || [] do %>
+                      <div class="flex items-center">
+                        <input 
+                          type="radio" 
+                          disabled 
+                          class="h-4 w-4 text-indigo-600"
+                        />
+                        <label class="ml-2 text-sm text-gray-700">
+                          <%= option.label %>
+                        </label>
+                      </div>
+                    <% end %>
+                    
+                    <%= if Enum.empty?(item.options || []) do %>
+                      <div class="text-sm text-gray-500">无选项</div>
+                    <% end %>
+                  </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>

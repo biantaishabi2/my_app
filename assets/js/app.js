@@ -23,6 +23,8 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 // 导入钩子定义
 import Hooks from "./hooks"
+// 导入表单构建器钩子
+import FormHooks from "./form-builder"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 
@@ -75,11 +77,17 @@ Hooks.SettingsLayout = {
   }
 };
 
+// 合并钩子，但保持钩子对象独立（不互相影响）
+const AllHooks = {
+  ...Hooks,  // 聊天和应用相关钩子
+  ...FormHooks  // 表单系统相关钩子
+};
+
 // 初始化LiveView
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: Hooks // 传入钩子
+  hooks: AllHooks // 传入合并后的钩子
 })
 
 // Show progress bar on live navigation and form submits

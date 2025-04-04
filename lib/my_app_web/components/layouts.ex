@@ -9,6 +9,7 @@ defmodule MyAppWeb.Layouts do
   `use MyAppWeb, :live_view`.
   """
   use MyAppWeb, :html
+  import Phoenix.Component, except: [form: 1]
 
   embed_templates "layouts/*"
 
@@ -20,6 +21,10 @@ defmodule MyAppWeb.Layouts do
 
   def render("account.html", assigns) do
     account(assigns)
+  end
+
+  def render("form.html", assigns) do
+    form(assigns)
   end
 
   # 如果不使用嵌入模板，则移除这个函数

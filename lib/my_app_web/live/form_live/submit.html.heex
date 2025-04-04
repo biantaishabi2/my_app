@@ -1,0 +1,72 @@
+<div class="container mx-auto p-6">
+  <div class="max-w-3xl mx-auto">
+    <%= if @submitted do %>
+      <div class="bg-white rounded-lg shadow-lg p-8 text-center">
+        <div class="bg-green-100 text-green-700 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold mb-2">提交成功</h1>
+        <p class="text-gray-600 mb-6">感谢您填写表单！</p>
+        <div class="flex justify-center gap-4">
+          <a href={~p"/forms"} class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+            返回表单列表
+          </a>
+          <a href={~p"/forms/#{@form.id}"} class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition">
+            查看表单
+          </a>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h1 class="text-2xl font-bold"><%= @form.title %></h1>
+          <%= if @form.description do %>
+            <div class="mt-2 text-gray-600"><%= @form.description %></div>
+          <% end %>
+        </div>
+        
+        <div class="p-6">
+          <.form
+            for={%{}}
+            phx-change="validate"
+            phx-submit="submit_form"
+            id="form-submission"
+            phx-hook="FormSubmit"
+          >
+            <div class="space-y-6">
+              <%= for item <- @form.items do %>
+                <%= case item.type do %>
+                  <% :text_input -> %>
+                    <.text_input_field
+                      field={item}
+                      form_state={@form_state}
+                      error={@errors[item.id]}
+                    />
+                  
+                  <% :radio -> %>
+                    <.radio_field
+                      field={item}
+                      options={item.options || []}
+                      form_state={@form_state}
+                      error={@errors[item.id]}
+                    />
+                <% end %>
+              <% end %>
+            </div>
+            
+            <div class="mt-8 flex justify-end">
+              <button
+                type="submit"
+                class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+              >
+                提交表单
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
