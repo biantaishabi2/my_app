@@ -38,7 +38,7 @@
               <%= for item <- @form.items do %>
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class="form-field form-item mb-4 <%= if @errors[item.id], do: "field-error", else: "" %>">
+                    <div class={"form-field form-item mb-4 #{if @errors[item.id], do: "field-error", else: ""}"}>
                       <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
                         <%= item.label %>
                         <%= if item.required do %>
@@ -68,7 +68,7 @@
                     </div>
                   
                   <% :radio -> %>
-                    <div class="form-field form-item mb-4 <%= if @errors[item.id], do: "field-error", else: "" %>">
+                    <div class={"form-field form-item mb-4 #{if @errors[item.id], do: "field-error", else: ""}"}>
                       <fieldset>
                         <legend class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
                           <%= item.label %>
