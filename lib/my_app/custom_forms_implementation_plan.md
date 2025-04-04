@@ -9,16 +9,16 @@
 ## 阶段一：实现核心 `Form` 模块功能
 
 1.  **数据库基础 (Forms 相关)**
-    *   [ ] **生成迁移文件**: 运行 `mix ecto.gen.migration create_forms_tables` (或类似，包含 forms, form_items, item_options)。
-    *   [ ] **编写迁移**: 在迁移文件中定义 `forms`, `form_items`, `item_options` 表的结构，包括字段、类型、约束 (非空、外键)、索引，确保主键为 `binary_id`。
-    *   [ ] **运行迁移**: 运行 `mix ecto.migrate` 创建数据库表。
+    *   [x] **生成迁移文件**: 运行 `mix ecto.gen.migration create_forms_tables` (或类似，包含 forms, form_items, item_options)。
+    *   [x] **编写迁移**: 在迁移文件中定义 `forms`, `form_items`, `item_options` 表的结构，包括字段、类型、约束 (非空、外键)、索引，确保主键为 `binary_id`。
+    *   [x] **运行迁移**: 运行 `mix ecto.migrate` 创建数据库表。
 
 2.  **实现 `MyApp.Forms.create_form/1`**
-    *   [ ] 在 `lib/my_app/forms.ex` 中定义 `create_form/1` 函数。
-    *   [ ] 引入 `Repo` 和 `MyApp.Forms.Form` 别名。
-    *   [ ] 使用 `Form.changeset/2` 处理 `attrs`。
-    *   [ ] 使用 `Repo.insert/1` 保存表单。
-    *   [ ] **运行测试**: `mix test test/my_app/forms_test.exs:14` (create_form valid) 和 `test/my_app/forms_test.exs:21` (create_form invalid)。
+    *   [x] 在 `lib/my_app/forms.ex` 中定义 `create_form/1` 函数。
+    *   [x] 引入 `Repo` 和 `MyApp.Forms.Form` 别名。
+    *   [x] 使用 `Form.changeset/2` 处理 `attrs`。
+    *   [x] 使用 `Repo.insert/1` 保存表单。
+    *   [x] **运行测试**: `mix test test/my_app/forms_test.exs:14` (create_form valid) 和 `test/my_app/forms_test.exs:21` (create_form invalid)。
 
 3.  **实现 `MyApp.Forms.get_form/1`**
     *   [ ] 在 `lib/my_app/forms.ex` 中定义 `get_form/1` 函数。
