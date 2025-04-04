@@ -28,5 +28,23 @@ defmodule MyApp.Forms do
     |> Repo.insert()
   end
 
+  @doc """
+  Gets a single form by ID.
+
+  Returns nil if the form does not exist.
+
+  ## Examples
+
+      iex> get_form(123)
+      %Form{}
+
+      iex> get_form(456)
+      nil
+
+  """
+  def get_form(id) do
+    Repo.get(Form, id)
+  end
+
   # Other function implementations will go here
 end 
