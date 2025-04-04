@@ -368,15 +368,57 @@
 
 ### 步骤 31-35：后端功能完善
 
-31. **[  ] 实现表单项管理功能**
+31. **[  ] 实现表单项管理功能（已完成测试）**
     * [ ] 在 `lib/my_app/forms.ex` 中实现 `update_form_item/2` 函数
+      ```elixir
+      # 预计实现
+      def update_form_item(%FormItem{} = item, attrs) do
+        item
+        |> FormItem.changeset(attrs)
+        |> Repo.update()
+      end
+      ```
     * [ ] 在 `lib/my_app/forms.ex` 中实现 `get_form_item/1` 函数
+      ```elixir
+      # 预计实现
+      def get_form_item(id) do
+        Repo.get(FormItem, id)
+      end
+      ```
     * [ ] 在 `lib/my_app/forms.ex` 中实现 `delete_form_item/1` 函数
+      ```elixir
+      # 预计实现
+      def delete_form_item(%FormItem{} = item) do
+        Repo.delete(item)
+      end
+      ```
     * [ ] 在 `lib/my_app/forms.ex` 中实现 `reorder_form_items/2` 函数
+      ```elixir
+      # 预计实现
+      def reorder_form_items(form_id, item_ids) do
+        # 检查所有item_ids是否属于该表单
+        # 更新所有表单项的order值
+        # 返回重新排序后的表单项列表
+      end
+      ```
     * [ ] 在 `lib/my_app/forms.ex` 中实现 `get_form_item_with_options/1` 函数
+      ```elixir
+      # 预计实现
+      def get_form_item_with_options(id) do
+        FormItem
+        |> Repo.get(id)
+        |> Repo.preload(:options)
+      end
+      ```
 
-32. **[  ] 实现响应管理功能**
+32. **[  ] 实现响应管理功能（已完成测试）**
     * [ ] 在 `lib/my_app/responses.ex` 中实现 `delete_response/1` 函数
+      ```elixir
+      # 预计实现
+      def delete_response(%Response{} = response) do
+        Repo.delete(response)
+      end
+      ```
     * [ ] 在 `lib/my_app/responses.ex` 中添加响应导出功能
 
 33. **[  ] 修复前端代码中的问题**
@@ -432,15 +474,22 @@
    * 完整测试套件创建 (后端单元测试、前端LiveView测试、组件测试)
 
 2. **当前测试状态**
-   * 后端单元测试全部通过
+   * 基础后端单元测试全部通过
    * 组件单元测试全部通过
+   * 缺失的后端功能测试已编写完成：
+     - get_form_item/1
+     - get_form_item_with_options/1
+     - update_form_item/2
+     - delete_form_item/1
+     - reorder_form_items/2
+     - delete_response/1
    * LiveView测试套件已创建但尚未全部通过 (原因：部分后端函数尚未实现)
 
 3. **下一步工作重点**
-   * 实现缺失的后端功能
+   * 按TDD测试规范实现缺失的后端功能
    * 修复LiveView测试失败问题
+   * 替换已弃用的API调用
    * 优化性能和代码质量
-   * 添加高级功能和集成能力
 
 ---
 
