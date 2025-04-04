@@ -17,7 +17,7 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, 
           socket
           |> put_flash(:error, "表单不存在")
-          |> push_redirect(to: ~p"/forms")
+          |> push_navigate(to: ~p"/forms")
         }
         
       form ->
@@ -38,7 +38,7 @@ defmodule MyAppWeb.FormLive.Edit do
           {:ok, 
             socket
             |> put_flash(:error, "您没有权限编辑此表单")
-            |> push_redirect(to: ~p"/forms")
+            |> push_navigate(to: ~p"/forms")
           }
         end
     end

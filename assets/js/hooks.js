@@ -1,6 +1,38 @@
 // 定义所有LiveView钩子
 const Hooks = {};
 
+// 表单系统按钮钩子
+Hooks.FormButtons = {
+  mounted() {
+    console.log("FormButtons钩子已挂载");
+    
+    this.el.addEventListener("click", (e) => {
+      console.log("按钮被点击:", this.el.id);
+      
+      // 如果是新建表单按钮
+      if (this.el.id === "new-form-btn") {
+        console.log("新建表单按钮被点击");
+      }
+    });
+  }
+};
+
+// 表单提交钩子
+Hooks.FormHook = {
+  mounted() {
+    console.log("表单钩子已挂载，确保使用WebSocket通信");
+    
+    this.el.addEventListener("submit", (e) => {
+      // 阻止传统提交
+      e.preventDefault();
+      console.log("表单提交被钩子捕获");
+      
+      // 允许LiveView通过WebSocket处理
+      return true;
+    });
+  }
+};
+
 // 消息输入框钩子
 Hooks.LiveMessageInput = {
   mounted(){

@@ -2,6 +2,7 @@
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">我的表单</h1>
     <button
+      id="new-form-btn"
       phx-click="new_form"
       class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
     >
@@ -12,9 +13,10 @@
   <%= if @show_new_form do %>
     <div class="bg-white rounded-lg shadow p-6 mb-6">
       <h2 class="text-xl font-semibold mb-4">创建新表单</h2>
-      <.form
-        for={@form_changeset}
+      <form
         phx-submit="save_form"
+        phx-change="validate_form"
+        id="new-form"
         class="space-y-4"
       >
         <div>
@@ -25,8 +27,13 @@
             id="form_title"
             required
             placeholder="输入表单标题"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            class={"w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 #{if @form_errors[:title], do: "border-red-500"}"}
+            value={@form_values[:title]}
+            phx-feedback-for="form_title"
           />
+          <%= if @form_errors[:title] do %>
+            <p class="mt-1 text-sm text-red-500" phx-feedback-for="form_title"><%= @form_errors[:title] %></p>
+          <% end %>
         </div>
 
         <div>
@@ -36,8 +43,11 @@
             id="form_description"
             rows="3"
             placeholder="输入表单描述"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          ></textarea>
+            class={"w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 #{if @form_errors[:description], do: "border-red-500"}"}
+          ><%= @form_values[:description] %></textarea>
+          <%= if @form_errors[:description] do %>
+            <p class="mt-1 text-sm text-red-500"><%= @form_errors[:description] %></p>
+          <% end %>
         </div>
 
         <div class="flex justify-end space-x-3">
@@ -55,7 +65,7 @@
             保存
           </button>
         </div>
-      </.form>
+      </form>
     </div>
   <% end %>
 
