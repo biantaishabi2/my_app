@@ -13,7 +13,7 @@ defmodule MyAppWeb.FormLive.Submit do
         {:ok, 
           socket
           |> put_flash(:error, "表单不存在")
-          |> push_redirect(to: ~p"/forms")
+          |> push_navigate(to: ~p"/forms")
         }
       
       form ->
@@ -21,7 +21,7 @@ defmodule MyAppWeb.FormLive.Submit do
           {:ok, 
             socket
             |> put_flash(:error, "表单未发布，无法填写")
-            |> push_redirect(to: ~p"/forms")
+            |> push_navigate(to: ~p"/forms")
           }
         else
           items_map = build_items_map(form.items)

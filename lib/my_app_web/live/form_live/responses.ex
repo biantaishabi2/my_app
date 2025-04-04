@@ -14,7 +14,7 @@ defmodule MyAppWeb.FormLive.Responses do
         {:ok, 
           socket
           |> put_flash(:error, "表单不存在")
-          |> push_redirect(to: ~p"/forms")
+          |> push_navigate(to: ~p"/forms")
         }
         
       form ->
@@ -32,7 +32,7 @@ defmodule MyAppWeb.FormLive.Responses do
           {:ok, 
             socket
             |> put_flash(:error, "您没有权限查看此表单的回复")
-            |> push_redirect(to: ~p"/forms")
+            |> push_navigate(to: ~p"/forms")
           }
         end
     end
@@ -47,7 +47,7 @@ defmodule MyAppWeb.FormLive.Responses do
         {:ok, 
           socket
           |> put_flash(:error, "表单不存在")
-          |> push_redirect(to: ~p"/forms")
+          |> push_navigate(to: ~p"/forms")
         }
         
       form ->
@@ -57,7 +57,7 @@ defmodule MyAppWeb.FormLive.Responses do
               {:ok,
                 socket
                 |> put_flash(:error, "回复不存在")
-                |> push_redirect(to: ~p"/forms/#{form_id}/responses")
+                |> push_navigate(to: ~p"/forms/#{form_id}/responses")
               }
               
             response ->
@@ -75,7 +75,7 @@ defmodule MyAppWeb.FormLive.Responses do
                 {:ok,
                   socket
                   |> put_flash(:error, "回复与表单不匹配")
-                  |> push_redirect(to: ~p"/forms/#{form_id}/responses")
+                  |> push_navigate(to: ~p"/forms/#{form_id}/responses")
                 }
               end
           end
@@ -83,7 +83,7 @@ defmodule MyAppWeb.FormLive.Responses do
           {:ok, 
             socket
             |> put_flash(:error, "您没有权限查看此表单的回复")
-            |> push_redirect(to: ~p"/forms")
+            |> push_navigate(to: ~p"/forms")
           }
         end
     end
@@ -107,7 +107,7 @@ defmodule MyAppWeb.FormLive.Responses do
   @impl true
   def handle_event("view_response", %{"id" => id}, socket) do
     form = socket.assigns.form
-    {:noreply, push_redirect(socket, to: ~p"/forms/#{form.id}/responses/#{id}")}
+    {:noreply, push_navigate(socket, to: ~p"/forms/#{form.id}/responses/#{id}")}
   end
 
   @impl true
@@ -137,7 +137,7 @@ defmodule MyAppWeb.FormLive.Responses do
   @impl true
   def handle_event("back_to_responses", _params, socket) do
     form = socket.assigns.form
-    {:noreply, push_redirect(socket, to: ~p"/forms/#{form.id}/responses")}
+    {:noreply, push_navigate(socket, to: ~p"/forms/#{form.id}/responses")}
   end
 
   # 辅助函数
