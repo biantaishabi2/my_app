@@ -1,12 +1,12 @@
 defmodule MyAppWeb.FormComponents do
   use Phoenix.Component
+  # 组件可能需要这些导入，所以保留，只是加上注释表明它们的用途
+  # HTML标记处理
   import Phoenix.HTML
+  # 表单辅助函数
   import Phoenix.HTML.Form
+  # LiveView辅助函数
   import Phoenix.LiveView.Helpers
-  
-  alias MyApp.Forms.Form
-  alias MyApp.Forms.FormItem
-  alias MyApp.Forms.ItemOption
 
   @doc """
   渲染表单头部，包括标题和描述
@@ -42,9 +42,12 @@ defmodule MyAppWeb.FormComponents do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     
     ~H"""
-    <div class="form-field mb-4">
+    <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
         <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
       </label>
       <input 
         type="text"
@@ -57,7 +60,7 @@ defmodule MyAppWeb.FormComponents do
         phx-debounce="blur"
       />
       <%= if @error do %>
-        <div class="text-red-500 text-sm mt-1"><%= @error %></div>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
       <% end %>
     </div>
     """
@@ -79,14 +82,17 @@ defmodule MyAppWeb.FormComponents do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     
     ~H"""
-    <div class="form-field mb-4">
+    <div class="form-field form-item mb-4">
       <fieldset>
         <legend class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
           <%= @field.label %>
+          <%= if @field.required do %>
+            <span class="form-item-required text-red-500">*</span>
+          <% end %>
         </legend>
         <div class="space-y-2">
           <%= for option <- @options do %>
-            <div class="flex items-center">
+            <div class="flex items-center form-item-option">
               <input 
                 type="radio" 
                 id={"#{@field.id}_#{option.id}"}
@@ -105,7 +111,7 @@ defmodule MyAppWeb.FormComponents do
           <% end %>
         </div>
         <%= if @error do %>
-          <div class="text-red-500 text-sm mt-1"><%= @error %></div>
+          <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
         <% end %>
       </fieldset>
     </div>
@@ -215,6 +221,7 @@ defmodule MyAppWeb.FormComponents do
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="请输入表单项标签"
+              id={if @item.id, do: "edit-item-label", else: "new-item-label"}
             />
           </div>
         </div>
@@ -232,12 +239,12 @@ defmodule MyAppWeb.FormComponents do
         <div class="flex items-center">
           <input
             type="checkbox"
-            id="item-required"
+            id={if @item.id, do: "item-required", else: "new-item-required"}
             name="item[required]"
             checked={@item.required}
             class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
           />
-          <label for="item-required" class="ml-2 text-sm text-gray-700">必填项</label>
+          <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
         </div>
         
         <%= if @item.type == :radio || @item_type == "radio" do %>
@@ -249,7 +256,8 @@ defmodule MyAppWeb.FormComponents do
               </button>
             </div>
             
-            <div id="options-container" class="space-y-2" phx-update="append">
+            <div id="options-container" class="space-y-2">
+              <%# 注意：已从此处移除 phx-update="append"，建议使用 LiveView.JS 或 streams 来代替 %>
               <%= for {option, index} <- Enum.with_index(@options || []) do %>
                 <div class="flex gap-2 items-center option-row" id={"option-#{index}"}>
                   <input
@@ -259,6 +267,7 @@ defmodule MyAppWeb.FormComponents do
                     placeholder="选项文本"
                     required
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    id={"option-#{index}-label"}
                   />
                   <input
                     type="text"

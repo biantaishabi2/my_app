@@ -25,8 +25,8 @@ defmodule MyAppWeb.FormLive.IndexTest do
 
     test "显示用户的表单列表", %{conn: conn, user: user} do
       # 创建两个测试表单
-      form1 = form_fixture(%{user_id: user.id, title: "测试表单1"})
-      form2 = form_fixture(%{user_id: user.id, title: "测试表单2"})
+      _form1 = form_fixture(%{user_id: user.id, title: "测试表单1"})
+      _form2 = form_fixture(%{user_id: user.id, title: "测试表单2"})
       
       {:ok, view, _html} = live(conn, ~p"/forms")
       
@@ -35,10 +35,10 @@ defmodule MyAppWeb.FormLive.IndexTest do
       assert has_element?(view, "td", "测试表单2")
     end
 
-    test "只显示当前用户的表单", %{conn: conn, user: user} do
+    test "只显示当前用户的表单", %{conn: conn, user: _user} do
       # 创建另一个用户和表单
       other_user = user_fixture()
-      other_form = form_fixture(%{user_id: other_user.id, title: "其他用户的表单"})
+      _other_form = form_fixture(%{user_id: other_user.id, title: "其他用户的表单"})
       
       {:ok, view, _html} = live(conn, ~p"/forms")
       

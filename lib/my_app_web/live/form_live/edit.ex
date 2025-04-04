@@ -2,9 +2,7 @@ defmodule MyAppWeb.FormLive.Edit do
   use MyAppWeb, :live_view
 
   alias MyApp.Forms
-  alias MyApp.Forms.Form
   alias MyApp.Forms.FormItem
-  alias MyApp.Forms.ItemOption
   
   import MyAppWeb.FormComponents
 
@@ -199,7 +197,7 @@ defmodule MyAppWeb.FormLive.Edit do
       case Forms.add_form_item(form, item_params) do
         {:ok, new_item} ->
           # 如果是单选按钮类型，还需要添加选项
-          updated_item = 
+          _updated_item = 
             if new_item.type == :radio do
               process_options(new_item, item_params)
             else

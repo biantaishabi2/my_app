@@ -71,6 +71,11 @@ defmodule MyAppWeb.FormLive.Index do
       |> assign(:form_errors, %{})
     }
   end
+  
+  @impl true
+  def handle_event("edit_form", %{"id" => id}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/edit")}
+  end
 
   @impl true
   def handle_event("save_form", %{"form" => form_params}, socket) do
@@ -143,22 +148,38 @@ defmodule MyAppWeb.FormLive.Index do
       |> assign(form_values: form_params)
       |> assign(form_errors: errors)}
   end
+
+  @impl true
+  def handle_event("cancel_new_form", _params, socket) do
+    IO.puts("===> 取消新表单事件被触发")
+    {:noreply, 
+      socket
+      |> assign(:show_new_form, false)
+      |> assign(:form_values, %{})
+      |> assign(:form_errors, %{})
+    }
+  end
   
-  # 辅助函数：将 Ecto 错误格式化为简单的键值对
+  # 辅助函数：将 Ecto 错误格式化为简单的键值对并翻译错误消息
   defp format_errors(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-      Enum.reduce(opts, msg, fn {key, value}, acc ->
+    errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      message = Enum.reduce(opts, msg, fn {key, value}, acc ->
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
+      
+      # 翻译常见错误消息
+      case message do
+        "can't be blank" -> "不能为空"
+        _ -> message
+      end
     end)
+    
+    errors
   end
 
-  @impl true
-  def handle_event("edit_form", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/edit")}
-  end
 
-  @impl true
+  # 为了清晰和一致性，保持所有 handle_event 函数按字母顺序排列
+  @impl true 
   def handle_event("publish_form", %{"id" => id}, socket) do
     current_user = socket.assigns.current_user
     form = Forms.get_form(id)

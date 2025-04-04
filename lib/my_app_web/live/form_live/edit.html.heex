@@ -8,7 +8,7 @@
           <% :draft -> %>
             <span class="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">草稿</span>
           <% :published -> %>
-            <span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs">已发布</span>
+            <span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs status-published">已发布</span>
         <% end %>
       </div>
     </div>
@@ -169,11 +169,11 @@
                 </span>
               </div>
               <div class="flex space-x-2">
-                <button type="button" phx-click="edit_item" phx-value-id={item.id} class="text-indigo-600 hover:text-indigo-800">
+                <button type="button" phx-click="edit_item" phx-value-id={item.id} class="text-indigo-600 hover:text-indigo-800" id={"edit-item-#{item.id}"}>
                   编辑
                 </button>
                 <button type="button" phx-click="delete_item" phx-value-id={item.id} class="text-red-600 hover:text-red-800"
-                        data-confirm="确定要删除这个表单项吗？">
+                        data-confirm="确定要删除这个表单项吗？" id={"delete-item-#{item.id}"}>
                   删除
                 </button>
               </div>

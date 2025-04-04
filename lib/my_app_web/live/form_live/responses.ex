@@ -1,5 +1,4 @@
 defmodule MyAppWeb.FormLive.Responses do
-  import Ecto.Query
   use MyAppWeb, :live_view
 
   alias MyApp.Forms

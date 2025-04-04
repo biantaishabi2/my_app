@@ -110,10 +110,10 @@ defmodule MyAppWeb.ChatLive.Index do
                 # Return the newly persisted conversation
                 new_persisted_conv 
               {:error, changeset} ->
-                # Handle error, put flash and return updated socket with error message
-                updated_socket = put_flash(socket, :error, "创建对话失败: #{inspect(changeset.errors)}")
-                # Save the updated socket to use later
-                updated_socket
+                # 处理错误，设置闪烁消息并返回更新的socket
+                socket = put_flash(socket, :error, "创建对话失败: #{inspect(changeset.errors)}")
+                # 将更新的socket返回并在后续逻辑中使用
+                socket
                 # Return nil to signal failure and skip message creation
                 nil 
             end
@@ -336,7 +336,7 @@ defmodule MyAppWeb.ChatLive.Index do
   
   # 处理回车键 - 保存编辑
   @impl true
-  def handle_event("handle_edit_keydown", %{"key" => "Enter", "id" => id}, socket) do
+  def handle_event("handle_edit_keydown", %{"key" => "Enter", "id" => _id}, socket) do
     IO.puts("按下Enter键保存编辑")
     # 获取当前表单中的值并提交
     # 注意：这里需要通过DOM查询获取当前值，但在LiveView中不直接操作DOM
@@ -363,7 +363,7 @@ defmodule MyAppWeb.ChatLive.Index do
     
     # 更新数据库中的对话标题
     case Chat.update_conversation_title(id, title, current_user) do
-      {:ok, updated_conversation} ->
+      {:ok, _updated_conversation} ->
         IO.puts("更新成功")
         # 更新对话列表
         updated_conversations = Enum.map(socket.assigns.conversations, fn conv ->
