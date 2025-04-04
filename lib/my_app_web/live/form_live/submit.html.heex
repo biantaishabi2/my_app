@@ -70,12 +70,12 @@
                   <% :radio -> %>
                     <div class={"form-field form-item mb-4 #{if @errors[item.id], do: "field-error", else: ""}"}>
                       <fieldset>
-                        <legend class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
+                        <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
                           <%= item.label %>
                           <%= if item.required do %>
                             <span class="form-item-required text-red-500 required-mark">*</span>
                           <% end %>
-                        </legend>
+                        </label>
                         <div class="space-y-2">
                           <%= for option <- item.options || [] do %>
                             <div class="flex items-center form-item-option">
