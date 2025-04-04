@@ -201,15 +201,32 @@ defmodule MyAppWeb.FormComponents do
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
-            <select
-              name="item[type]"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              disabled={@item.id != nil}
-              phx-change="type_changed"
-            >
-              <option value="text_input" selected={@item.type == :text_input}>文本输入</option>
-              <option value="radio" selected={@item.type == :radio}>单选按钮</option>
-            </select>
+            <%= if @item.id != nil do %>
+              <div class="text-gray-700 py-2">
+                <%= display_item_type(@item.type) %>
+              </div>
+              <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
+            <% else %>
+              <div class="flex space-x-2">
+                <button
+                  type="button"
+                  phx-click="type_changed"
+                  phx-value-type="text_input"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "text_input" || @item.type == :text_input, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  文本输入
+                </button>
+                <button
+                  type="button"
+                  phx-click="type_changed"
+                  phx-value-type="radio"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "radio" || @item.type == :radio, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  单选按钮
+                </button>
+                <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
+              </div>
+            <% end %>
           </div>
           
           <div>
@@ -222,6 +239,7 @@ defmodule MyAppWeb.FormComponents do
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="请输入表单项标签"
               id={if @item.id, do: "edit-item-label", else: "new-item-label"}
+              phx-change="form_change"
             />
           </div>
         </div>
@@ -242,6 +260,7 @@ defmodule MyAppWeb.FormComponents do
             id={if @item.id, do: "item-required", else: "new-item-required"}
             name="item[required]"
             checked={@item.required}
+            phx-change="form_change"
             class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
           />
           <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
@@ -268,6 +287,7 @@ defmodule MyAppWeb.FormComponents do
                     required
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     id={"option-#{index}-label"}
+                    phx-change="form_change"
                   />
                   <input
                     type="text"
@@ -276,6 +296,8 @@ defmodule MyAppWeb.FormComponents do
                     placeholder="选项值"
                     required
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    id={"option-#{index}-value"}
+                    phx-change="form_change"
                   />
                   <button
                     type="button"
@@ -309,10 +331,12 @@ defmodule MyAppWeb.FormComponents do
             取消
           </button>
           <button
-            type="submit"
+            type="button"
+            phx-click={@on_save}
+            id="submit-form-item-btn"
             class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            保存
+            <%= if @item.id, do: "保存修改", else: "添加问题" %>
           </button>
         </div>
       </form>

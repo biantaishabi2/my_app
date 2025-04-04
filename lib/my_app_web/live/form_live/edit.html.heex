@@ -1,7 +1,8 @@
 <div class="container mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-2">编辑表单</h1>
   <div class="flex justify-between items-center mb-6">
     <div>
-      <h1 class="text-2xl font-bold"><%= @form.title %></h1>
+      <h2 class="text-xl font-medium"><%= @form.title %></h2>
       <div class="text-sm text-gray-500">
         状态: 
         <%= case @form.status do %>
@@ -47,6 +48,7 @@
       
       <.form
         for={@form_changeset}
+        id="edit-form-info-form"
         phx-submit="save_form_info"
         class="space-y-4"
       >
@@ -54,21 +56,23 @@
           <label for="form_title" class="block text-sm font-medium text-gray-700 mb-1">表单标题</label>
           <input
             type="text"
-            id="form_title"
+            id="form-title"
             name="form[title]"
             value={@form.title}
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            phx-change="form_change"
           />
         </div>
         
         <div>
           <label for="form_description" class="block text-sm font-medium text-gray-700 mb-1">表单描述（可选）</label>
           <textarea
-            id="form_description"
+            id="form-description"
             name="form[description]"
             rows="3"
             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            phx-change="form_change"
           ><%= @form.description %></textarea>
         </div>
         
@@ -81,7 +85,8 @@
             取消
           </button>
           <button
-            type="submit"
+            phx-click="save_form_info" 
+            type="button"
             class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             保存
@@ -122,10 +127,61 @@
     />
   <% end %>
   
+  <%= if @delete_item_id do %>
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+        <h3 class="text-lg font-medium mb-4">确认删除</h3>
+        <p class="text-gray-600 mb-6">您确定要删除这个表单项吗？此操作无法撤销。</p>
+        <div class="flex justify-end space-x-3">
+          <button
+            type="button"
+            phx-click="cancel_delete"
+            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            phx-click="confirm_delete"
+            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+          >
+            确认删除
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+  
+  <%= if @show_publish_confirm do %>
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+        <h3 class="text-lg font-medium mb-4">确认发布</h3>
+        <p class="text-gray-600 mb-6">发布后，用户将能够查看并填写此表单。确定要发布吗？</p>
+        <div class="flex justify-end space-x-3">
+          <button
+            type="button"
+            phx-click="cancel_publish"
+            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            phx-click="confirm_publish"
+            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+          >
+            确认发布
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+  
   <div class="bg-white rounded-lg shadow-lg p-6">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-lg font-medium">表单项</h2>
       <button
+        id="add-new-form-item-button"
         phx-click="add_item"
         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 transition"
         disabled={@editing_item}
@@ -133,7 +189,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
         </svg>
-        添加表单项
+        添加问题
       </button>
     </div>
     

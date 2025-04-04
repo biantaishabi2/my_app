@@ -43,7 +43,8 @@ defmodule MyApp.Forms do
 
   """
   def get_form(id) do
-    Repo.get(Form, id)
+    form = Repo.get(Form, id)
+    if form, do: Repo.preload(form, items: {from(i in FormItem, order_by: i.order), :options}), else: nil
   end
 
   @doc """

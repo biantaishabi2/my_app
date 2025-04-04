@@ -9,6 +9,7 @@ defmodule MyApp.Forms.FormItem do
   @foreign_key_type :binary_id
   schema "form_items" do
     field :label, :string
+    field :description, :string # 添加描述字段，用于显示表单项的附加说明
     # Use Ecto.Enum for type later if preferred
     field :type, Ecto.Enum, values: [
       :text_input,
@@ -32,7 +33,7 @@ defmodule MyApp.Forms.FormItem do
   @doc false
   def changeset(item, attrs) do
     item
-    |> cast(attrs, [:label, :type, :order, :required, :validation_rules, :form_id])
+    |> cast(attrs, [:label, :description, :type, :order, :required, :validation_rules, :form_id])
     |> validate_required([:label, :type, :order, :required, :form_id])
     |> foreign_key_constraint(:form_id)
     # Add custom validations for type, rules etc.
