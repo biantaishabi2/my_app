@@ -206,4 +206,125 @@ defmodule MyApp.Forms do
     |> Repo.get(id)
     |> Repo.preload(items: {from(i in FormItem, order_by: i.order), [options: from(o in ItemOption, order_by: o.order)]})
   end
+
+  @doc """
+  Gets a single form item by ID.
+
+  Returns nil if the form item does not exist.
+
+  ## Examples
+
+      iex> get_form_item(123)
+      %FormItem{}
+
+      iex> get_form_item(456)
+      nil
+
+  """
+  def get_form_item(id) do
+    Repo.get(FormItem, id)
+  end
+  
+  @doc """
+  Gets a single form item by ID and preloads its options.
+
+  Returns nil if the form item does not exist.
+
+  ## Examples
+
+      iex> get_form_item_with_options(123)
+      %FormItem{options: [%ItemOption{}, ...]}
+
+      iex> get_form_item_with_options(456)
+      nil
+
+  """
+  def get_form_item_with_options(id) do
+    FormItem
+    |> Repo.get(id)
+    |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
+  end
+  
+  @doc """
+  Updates a form item.
+
+  ## Examples
+
+      iex> update_form_item(item, %{field: new_value})
+      {:ok, %FormItem{}}
+
+      iex> update_form_item(item, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_form_item(%FormItem{} = item, attrs) do
+    item
+    |> FormItem.changeset(attrs)
+    |> Repo.update()
+  end
+  
+  @doc """
+  Deletes a form item and its associated options.
+
+  ## Examples
+
+      iex> delete_form_item(item)
+      {:ok, %FormItem{}}
+
+      iex> delete_form_item(item)
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def delete_form_item(%FormItem{} = item) do
+    Repo.delete(item)
+  end
+  
+  @doc """
+  Reorders form items for a specific form.
+  
+  Takes a form_id and a list of item_ids in the desired order.
+  Updates the order of each item accordingly.
+  
+  ## Examples
+  
+      iex> reorder_form_items(form_id, [item3_id, item1_id, item2_id])
+      {:ok, [%FormItem{order: 1}, %FormItem{order: 2}, %FormItem{order: 3}]}
+      
+      iex> reorder_form_items(form_id, [invalid_id, ...])
+      {:error, :invalid_item_ids}
+      
+  """
+  def reorder_form_items(form_id, item_ids) do
+    # 1. Get all items for this form
+    query = from i in FormItem, where: i.form_id == ^form_id
+    form_items = Repo.all(query)
+    form_item_ids = Enum.map(form_items, & &1.id)
+    
+    # 2. Validate all item_ids are from this form
+    if Enum.sort(form_item_ids) != Enum.sort(item_ids) do
+      if Enum.all?(item_ids, &(&1 in form_item_ids)) do
+        {:error, :missing_items}
+      else
+        {:error, :invalid_item_ids}
+      end
+    else
+      # 3. Update the order of each item
+      Repo.transaction(fn ->
+        results = Enum.with_index(item_ids, 1) |> Enum.map(fn {item_id, new_order} ->
+          item = Enum.find(form_items, &(&1.id == item_id))
+          
+          # Only update if the order has changed
+          if item.order != new_order do
+            {:ok, updated_item} = update_form_item(item, %{order: new_order})
+            updated_item
+          else
+            item
+          end
+        end)
+        
+        # Sort results by new order
+        Enum.sort_by(results, & &1.order)
+      end)
+    end
+  end
 end
