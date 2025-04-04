@@ -100,6 +100,58 @@ defmodule MyApp.Chat do
   end
 
   @doc """
+  Deletes a conversation by ID, checking that it belongs to the given user.
+
+  ## Examples
+
+      iex> delete_conversation(id, user)
+      {:ok, %Conversation{}}
+
+      iex> delete_conversation(id, user)
+      {:error, :not_found}
+
+  """
+  def delete_conversation(id, %User{} = user) do
+    conversation = Repo.get_by(Conversation, id: id, user_id: user.id)
+    
+    if conversation do
+      # 使用事务删除对话及其消息
+      Repo.transaction(fn ->
+        # 先删除关联的消息
+        from(m in Message, where: m.conversation_id == ^id)
+        |> Repo.delete_all()
+        
+        # 再删除对话
+        Repo.delete(conversation)
+      end)
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Updates a conversation's title, checking that it belongs to the given user.
+
+  ## Examples
+
+      iex> update_conversation_title(id, "New Title", user)
+      {:ok, %Conversation{}}
+
+      iex> update_conversation_title(id, "New Title", user)
+      {:error, :not_found}
+
+  """
+  def update_conversation_title(id, title, %User{} = user) do
+    conversation = Repo.get_by(Conversation, id: id, user_id: user.id)
+    
+    if conversation do
+      update_conversation(conversation, %{title: title})
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking conversation changes.
 
   ## Examples

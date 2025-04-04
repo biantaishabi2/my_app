@@ -9,14 +9,121 @@
   <.live_title suffix=" · AI助手">
     <%= assigns[:page_title] || "账户" %>
   </.live_title>
+  
+  <!-- 添加布局控制脚本 -->
+  <script defer>
+    // LiveView钩子
+    let Hooks = {};
+    
+    // 设置页面布局钩子
+    Hooks.SettingsLayout = {
+      mounted() {
+        console.log("SettingsLayout hook mounted");
+        this.handleLayoutChange();
+        window.addEventListener('resize', () => this.handleLayoutChange());
+      },
+      
+      updated() {
+        console.log("SettingsLayout hook updated");
+        this.handleLayoutChange();
+      },
+      
+      handleLayoutChange() {
+        const isMobile = window.innerWidth < 768;
+        
+        if (isMobile) {
+          document.body.classList.remove('is-settings');
+        } else {
+          document.body.classList.add('is-settings');
+        }
+        
+        const desktopLayout = document.querySelector('.hidden.md\\:block');
+        const mobileLayout = document.querySelector('.md\\:hidden');
+        
+        if (!desktopLayout || !mobileLayout) return;
+        
+        if (isMobile) {
+          desktopLayout.classList.add('hidden');
+          desktopLayout.classList.remove('md:block');
+          mobileLayout.classList.remove('hidden');
+        } else {
+          desktopLayout.classList.remove('hidden');
+          mobileLayout.classList.add('hidden');
+        }
+        
+        console.log("Layout adjusted:", isMobile ? "mobile" : "desktop");
+      }
+    };
+    
+    // 布局切换函数
+    function toggleLayout() {
+      // 精确选择用户设置页面中的布局容器
+      const desktopLayout = document.querySelector('.hidden.md\\:block');
+      const mobileLayout = document.querySelector('.md\\:hidden');
+      
+      if (desktopLayout && mobileLayout) {
+        const isMobile = window.innerWidth < 768;
+        
+        if (isMobile) {
+          // 移动设备显示
+          desktopLayout.classList.add('hidden');
+          desktopLayout.classList.remove('md:block');
+          mobileLayout.classList.remove('hidden');
+          document.body.classList.remove('is-settings');
+        } else {
+          // 桌面设备显示
+          desktopLayout.classList.remove('hidden');
+          mobileLayout.classList.add('hidden');
+          document.body.classList.add('is-settings');
+        }
+        
+        console.log('Layout toggle - Window width:', window.innerWidth, 'Mobile:', isMobile, 
+                   'Body classes:', document.body.className,
+                   'Desktop visibility:', !desktopLayout.classList.contains('hidden'),
+                   'Mobile visibility:', !mobileLayout.classList.contains('hidden'));
+      } else {
+        console.log('Layout elements not found:', 
+                   'Desktop layout:', desktopLayout, 
+                   'Mobile layout:', mobileLayout);
+      }
+    }
+    
+    // 确保DOM加载后执行布局切换
+    function initializeLayout() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', forceLayoutToggle);
+      } else {
+        forceLayoutToggle();
+      }
+    }
+    
+    // 强制执行布局切换
+    function forceLayoutToggle() {
+      toggleLayout();
+      
+      // 添加一个小延迟再次运行，确保React/LiveView等框架已完成渲染
+      setTimeout(toggleLayout, 100);
+      setTimeout(toggleLayout, 500);
+      
+      // 监听窗口大小变化
+      window.addEventListener('resize', toggleLayout);
+      
+      console.log('Layout initialization complete');
+    }
+    
+    // 初始化布局
+    initializeLayout();
+  </script>
+  
   <style>
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      height: 100vh !important;
-      width: 100vw !important;
+      min-height: 100% !important;
+      width: 100% !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-x: hidden;
+      overflow-y: auto !important; /* 允许垂直滚动 */
     }
     
     /* 背景渐变 */
@@ -27,12 +134,13 @@
       width: 100%;
       background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%);
       position: relative;
+      overflow-y: auto; /* 允许滚动 */
     }
     
     /* 装饰性背景元素 */
     .account-container::before {
       content: "";
-      position: absolute;
+      position: fixed; /* 改为固定定位，不随滚动移动 */
       top: 0;
       right: 0;
       width: 300px;
@@ -40,11 +148,12 @@
       background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 70%);
       z-index: 0;
       border-radius: 50%;
+      pointer-events: none; /* 防止干扰鼠标事件 */
     }
     
     .account-container::after {
       content: "";
-      position: absolute;
+      position: fixed; /* 改为固定定位，不随滚动移动 */
       bottom: 0;
       left: 0;
       width: 250px;
@@ -52,6 +161,7 @@
       background: radial-gradient(circle at center, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0) 70%);
       z-index: 0;
       border-radius: 50%;
+      pointer-events: none; /* 防止干扰鼠标事件 */
     }
     
     .account-header {
@@ -62,8 +172,9 @@
       background-color: white;
       border-bottom: 1px solid #e5e7eb;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      position: relative;
-      z-index: 2;
+      position: sticky; /* 使顶部导航固定 */
+      top: 0;
+      z-index: 10;
     }
     
     .account-logo {
@@ -103,25 +214,33 @@
       color: #4f46e5;
     }
     
-    /* 内容区域样式 */
+    /* 账户内容最大宽度和居中显示 */
     .account-content {
       flex: 1;
-      padding: 40px 20px;
+      padding: 40px 20px 80px 20px; /* 增加底部填充 */
       max-width: 480px;
       margin: 0 auto;
       width: 100%;
       position: relative;
       z-index: 1;
+      overflow-y: visible; /* 确保内容可以滚动 */
+    }
+    
+    /* 设置页面特殊宽度 */
+    body.is-settings .account-content {
+      max-width: 1200px !important;
+      padding-top: 20px !important;
     }
     
     /* 卡片效果 */
     .account-content > div {
       background-color: white;
-      border-radius: 12px;
+      border-radius: 16px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
       padding: 30px;
       position: relative;
-      overflow: hidden;
+      overflow: visible; /* 更改为可见，允许内容溢出并滚动 */
+      margin-bottom: 20px; /* 添加底部间距 */
     }
     
     /* 卡片顶部装饰条纹 */
@@ -134,6 +253,8 @@
       height: 4px;
       background: linear-gradient(90deg, #6366f1, #ec4899);
       z-index: 1;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
     }
     
     /* 改进表单样式 */
@@ -141,8 +262,9 @@
       font-size: 16px; /* 防止iOS缩放 */
       border-radius: 8px !important;
       border: 1px solid #e5e7eb !important;
-      padding: 10px 12px !important;
+      padding: 12px 16px !important;
       transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
     }
     
     input:focus, textarea:focus, select:focus {
@@ -153,12 +275,14 @@
     
     /* 按钮样式 */
     .button, button, [type="button"], [type="submit"] {
-      min-height: 44px;
+      min-height: 46px;
       font-weight: 500;
       border-radius: 8px;
       background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
       transition: transform 0.2s, box-shadow 0.2s;
       border: none !important;
+      padding-left: 24px !important;
+      padding-right: 24px !important;
     }
     
     .button:hover, button:hover, [type="button"]:hover, [type="submit"]:hover {
@@ -186,9 +310,57 @@
       color: #1f2937;
     }
     
-    @media (max-width: 768px) {
+    /* 桌面端优化 */
+    @media (min-width: 769px) {
       .account-content {
-        padding: 20px 15px;
+        max-width: 800px;
+        padding: 60px 20px 100px 20px;
+      }
+      
+      .account-content > div {
+        padding: 40px;
+      }
+      
+      /* 桌面专用：标题居左对齐 */
+      .account-content .header {
+        text-align: left !important;
+        margin-bottom: 2rem;
+      }
+      
+      /* 表单在桌面端的样式 */
+      .simple_form {
+        display: grid;
+        gap: 24px;
+      }
+      
+      /* 按钮在桌面端更大 */
+      .button, button, [type="button"], [type="submit"] {
+        min-height: 48px;
+        font-size: 1rem;
+      }
+      
+      /* 输入框在桌面端更大 */
+      input, textarea, select {
+        font-size: 1rem !important;
+        padding: 12px 16px !important;
+      }
+      
+      /* 确保两列布局仅在桌面设备显示 */
+      .desktop-two-column {
+        display: grid;
+        grid-template-columns: 250px 1fr;
+      }
+    }
+    
+    /* 移动设备适配样式 */
+    @media (max-width: 768px) {
+      body, html {
+        position: relative;
+        height: auto !important; /* 允许内容决定高度 */
+      }
+      
+      .account-content {
+        padding: 20px 15px 60px 15px;
       }
       
       .account-content > div {
@@ -198,10 +370,210 @@
       .account-header {
         padding: 10px 15px;
       }
+      
+      /* 确保表单元素在移动设备上足够大 */
+      .simple_form {
+        display: grid;
+        gap: 16px;
+      }
+    }
+    
+    /* 分割线样式优化 */
+    .divide-y > div {
+      padding-top: 30px;
+      padding-bottom: 30px;
+      border-top: 1px solid rgba(229, 231, 235, 0.7);
+    }
+    
+    .divide-y > div:first-child {
+      border-top: none;
+      padding-top: 10px;
+    }
+    
+    .divide-y > div:last-child {
+      padding-bottom: 10px;
+    }
+    
+    /* 用户设置页面特定样式 */
+    .settings-forms {
+      margin-top: 2rem;
+    }
+    
+    .settings-section {
+      transition: all 0.3s ease;
+    }
+    
+    .settings-section h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 1.5rem;
+    }
+    
+    .settings-form {
+      background-color: #f9fafb;
+      border-radius: 10px;
+      padding: 24px;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+    
+    .settings-form:hover {
+      background-color: #f3f4f6;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* 桌面两列布局样式，确保在is-settings下生效 */
+    .desktop-two-column {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 30px;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    .desktop-sidebar {
+      background-color: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: 25px;
+      height: fit-content;
+      position: sticky;
+      top: 100px;
+    }
+    
+    .desktop-sidebar-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .desktop-sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .desktop-sidebar-menu a {
+      padding: 12px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #4b5563;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: block;
+    }
+    
+    .desktop-sidebar-menu a:hover {
+      background-color: #f3f4f6;
+      color: #4f46e5;
+    }
+    
+    .desktop-sidebar-menu a.active {
+      background-color: #f0f5ff;
+      color: #4f46e5;
+    }
+    
+    .desktop-main-content {
+      width: 100%;
+    }
+    
+    .settings-card {
+      background-color: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: 35px 40px;
+      position: relative;
+    }
+    
+    .settings-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #6366f1, #ec4899);
+      z-index: 1;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+    }
+    
+    .settings-inner-content {
+      margin-top: 30px;
+    }
+    
+    /* 密码确认和当前密码字段之间的间距 */
+    .settings-form .input:not(:first-child) {
+      margin-top: 1.25rem;
+    }
+    
+    /* 表单操作按钮区域 */
+    .settings-form .actions {
+      margin-top: 1.75rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    /* 标签样式 */
+    label {
+      font-weight: 500 !important;
+      color: #4b5563 !important;
+      margin-bottom: 6px !important;
+      display: block;
+    }
+    
+    /* 表单错误提示样式 */
+    .invalid-feedback {
+      color: #dc2626 !important;
+      margin-top: 0.5rem !important;
+      font-size: 0.875rem !important;
+    }
+    
+    @media (max-width: 768px) {
+      .settings-form {
+        padding: 20px;
+      }
+      
+      .settings-form .actions {
+        justify-content: center;
+      }
+      
+      .divide-y > div {
+        padding-top: 24px;
+        padding-bottom: 24px;
+      }
+    }
+    
+    /* 桌面默认两列布局样式 */
+    @media (min-width: 768px) {
+      /* 当body有is-settings类时，强制显示两列布局 */
+      body.is-settings .hidden.md\:block {
+        display: block !important;
+      }
+      
+      body.is-settings .md\:hidden {
+        display: none !important;
+      }
+    }
+    
+    /* 移动端默认单列布局样式 */
+    @media (max-width: 767px) {
+      .hidden.md\:block {
+        display: none !important;
+      }
+      
+      .md\:hidden {
+        display: block !important;
+      }
     }
   </style>
 </head>
-<body class="h-full m-0 p-0">
+<body class={"h-full m-0 p-0 #{assigns[:extra_body_classes] || ""}"}>
   <.flash_group flash={@flash} />
   <div class="account-container">
     <header class="account-header">
@@ -227,6 +599,11 @@
     </header>
     <main class="account-content">
       <%= @inner_content %>
+      
+      <!-- 调试信息，可以在完成后删除 -->
+      <div class="fixed bottom-2 right-2 bg-black bg-opacity-70 text-white p-2 rounded text-xs z-50">
+        Body 类: <span class="font-mono"><%= assigns[:extra_body_classes] || "无" %></span>
+      </div>
     </main>
   </div>
 </body>

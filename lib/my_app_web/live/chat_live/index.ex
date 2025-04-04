@@ -35,7 +35,9 @@ defmodule MyAppWeb.ChatLive.Index do
       current_conversation: current_conversation, # Store the full conversation struct
       messages: messages,
       message_text: "",
-      show_sidebar: true
+      show_sidebar: true,
+      editing_conversation_id: nil, # 新增 - 当前正在编辑的对话ID
+      deleting_conversation_id: nil  # 新增 - 当前正在删除的对话ID
     )}
   end
 
@@ -219,41 +221,203 @@ defmodule MyAppWeb.ChatLive.Index do
     # 获取当前的对话列表
     existing_conversations = socket.assigns.conversations
     
-    try do
-      id = String.to_integer(id_str)
-      # 记录会话选择操作
-      IO.puts "选择对话: id=#{id}"
-      
-      # 如果已经选择了这个会话，避免不必要的重新获取
-      if socket.assigns.current_conversation && socket.assigns.current_conversation.id == id do
-        IO.puts "已经选择了该对话，跳过"
-        {:noreply, socket}
-      else
-        # Fetch the selected conversation with messages
-        selected_conv = Chat.get_conversation_with_messages!(current_user, id)
+    # 如果正在编辑或删除，忽略选择事件
+    if socket.assigns.editing_conversation_id != nil || socket.assigns.deleting_conversation_id != nil do
+      {:noreply, socket}
+    else
+      try do
+        id = String.to_integer(id_str)
+        # 记录会话选择操作
+        IO.puts "选择对话: id=#{id}"
         
-        # ---- Modification: Filter out the :new conversation from the current list ----
-        updated_conversations = Enum.reject(existing_conversations, &(&1.id == :new))
-        # ---- Modification End ----
-        
-        # Optional: Navigate if you want the URL to reflect the selected chat
-        # socket = push_navigate(socket, to: ~p"/chat/#{id}")
-        
-        {:noreply, assign(socket, 
-          current_conversation: selected_conv,
-          messages: selected_conv.messages,
-          # Use the filtered list
-          conversations: updated_conversations,
-          # 保留消息输入框内容
-          message_text: socket.assigns.message_text
-        )}
+        # 如果已经选择了这个会话，避免不必要的重新获取
+        if socket.assigns.current_conversation && socket.assigns.current_conversation.id == id do
+          IO.puts "已经选择了该对话，跳过"
+          {:noreply, socket}
+        else
+          # Fetch the selected conversation with messages
+          selected_conv = Chat.get_conversation_with_messages!(current_user, id)
+          
+          # ---- Modification: Filter out the :new conversation from the current list ----
+          updated_conversations = Enum.reject(existing_conversations, &(&1.id == :new))
+          # ---- Modification End ----
+          
+          # Optional: Navigate if you want the URL to reflect the selected chat
+          # socket = push_navigate(socket, to: ~p"/chat/#{id}")
+          
+          {:noreply, assign(socket, 
+            current_conversation: selected_conv,
+            messages: selected_conv.messages,
+            # Use the filtered list
+            conversations: updated_conversations,
+            # 保留消息输入框内容
+            message_text: socket.assigns.message_text
+          )}
+        end
+      rescue
+        Ecto.NoResultsError ->
+           {:noreply, put_flash(socket, :error, "无法加载对话或对话不存在。")}
+        _ -> 
+           {:noreply, put_flash(socket, :error, "选择对话时出错。")}
       end
-    rescue
-      Ecto.NoResultsError ->
-         {:noreply, put_flash(socket, :error, "无法加载对话或对话不存在。")}
-      _ -> 
-         {:noreply, put_flash(socket, :error, "选择对话时出错。")}
     end
+  end
+
+  # 新增的事件处理函数 - 显示删除确认
+  @impl true
+  def handle_event("confirm_delete_conversation", %{"id" => id}, socket) do
+    id_int = String.to_integer(id)
+    IO.puts("确认删除对话: #{id_int}")
+    {:noreply, assign(socket, deleting_conversation_id: id_int)}
+  end
+
+  # 新增的事件处理函数 - 取消删除
+  @impl true
+  def handle_event("cancel_delete", _params, socket) do
+    IO.puts("取消删除对话")
+    {:noreply, assign(socket, deleting_conversation_id: nil)}
+  end
+
+  # 新增的事件处理函数 - 执行删除
+  @impl true
+  def handle_event("delete_conversation", %{"id" => id_str}, socket) do
+    current_user = socket.assigns.current_user
+    id = String.to_integer(id_str)
+    IO.puts("执行删除对话: #{id}")
+    
+    case Chat.delete_conversation(id, current_user) do
+      {:ok, _} ->
+        # 删除成功，更新对话列表
+        IO.puts("删除成功")
+        remaining_conversations = Enum.reject(socket.assigns.conversations, &(&1.id == id))
+        
+        # 如果删除的是当前对话，则切换到列表中的第一个对话
+        {current_conversation, messages} =
+          if socket.assigns.current_conversation && socket.assigns.current_conversation.id == id do
+            case remaining_conversations do
+              [] -> {nil, []}
+              [first | _] ->
+                conv = Chat.get_conversation_with_messages!(current_user, first.id)
+                {conv, conv.messages}
+            end
+          else
+            {socket.assigns.current_conversation, socket.assigns.messages}
+          end
+        
+        {:noreply, socket
+                 |> assign(:conversations, remaining_conversations)
+                 |> assign(:current_conversation, current_conversation)
+                 |> assign(:messages, messages)
+                 |> assign(:deleting_conversation_id, nil)
+                 |> put_flash(:info, "对话已删除")}
+      
+      {:error, reason} ->
+        IO.puts("删除失败: #{inspect(reason)}")
+        {:noreply, socket
+                 |> assign(:deleting_conversation_id, nil)
+                 |> put_flash(:error, "删除失败: #{inspect(reason)}")}
+    end
+  end
+
+  # 新增的事件处理函数 - 显示编辑表单
+  @impl true
+  def handle_event("edit_conversation_name", %{"id" => id}, socket) do
+    id_int = String.to_integer(id)
+    IO.puts("编辑对话名称: #{id_int}")
+    {:noreply, assign(socket, editing_conversation_id: id_int)}
+  end
+
+  # 新增的事件处理函数 - 处理键盘事件
+  @impl true
+  def handle_event("handle_edit_keydown", %{"key" => "Escape", "id" => _id}, socket) do
+    IO.puts("按下Escape键取消编辑")
+    {:noreply, assign(socket, editing_conversation_id: nil)}
+  end
+  
+  # 处理回车键 - 保存编辑
+  @impl true
+  def handle_event("handle_edit_keydown", %{"key" => "Enter", "id" => id}, socket) do
+    IO.puts("按下Enter键保存编辑")
+    # 获取当前表单中的值并提交
+    # 注意：这里需要通过DOM查询获取当前值，但在LiveView中不直接操作DOM
+    # 相反，我们应该依赖于表单的提交机制
+    # 这个处理只是防止回车键的默认行为
+    {:noreply, socket}
+  end
+  
+  # 捕获其他键盘事件
+  @impl true
+  def handle_event("handle_edit_keydown", _params, socket) do
+    {:noreply, socket}
+  end
+
+  # 新增的事件处理函数 - 保存编辑后的对话名称
+  @impl true
+  def handle_event("save_conversation_name", %{"id" => id_str, "title" => title}, socket) do
+    current_user = socket.assigns.current_user
+    id = String.to_integer(id_str)
+    IO.puts("保存对话名称: #{id}, 标题: #{title}")
+    
+    # 如果标题为空，设置默认值
+    title = if String.trim(title) == "", do: "新对话", else: String.trim(title)
+    
+    # 更新数据库中的对话标题
+    case Chat.update_conversation_title(id, title, current_user) do
+      {:ok, updated_conversation} ->
+        IO.puts("更新成功")
+        # 更新对话列表
+        updated_conversations = Enum.map(socket.assigns.conversations, fn conv ->
+          if conv.id == id, do: %{conv | title: title}, else: conv
+        end)
+        
+        # 如果当前选中的是被修改的对话，也需要更新当前对话
+        current_conversation = 
+          if socket.assigns.current_conversation && socket.assigns.current_conversation.id == id do
+            %{socket.assigns.current_conversation | title: title}
+          else
+            socket.assigns.current_conversation
+          end
+        
+        {:noreply, socket 
+          |> assign(:conversations, updated_conversations)
+          |> assign(:current_conversation, current_conversation)
+          |> assign(:editing_conversation_id, nil)}
+      
+      {:error, reason} ->
+        IO.puts("更新失败: #{inspect(reason)}")
+        {:noreply, socket 
+          |> put_flash(:error, "无法重命名对话") 
+          |> assign(:editing_conversation_id, nil)}
+    end
+  end
+  
+  # 处理可能的参数格式问题 - 缺少id或title参数的情况
+  @impl true
+  def handle_event("save_conversation_name", params, socket) do
+    IO.puts("保存对话名称: 参数格式不正确 #{inspect(params)}")
+    # 从当前编辑状态中获取ID
+    editing_id = socket.assigns.editing_conversation_id
+    
+    if editing_id && Map.has_key?(params, "title") do
+      # 有title但是没有id，使用当前编辑的id
+      handle_event("save_conversation_name", %{"id" => to_string(editing_id), "title" => params["title"]}, socket)
+    else
+      # 其他情况，取消编辑状态
+      {:noreply, assign(socket, editing_conversation_id: nil)}
+    end
+  end
+
+  # 新增的事件处理函数 - 点击输入框外部时取消编辑
+  @impl true
+  def handle_event("cancel_edit_name", _params, socket) do
+    IO.puts("取消编辑对话名称")
+    {:noreply, assign(socket, editing_conversation_id: nil)}
+  end
+
+  # 用于阻止事件冒泡的空函数
+  @impl true
+  def handle_event("void", _params, socket) do
+    {:noreply, socket}
   end
 
   # --- Helper Functions (Keep or adapt as needed) ---

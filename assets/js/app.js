@@ -184,7 +184,55 @@ Hooks.PageHook = {
     });
   }
 }
-// --- End Define Hooks ---
+
+// 设置页面布局钩子
+Hooks.SettingsLayout = {
+  mounted() {
+    console.log("SettingsLayout hook mounted in app.js");
+    this.handleLayoutChange();
+    window.addEventListener('resize', () => this.handleLayoutChange());
+  },
+  
+  updated() {
+    console.log("SettingsLayout hook updated");
+    this.handleLayoutChange();
+  },
+  
+  handleLayoutChange() {
+    const isMobile = window.innerWidth < 768;
+    
+    // 设置body类，用于CSS选择器
+    if (isMobile) {
+      document.body.classList.remove('is-settings');
+    } else {
+      document.body.classList.add('is-settings');
+    }
+    
+    // 选择布局容器
+    const container = this.el;
+    const desktopLayout = container.querySelector('.hidden.md\\:block');
+    const mobileLayout = container.querySelector('.md\\:hidden');
+    
+    if (!desktopLayout || !mobileLayout) {
+      console.log("Settings layouts not found within", container);
+      return;
+    }
+    
+    // 根据视口大小切换布局
+    if (isMobile) {
+      desktopLayout.classList.add('hidden');
+      desktopLayout.classList.remove('md:block');
+      mobileLayout.classList.remove('hidden');
+    } else {
+      desktopLayout.classList.remove('hidden');
+      mobileLayout.classList.add('hidden');
+    }
+    
+    console.log("Settings layout adjusted:", isMobile ? "mobile" : "desktop", 
+                "Desktop visibility:", !desktopLayout.classList.contains('hidden'),
+                "Mobile visibility:", !mobileLayout.classList.contains('hidden'));
+  }
+};
 
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

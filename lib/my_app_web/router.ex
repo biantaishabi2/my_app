@@ -80,6 +80,19 @@ defmodule MyAppWeb.Router do
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/chat", ChatLive.Index, :index
       live "/chat/:id", ChatLive.Index, :show
+    end
+  end
+
+  # 为用户设置页面单独使用account_browser布局
+  scope "/", MyAppWeb do
+    pipe_through [:account_browser, :require_authenticated_user]
+
+    live_session :user_settings,
+      on_mount: [
+        {MyAppWeb.UserAuth, :ensure_authenticated},
+        {MyAppWeb.UserSettingsLive, :default}
+      ],
+      root_layout: {MyAppWeb.Layouts, :account} do
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
     end

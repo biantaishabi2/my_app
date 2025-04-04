@@ -21,4 +21,9 @@ defmodule MyAppWeb.Layouts do
   def render("account.html", assigns) do
     account(assigns)
   end
+
+  # 如果不使用嵌入模板，则移除这个函数
+  # def render("account_settings.html", assigns) do
+  #   account_settings(assigns)
+  # end
 end
