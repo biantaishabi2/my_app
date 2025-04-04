@@ -166,4 +166,31 @@ defmodule MyApp.Responses do
     |> Repo.all()
     |> Repo.preload(:answers)
   end
+
+  @doc """
+  Deletes a response and its associated answers.
+
+  Supports both passing a response struct or a map with an ID.
+  Returns {:ok, deleted_response} if successful, or
+  {:error, :not_found} if the response doesn't exist.
+
+  ## Examples
+
+      iex> delete_response(response)
+      {:ok, %Response{}}
+
+      iex> delete_response(%{id: non_existent_id})
+      {:error, :not_found}
+
+  """
+  def delete_response(%{id: id} = _response) when is_binary(id) do
+    case get_response(id) do
+      nil -> {:error, :not_found}
+      response -> Repo.delete(response)
+    end
+  end
+
+  def delete_response(%Response{} = response) do
+    Repo.delete(response)
+  end
 end 

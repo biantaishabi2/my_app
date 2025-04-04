@@ -225,7 +225,7 @@
      - [x] 测试未包含所有表单项的排序
 
 2. **Response 管理功能:**
-   - [x] 测试 `delete_response/1`
+   - [x] 测试并实现 `delete_response/1`
      - [x] 测试删除响应
      - [x] 测试删除响应时关联答案也被删除
      - [x] 测试删除后无法查询到响应
@@ -252,16 +252,28 @@
 
 ## 待办事项和注意
 
+*   **已完成的测试覆盖**:
+    *   [✓] `FormItem` 的 `get`, `update` 和 `delete` 操作。
+    *   [✓] 表单项重新排序 (`reorder_form_items/2`)。
+    *   [✓] `Response` 的 `delete` 操作。
+
 *   **后续测试覆盖**: 当前测试已覆盖阶段一、二的核心流程，但以下功能尚未编写测试 (对应阶段三及后续扩展)：
-    *   `Form`, `FormItem`, `ItemOption` 的 `update` 和 `delete` 操作。
-    *   `Response` 的 `delete` 操作。
+    *   `Form`, `ItemOption` 的 `update` 和 `delete` 操作。
     *   其他 `FormItem` 类型 (`:checkbox`, `:textarea`, `:dropdown`, `:rating` 等) 的添加和响应验证。
     *   `FormItem` 的 `validation_rules` (例如：文本格式、长度限制)。
-    *   表单项重新排序 (`reorder_form_items/2`)。
     *   表单归档 (`archive_form/1`)。
     *   响应者信息 (`respondent_info`) 的处理。
     *   逻辑规则 (`LogicRule`) 相关功能 (如果计划实现)。
     *   响应分析和摘要功能 (如果计划实现)。
+
+*   **改进数据库连接管理**:
+    *   [✓] 调整测试配置以减少连接池大小：将 `pool_size` 从动态的 `System.schedulers_online() * 2` 调整为固定的 `5`
+    *   [✓] 设置连接队列目标：添加 `queue_target: 5000` 毫秒，使连接请求排队而不是立即失败
+    *   [✓] 使用隔离测试文件：为 `delete_response/1` 创建独立测试文件，专门测试该功能
+    *   [✓] 设置测试为非异步：使用 `async: false` 确保测试按顺序执行，减少并发连接
+    *   [✓] 解决测试数据准备问题：修复用户创建验证错误（密码格式要求）
+    *   [ ] 考虑将 `async: false` 应用于所有测试文件
+    *   [ ] 考虑重构测试以使用更少的数据库事务
 
 *   **取消注释预加载断言**: 在实现 Ecto Schema 和相应的 Context 函数后，**务必**回到以下测试用例中，取消关于预加载关联数据 (`items`, `options`, `answers`) 的断言注释，以确保数据关联正确：
     *   `test/my_app/forms_test.exs`

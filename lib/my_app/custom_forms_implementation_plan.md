@@ -368,53 +368,88 @@
 
 ### 步骤 31-35：后端功能完善
 
-31. **[  ] 实现表单项管理功能（已完成测试）**
-    * [ ] 在 `lib/my_app/forms.ex` 中实现 `update_form_item/2` 函数
+31. **[✓] 实现表单项管理功能（已完成测试，已实现功能）**
+    * [✓] 在 `lib/my_app/forms.ex` 中实现 `update_form_item/2` 函数
       ```elixir
-      # 预计实现
+      # 已实现
       def update_form_item(%FormItem{} = item, attrs) do
         item
         |> FormItem.changeset(attrs)
         |> Repo.update()
       end
       ```
-    * [ ] 在 `lib/my_app/forms.ex` 中实现 `get_form_item/1` 函数
+    * [✓] 在 `lib/my_app/forms.ex` 中实现 `get_form_item/1` 函数
       ```elixir
-      # 预计实现
+      # 已实现
       def get_form_item(id) do
         Repo.get(FormItem, id)
       end
       ```
-    * [ ] 在 `lib/my_app/forms.ex` 中实现 `delete_form_item/1` 函数
+    * [✓] 在 `lib/my_app/forms.ex` 中实现 `delete_form_item/1` 函数
       ```elixir
-      # 预计实现
+      # 已实现
       def delete_form_item(%FormItem{} = item) do
         Repo.delete(item)
       end
       ```
-    * [ ] 在 `lib/my_app/forms.ex` 中实现 `reorder_form_items/2` 函数
+    * [✓] 在 `lib/my_app/forms.ex` 中实现 `reorder_form_items/2` 函数
       ```elixir
-      # 预计实现
+      # 已实现
       def reorder_form_items(form_id, item_ids) do
-        # 检查所有item_ids是否属于该表单
-        # 更新所有表单项的order值
-        # 返回重新排序后的表单项列表
+        # 1. Get all items for this form
+        query = from i in FormItem, where: i.form_id == ^form_id
+        form_items = Repo.all(query)
+        form_item_ids = Enum.map(form_items, & &1.id)
+        
+        # 2. Validate all item_ids are from this form
+        if Enum.sort(form_item_ids) != Enum.sort(item_ids) do
+          if Enum.all?(item_ids, &(&1 in form_item_ids)) do
+            {:error, :missing_items}
+          else
+            {:error, :invalid_item_ids}
+          end
+        else
+          # 3. Update the order of each item
+          Repo.transaction(fn ->
+            results = Enum.with_index(item_ids, 1) |> Enum.map(fn {item_id, new_order} ->
+              item = Enum.find(form_items, &(&1.id == item_id))
+              
+              # Only update if the order has changed
+              if item.order != new_order do
+                {:ok, updated_item} = update_form_item(item, %{order: new_order})
+                updated_item
+              else
+                item
+              end
+            end)
+            
+            # Sort results by new order
+            Enum.sort_by(results, & &1.order)
+          end)
+        end
       end
       ```
-    * [ ] 在 `lib/my_app/forms.ex` 中实现 `get_form_item_with_options/1` 函数
+    * [✓] 在 `lib/my_app/forms.ex` 中实现 `get_form_item_with_options/1` 函数
       ```elixir
-      # 预计实现
+      # 已实现
       def get_form_item_with_options(id) do
         FormItem
         |> Repo.get(id)
-        |> Repo.preload(:options)
+        |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
       end
       ```
 
-32. **[  ] 实现响应管理功能（已完成测试）**
-    * [ ] 在 `lib/my_app/responses.ex` 中实现 `delete_response/1` 函数
+32. **[✓] 实现响应管理功能（已完成测试和实现）**
+    * [✓] 在 `lib/my_app/responses.ex` 中实现 `delete_response/1` 函数
       ```elixir
-      # 预计实现
+      # 已实现
+      def delete_response(%{id: id} = _response) when is_binary(id) do
+        case get_response(id) do
+          nil -> {:error, :not_found}
+          response -> Repo.delete(response)
+        end
+      end
+
       def delete_response(%Response{} = response) do
         Repo.delete(response)
       end
@@ -476,20 +511,27 @@
 2. **当前测试状态**
    * 基础后端单元测试全部通过
    * 组件单元测试全部通过
-   * 缺失的后端功能测试已编写完成：
+   * 缺失的后端功能已实现完成并通过测试：
      - get_form_item/1
      - get_form_item_with_options/1
      - update_form_item/2
      - delete_form_item/1
      - reorder_form_items/2
      - delete_response/1
-   * LiveView测试套件已创建但尚未全部通过 (原因：部分后端函数尚未实现)
+   * 数据库连接限制问题已解决 (通过以下方法):
+     - 减少连接池大小：将 `pool_size` 从动态的 `System.schedulers_online() * 2` 调整为固定的 `5`
+     - 添加队列目标：设置 `queue_target: 5000` 毫秒，使连接请求排队而不是立即失败
+     - 隔离高资源消耗测试：为 `delete_response/1` 创建独立测试文件，专门测试该功能
+     - 设置测试为非异步：使用 `async: false` 确保测试按顺序执行，减少并发连接
+     - 修复用户创建问题：更新测试用户密码格式以符合验证要求
+   * LiveView测试套件已创建但尚未全部通过 (原因：需要修复前端代码)
 
 3. **下一步工作重点**
-   * 按TDD测试规范实现缺失的后端功能
    * 修复LiveView测试失败问题
-   * 替换已弃用的API调用
+   * 替换已弃用的API调用 (push_redirect -> push_navigate)
    * 优化性能和代码质量
+   * 实现剩余的扩展功能
+   * 清理冗余代码和未使用的变量/导入
 
 ---
 
