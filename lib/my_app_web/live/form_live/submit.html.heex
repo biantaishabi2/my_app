@@ -76,7 +76,7 @@
                             <span class="form-item-required text-red-500 required-mark">*</span>
                           <% end %>
                         </label>
-                        <div class="space-y-2">
+                        <div id={"radio-options-container-#{item.id}"} class="space-y-2">
                           <%= for option <- item.options || [] do %>
                             <div class="flex items-center form-item-option">
                               <input 

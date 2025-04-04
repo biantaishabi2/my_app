@@ -16,11 +16,7 @@ defmodule MyAppWeb.FormLive.Submit do
       
       form ->
         if form.status != :published do
-          {:ok, 
-            socket
-            |> put_flash(:error, "表单未发布，无法填写")
-            |> push_navigate(to: ~p"/forms")
-          }
+          {:error, {:redirect, %{to: "/forms", flash: %{"error" => "表单未发布，无法填写"}}}}
         else
           items_map = build_items_map(form.items)
           
@@ -76,7 +72,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def handle_event("submit_form", params, socket) do
-    form_data = params["form"] || {}
+    form_data = params["form"] || %{}
     form = socket.assigns.form
     items_map = socket.assigns.items_map
     
