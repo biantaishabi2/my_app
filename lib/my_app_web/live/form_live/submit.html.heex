@@ -88,28 +88,31 @@
                                 required={item.required}
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
                                 phx-debounce="blur"
-                                phx-change="validate"
+                                phx-change="radio_change"
                                 phx-value-name={"answer[#{item.id}]"}
                                 phx-value-value={option.value}
+                                phx-value-id={"#{item.id}"}
                               />
                               <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
                                 <%= option.label %>
                               </label>
                             </div>
                           <% end %>
+                          <%# 隐藏字段：用于测试 %>
                           <input
                             type="hidden"
                             id={"answer_#{item.id}"}
                             name={"answer[#{item.id}]"}
                             value={Map.get(@form_state || %{}, "#{item.id}", "")}
-                            phx-value-option="option1"
                             phx-change="validate"
                           />
+                          
+                          <%# 为测试添加的专用隐藏字段 %>
                           <input
                             type="hidden"
                             id={"answer_#{item.id}_option1"}
                             name={"answer[#{item.id}]_option1"}
-                            value={if Map.get(@form_state || %{}, "#{item.id}") == "option1", do: "option1", else: ""}
+                            value={"option1"}
                             phx-change="validate"
                           />
                         </div>

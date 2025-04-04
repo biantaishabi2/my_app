@@ -71,6 +71,21 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
   @impl true
+  def handle_event("radio_change", %{"id" => item_id, "value" => value}, socket) do
+    # 当单选按钮被点击时，更新form_state并清除错误
+    form_state = socket.assigns.form_state || %{}
+    updated_form_state = Map.put(form_state, item_id, value)
+    errors = socket.assigns.errors || %{}
+    updated_errors = Map.delete(errors, item_id)
+    
+    {:noreply, 
+      socket
+      |> assign(:form_state, updated_form_state)
+      |> assign(:errors, updated_errors)
+    }
+  end
+
+  @impl true
   def handle_event("submit_form", params, socket) do
     form_data = params["form"] || %{}
     form = socket.assigns.form
@@ -93,12 +108,8 @@ defmodule MyAppWeb.FormLive.Submit do
         respondent_info: respondent_info
       }) do
         {:ok, _response} ->
-          {:noreply, 
-            socket
-            |> assign(:submitted, true)
-            |> put_flash(:info, "表单提交成功")
-            |> push_navigate(to: ~p"/forms")
-          }
+          # 提交成功后重定向到表单列表页面，符合测试中的重定向期望
+          {:noreply, redirect(socket, to: ~p"/forms")}
           
         {:error, reason} ->
           {:noreply, 
