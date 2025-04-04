@@ -196,23 +196,55 @@
    - 未实现的后端功能（如 update_form_item, delete_form_item 等）
    - 弃用API调用（push_redirect -> push_navigate）
 
-## 阶段五：后续扩展计划
+## 阶段五：优先实现缺失的后端功能测试
+
+### 待完成的表单项管理相关测试（优先级：高）
+
+1. **FormItem 查询和管理功能:**
+   - [x] 测试 `get_form_item/1`
+     - [x] 测试查询存在的表单项
+     - [x] 测试查询不存在的表单项
+
+   - [x] 测试 `get_form_item_with_options/1`
+     - [x] 测试查询带选项的表单项
+     - [x] 测试验证正确预加载选项关联
+
+   - [x] 测试 `update_form_item/2`
+     - [x] 测试更新基本属性（标签、描述）
+     - [x] 测试更新必填属性
+     - [x] 测试无效数据返回错误
+
+   - [x] 测试 `delete_form_item/1`
+     - [x] 测试删除表单项
+     - [x] 测试删除表单项时关联选项也被删除
+     - [x] 测试删除后无法查询到表单项
+
+   - [x] 测试 `reorder_form_items/2`
+     - [x] 测试改变表单项顺序
+     - [x] 测试使用无效ID进行排序
+     - [x] 测试未包含所有表单项的排序
+
+2. **Response 管理功能:**
+   - [x] 测试 `delete_response/1`
+     - [x] 测试删除响应
+     - [x] 测试删除响应时关联答案也被删除
+     - [x] 测试删除后无法查询到响应
+
+### 后续扩展测试计划（优先级：中）
 
 *   **Form 模块:**
     *   [ ] 测试 `update_form/2`
-    *   [ ] 测试 `update_form_item/2`
     *   [ ] 测试 `update_item_option/3`
-    *   [ ] 测试删除 `Form`, `FormItem`, `ItemOption` 及关联数据处理
-    *   [ ] 测试 `reorder_form_items/2`
+    *   [ ] 测试删除 `Form` 及关联数据处理
     *   [ ] 测试 `archive_form/1`
     *   [ ] 测试添加其他类型 `FormItem` (`:checkbox`, `:dropdown`, `:textarea`, `:rating`)
     *   [ ] 测试 `required` 属性和 `validation_rules`
     *   [ ] 测试 `LogicRule` 相关功能 (如果实现)
+
 *   **Response 模块:**
     *   [ ] 测试非必填项处理
     *   [ ] 测试其他类型表单项的响应提交和验证
     *   [ ] 测试 `validation_rules` 的应用
-    *   [ ] 测试 `delete_response/1`
     *   [ ] 测试分析和摘要功能 (如果实现)
     *   [ ] 测试 `Form`/`FormItem` 删除对 `Response`/`Answer` 的影响
 

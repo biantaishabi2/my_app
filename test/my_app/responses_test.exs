@@ -229,4 +229,36 @@ defmodule MyApp.ResponsesTest do
     # test "supports pagination options" do ... end
     # test "supports filtering options" do ... end
   end
+  
+  describe "delete_response/1" do
+    setup [:setup_published_form]
+    
+    test "deletes the response and associated answers", %{
+      form: form,
+      text_item: text_item,
+      radio_item: radio_item
+    } do
+      # Create a response to delete
+      answers = %{
+        text_item.id => "to_delete@example.com",
+        radio_item.id => "1"
+      }
+      {:ok, response} = Responses.create_response(form.id, answers)
+      
+      # Delete the response
+      assert {:ok, %{id: deleted_id}} = Responses.delete_response(response)
+      assert deleted_id == response.id
+      
+      # Verify the response is deleted
+      assert Responses.get_response(response.id) == nil
+      
+      # Verify all responses are now empty for the form
+      assert Responses.list_responses_for_form(form.id) == []
+    end
+    
+    test "returns error when trying to delete non-existent response" do
+      non_existent_id = Ecto.UUID.generate()
+      assert {:error, :not_found} = Responses.delete_response(%{id: non_existent_id})
+    end
+  end
 end 

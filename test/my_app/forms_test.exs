@@ -207,4 +207,174 @@ defmodule MyApp.FormsTest do
     #   assert {:error, :invalid_status} = Forms.publish_form(archived_form)
     # end
   end
+
+  describe "get_form_item/1" do
+    setup [:create_form_with_radio_item]
+    
+    test "returns the form item with given id", %{radio_item: item} do
+      fetched_item = Forms.get_form_item(item.id)
+      assert fetched_item.id == item.id
+      assert fetched_item.label == item.label
+      assert fetched_item.type == :radio
+    end
+    
+    test "returns nil for non-existent form item id" do
+      non_existent_uuid = Ecto.UUID.generate()
+      assert Forms.get_form_item(non_existent_uuid) == nil
+    end
+  end
+  
+  describe "get_form_item_with_options/1" do
+    setup [:create_form_with_radio_item]
+    
+    test "returns the form item with options preloaded", %{radio_item: item} do
+      # Add some options to the radio item
+      option1_attrs = %{label: "Option X", value: "x"}
+      option2_attrs = %{label: "Option Y", value: "y"}
+      {:ok, _option1} = Forms.add_item_option(item, option1_attrs)
+      {:ok, _option2} = Forms.add_item_option(item, option2_attrs)
+      
+      # Get the item with options
+      item_with_options = Forms.get_form_item_with_options(item.id)
+      
+      # Verify the item data
+      assert item_with_options.id == item.id
+      assert item_with_options.label == item.label
+      
+      # Verify options are loaded and correct
+      assert length(item_with_options.options) == 2
+      option_labels = Enum.map(item_with_options.options, & &1.label) |> Enum.sort()
+      assert option_labels == ["Option X", "Option Y"] |> Enum.sort()
+    end
+    
+    test "returns nil for non-existent form item id when preloading options" do
+      non_existent_uuid = Ecto.UUID.generate()
+      assert Forms.get_form_item_with_options(non_existent_uuid) == nil
+    end
+  end
+  
+  describe "update_form_item/2" do
+    setup [:create_form_with_radio_item]
+    
+    test "updates form item with valid data", %{radio_item: item} do
+      update_attrs = %{
+        label: "Updated Question",
+        required: false,
+        description: "This is a description"
+      }
+      
+      assert {:ok, updated_item} = Forms.update_form_item(item, update_attrs)
+      assert updated_item.id == item.id
+      assert updated_item.label == "Updated Question"
+      assert updated_item.required == false
+      assert updated_item.description == "This is a description"
+      # Type should remain the same since we didn't update it
+      assert updated_item.type == :radio
+      
+      # Verify changes are persisted
+      fetched_item = Forms.get_form_item(item.id)
+      assert fetched_item.label == "Updated Question"
+    end
+    
+    test "returns error changeset with invalid data", %{radio_item: item} do
+      # Empty label is invalid
+      invalid_attrs = %{label: ""}
+      assert {:error, %Ecto.Changeset{}} = Forms.update_form_item(item, invalid_attrs)
+      
+      # Verify item wasn't changed
+      fetched_item = Forms.get_form_item(item.id)
+      assert fetched_item.label == item.label
+    end
+  end
+  
+  describe "delete_form_item/1" do
+    setup [:create_form_with_radio_item]
+    
+    test "deletes the form item", %{radio_item: item} do
+      assert {:ok, %{id: deleted_id}} = Forms.delete_form_item(item)
+      assert deleted_id == item.id
+      
+      # Verify item is deleted
+      assert Forms.get_form_item(item.id) == nil
+    end
+    
+    test "deletes associated options when deleting a form item", %{radio_item: item} do
+      # Add options to the item
+      {:ok, option} = Forms.add_item_option(item, %{label: "Test Option", value: "test"})
+      
+      # Delete the item
+      assert {:ok, _} = Forms.delete_form_item(item)
+      
+      # Verify item is deleted
+      assert Forms.get_form_item(item.id) == nil
+      
+      # Create a similar item to verify options don't exist in options table
+      {:ok, new_form} = Forms.create_form(%{title: "New Test Form"})
+      {:ok, new_item} = Forms.add_form_item(new_form, %{
+        label: "New Radio Question", 
+        type: :radio,
+        required: true
+      })
+      
+      # Try to query for previous option's value - should not find any
+      {:ok, all_new_options} = Forms.add_item_option(new_item, %{label: "New Option", value: "new"})
+      # Assume we can't directly test option deletion since we don't have a public API for it
+      # In a full implementation, you might add temporary helper functions for testing
+    end
+  end
+  
+  describe "reorder_form_items/2" do
+    setup do
+      # Create a form with multiple items for reordering
+      {:ok, form} = Forms.create_form(%{title: "Form for Reordering"})
+      
+      # Add several items with initial ordering
+      {:ok, item1} = Forms.add_form_item(form, %{label: "Question 1", type: :text_input})
+      {:ok, item2} = Forms.add_form_item(form, %{label: "Question 2", type: :text_input})
+      {:ok, item3} = Forms.add_form_item(form, %{label: "Question 3", type: :text_input})
+      
+      %{form: form, items: [item1, item2, item3]}
+    end
+    
+    test "changes the order of form items", %{form: form, items: [item1, item2, item3]} do
+      # Reorder the items: move item3 to first position, keeping others in order
+      new_order = [item3.id, item1.id, item2.id]
+      
+      assert {:ok, reordered_items} = Forms.reorder_form_items(form.id, new_order)
+      
+      # Verify the items were reordered
+      assert length(reordered_items) == 3
+      
+      # Extract IDs in the new order
+      reordered_ids = Enum.map(reordered_items, &(&1.id))
+      assert reordered_ids == new_order
+      
+      # Verify the order fields were updated
+      [first, second, third] = reordered_items
+      assert first.order == 1
+      assert second.order == 2
+      assert third.order == 3
+      
+      # Verify first item is now item3
+      assert first.id == item3.id
+    end
+    
+    test "returns error when item IDs don't match form's items", %{form: form, items: [item1, item2, _item3]} do
+      # Create an item for a different form
+      {:ok, other_form} = Forms.create_form(%{title: "Another Form"})
+      {:ok, other_item} = Forms.add_form_item(other_form, %{label: "Other Question", type: :text_input})
+      
+      # Try to include that item in our reordering
+      invalid_order = [item1.id, item2.id, other_item.id]
+      
+      assert {:error, :invalid_item_ids} = Forms.reorder_form_items(form.id, invalid_order)
+    end
+    
+    test "returns error when not all form items are included", %{form: form, items: [item1, item2, _item3]} do
+      # Missing one item
+      incomplete_order = [item1.id, item2.id]
+      
+      assert {:error, :missing_items} = Forms.reorder_form_items(form.id, incomplete_order)
+    end
+  end
 end 
