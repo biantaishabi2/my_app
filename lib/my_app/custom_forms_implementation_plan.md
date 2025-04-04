@@ -92,121 +92,166 @@
 
 ## 阶段三：表单系统前端实现
 
-### 1. 路由配置
-*   [ ] 在 `lib/my_app_web/router.ex` 中添加表单系统路由：
-    ```elixir
-    scope "/", MyAppWeb do
-      pipe_through [:browser, :require_authenticated_user]
-      
-      # 表单管理
-      live "/forms", FormLive.Index, :index
-      live "/forms/new", FormLive.New, :new
-      live "/forms/:id/edit", FormLive.Edit, :edit
-      
-      # 响应管理
-      live "/forms/:id/responses", ResponseLive.Index, :index
-      live "/forms/:id/responses/:response_id", ResponseLive.Show, :show
-    end
-    
-    scope "/", MyAppWeb do
-      pipe_through [:browser]
-      
-      # 公开表单填写
-      live "/f/:id", PublicFormLive.Show, :show
-      get "/f/:id/success", PublicFormController, :success
-    end
-    ```
+### 步骤 1-5：基础准备工作 (第一优先级)
 
-### 2. 表单管理功能
-*   [ ] **表单列表页面**
-    *   [ ] 创建 `lib/my_app_web/live/form_live/index.ex`：
-        *   实现 `mount/3`：加载所有表单列表
-        *   实现 `handle_event/3`：处理表单发布、删除操作
-    *   [ ] 创建 `lib/my_app_web/live/form_live/index.html.heex`：
-        *   表单列表表格视图
-        *   操作按钮（编辑、发布、查看响应、删除）
-        *   新建表单按钮
+1. **[ ] 组件库开发**
+   * [ ] 创建 `lib/my_app_web/components/form_components.ex`
+     * [ ] 实现 `form_header/1`：表单头部显示组件
+     * [ ] 实现 `text_input_field/1`：文本输入字段组件
+     * [ ] 实现 `radio_field/1`：单选按钮字段组件
 
-*   [ ] **表单创建页面**
-    *   [ ] 创建 `lib/my_app_web/live/form_live/new.ex`：
-        *   实现 `mount/3`：初始化新表单
-        *   实现 `handle_event/3`：处理表单保存
-    *   [ ] 创建 `lib/my_app_web/live/form_live/form_component.ex`：
-        *   实现表单基本信息编辑组件
-    *   [ ] 创建 `lib/my_app_web/live/form_live/new.html.heex`：
-        *   表单标题、描述输入
-        *   保存按钮
+2. **[ ] 共享布局更新**
+   * [ ] 更新 `lib/my_app_web/templates/layout/app.html.heex`
+     * [ ] 添加表单系统导航链接
+   * [ ] 创建 `lib/my_app_web/templates/layout/form.html.heex`
+     * [ ] 专用于表单显示的简洁布局
 
-*   [ ] **表单编辑页面**
-    *   [ ] 创建 `lib/my_app_web/live/form_live/edit.ex`：
-        *   实现 `mount/3`：加载已有表单数据
-        *   实现 `handle_event/3`：处理表单项管理、表单保存和发布
-    *   [ ] 创建 `lib/my_app_web/components/form_item_component.ex`：
-        *   实现各类表单项编辑组件（文本输入、单选按钮等）
-    *   [ ] 创建 `lib/my_app_web/live/form_live/edit.html.heex`：
-        *   表单基本信息编辑
-        *   表单项管理界面（添加、编辑、删除、排序）
-        *   保存和发布按钮
+3. **[ ] CSS样式准备**
+   * [ ] 创建 `assets/css/form.css`
+     * [ ] 基础表单组件样式
+     * [ ] 定义表单布局网格
+     * [ ] 响应式样式规则
 
-### 3. 表单填写功能
-*   [ ] **公开表单显示页面**
-    *   [ ] 创建 `lib/my_app_web/live/public_form_live/show.ex`：
-        *   实现 `mount/3`：加载表单和表单项
-        *   实现 `handle_event/3`：处理表单验证和提交
-    *   [ ] 创建 `lib/my_app_web/components/form_field_component.ex`：
-        *   实现各类表单字段渲染组件
-    *   [ ] 创建 `lib/my_app_web/live/public_form_live/show.html.heex`：
-        *   表单标题和说明显示
-        *   动态渲染表单字段
-        *   提交按钮
+4. **[ ] 路由配置**
+   * [ ] 在 `lib/my_app_web/router.ex` 中添加表单管理路由
+     ```elixir
+     scope "/", MyAppWeb do
+       pipe_through [:browser, :require_authenticated_user]
+       
+       # 表单管理
+       live "/forms", FormLive.Index, :index
+       live "/forms/new", FormLive.New, :new
+       live "/forms/:id/edit", FormLive.Edit, :edit
+     end
+     ```
 
-*   [ ] **提交成功页面**
-    *   [ ] 创建 `lib/my_app_web/controllers/public_form_controller.ex`：
-        *   实现 `success/2` 动作
-    *   [ ] 创建 `lib/my_app_web/templates/public_form/success.html.heex`：
-        *   显示提交成功消息
+5. **[ ] 基础JavaScript功能**
+   * [ ] 在 `assets/js/app.js` 中添加表单相关功能
+   * [ ] 创建 `assets/js/form-builder.js` 的基础结构
 
-### 4. 响应管理功能
-*   [ ] **响应列表页面**
-    *   [ ] 创建 `lib/my_app_web/live/response_live/index.ex`：
-        *   实现 `mount/3`：加载指定表单的所有响应
-        *   实现 `handle_params/3`：处理过滤和排序
-    *   [ ] 创建 `lib/my_app_web/live/response_live/index.html.heex`：
-        *   响应列表表格
-        *   过滤和排序控件
-        *   查看详情链接
+### 步骤 6-10：表单管理功能 (第二优先级)
 
-*   [ ] **响应详情页面**
-    *   [ ] 创建 `lib/my_app_web/live/response_live/show.ex`：
-        *   实现 `mount/3`：加载响应详情及关联答案
-    *   [ ] 创建 `lib/my_app_web/live/response_live/show.html.heex`：
-        *   显示提交时间、回答者信息
-        *   显示问题和答案配对
-        *   导出按钮（可选）
+6. **[ ] 表单列表页面**
+   * [ ] 创建 `lib/my_app_web/live/form_live/index.ex`
+     * [ ] 实现 `mount/3`：加载所有表单列表
+     * [ ] 实现 `handle_event/3`：处理表单发布、删除操作
+   * [ ] 创建 `lib/my_app_web/live/form_live/index.html.heex`
+     * [ ] 表单列表表格视图
+     * [ ] 操作按钮（编辑、发布、查看响应、删除）
+     * [ ] 新建表单按钮
 
-### 5. 组件库开发
-*   [ ] 创建 `lib/my_app_web/components/form_components.ex`：
-    *   [ ] 实现 `form_header/1`：表单头部显示组件
-    *   [ ] 实现 `text_input_field/1`：文本输入字段组件
-    *   [ ] 实现 `radio_field/1`：单选按钮字段组件
-    *   [ ] 实现 `form_builder/1`：表单构建器组件
+7. **[ ] 表单创建页面**
+   * [ ] 创建 `lib/my_app_web/live/form_live/new.ex`
+     * [ ] 实现 `mount/3`：初始化新表单
+     * [ ] 实现 `handle_event/3`：处理表单保存
+   * [ ] 创建 `lib/my_app_web/live/form_live/form_component.ex`
+     * [ ] 实现表单基本信息编辑组件
+   * [ ] 创建 `lib/my_app_web/live/form_live/new.html.heex`
+     * [ ] 表单标题、描述输入
+     * [ ] 保存按钮
 
-### 6. 共享布局更新
-*   [ ] 更新 `lib/my_app_web/templates/layout/app.html.heex`：
-    *   添加表单系统导航链接
-*   [ ] 创建 `lib/my_app_web/templates/layout/form.html.heex`：
-    *   专用于表单显示的简洁布局
+8. **[ ] 表单编辑基础功能**
+   * [ ] 创建 `lib/my_app_web/live/form_live/edit.ex`
+     * [ ] 实现 `mount/3`：加载已有表单数据
+     * [ ] 实现基本 `handle_event/3` 处理
+   * [ ] 创建 `lib/my_app_web/live/form_live/edit.html.heex`
+     * [ ] 表单基本信息编辑
+     * [ ] 基本表单项展示
+     * [ ] 保存和发布按钮
 
-### 7. JavaScript增强功能
-*   [ ] 创建 `assets/js/form-builder.js`：
-    *   实现表单项拖放排序
-    *   实现动态表单验证
+9. **[ ] 表单项编辑组件**
+   * [ ] 创建 `lib/my_app_web/components/form_item_component.ex`
+     * [ ] 实现文本输入项编辑组件
+     * [ ] 实现单选按钮项编辑组件
+   * [ ] 更新 `lib/my_app_web/live/form_live/edit.ex`
+     * [ ] 添加表单项添加功能
+     * [ ] 添加表单项编辑功能
 
-### 8. CSS样式设计
-*   [ ] 创建 `assets/css/form.css`：
-    *   表单组件样式
-    *   响应式布局规则
-    *   表单编辑器样式
+10. **[ ] 表单项高级管理**
+    * [ ] 更新 `lib/my_app_web/live/form_live/edit.ex`
+      * [ ] 实现表单项删除功能
+      * [ ] 实现表单项排序功能
+    * [ ] 完善 `assets/js/form-builder.js`
+      * [ ] 实现拖放排序功能
+
+### 步骤 11-15：表单填写功能 (第三优先级)
+
+11. **[ ] 路由配置-公开表单**
+    * [ ] 在 `lib/my_app_web/router.ex` 中添加公开表单路由
+      ```elixir
+      scope "/", MyAppWeb do
+        pipe_through [:browser]
+        
+        # 公开表单填写
+        live "/f/:id", PublicFormLive.Show, :show
+        get "/f/:id/success", PublicFormController, :success
+      end
+      ```
+
+12. **[ ] 表单字段显示组件**
+    * [ ] 创建 `lib/my_app_web/components/form_field_component.ex`
+      * [ ] 实现文本输入字段组件
+      * [ ] 实现单选按钮字段组件
+      * [ ] 实现字段验证功能
+
+13. **[ ] 公开表单显示-基础**
+    * [ ] 创建 `lib/my_app_web/live/public_form_live/show.ex`
+      * [ ] 实现 `mount/3`：加载表单和表单项
+    * [ ] 创建 `lib/my_app_web/live/public_form_live/show.html.heex`
+      * [ ] 表单标题和说明显示
+      * [ ] 基础表单字段渲染
+
+14. **[ ] 公开表单-验证与提交**
+    * [ ] 更新 `lib/my_app_web/live/public_form_live/show.ex`
+      * [ ] 实现 `handle_event/3`：处理表单验证和提交
+    * [ ] 更新 `lib/my_app_web/live/public_form_live/show.html.heex`
+      * [ ] 添加验证反馈
+      * [ ] 添加提交按钮
+
+15. **[ ] 提交成功页面**
+    * [ ] 创建 `lib/my_app_web/controllers/public_form_controller.ex`
+      * [ ] 实现 `success/2` 动作
+    * [ ] 创建 `lib/my_app_web/templates/public_form/success.html.heex`
+      * [ ] 显示提交成功消息
+
+### 步骤 16-20：响应管理功能 (第四优先级)
+
+16. **[ ] 路由配置-响应管理**
+    * [ ] 在 `lib/my_app_web/router.ex` 中添加响应管理路由
+      ```elixir
+      scope "/", MyAppWeb do
+        pipe_through [:browser, :require_authenticated_user]
+        
+        # 响应管理
+        live "/forms/:id/responses", ResponseLive.Index, :index
+        live "/forms/:id/responses/:response_id", ResponseLive.Show, :show
+      end
+      ```
+
+17. **[ ] 响应列表页面-基础**
+    * [ ] 创建 `lib/my_app_web/live/response_live/index.ex`
+      * [ ] 实现 `mount/3`：加载指定表单的所有响应
+    * [ ] 创建 `lib/my_app_web/live/response_live/index.html.heex`
+      * [ ] 基础响应列表表格
+      * [ ] 查看详情链接
+
+18. **[ ] 响应列表页面-高级功能**
+    * [ ] 更新 `lib/my_app_web/live/response_live/index.ex`
+      * [ ] 实现 `handle_params/3`：处理过滤和排序
+    * [ ] 更新 `lib/my_app_web/live/response_live/index.html.heex`
+      * [ ] 添加过滤和排序控件
+
+19. **[ ] 响应详情页面-基础**
+    * [ ] 创建 `lib/my_app_web/live/response_live/show.ex`
+      * [ ] 实现 `mount/3`：加载响应详情及关联答案
+    * [ ] 创建 `lib/my_app_web/live/response_live/show.html.heex`
+      * [ ] 显示提交时间、回答者信息
+      * [ ] 显示问题和答案配对
+
+20. **[ ] 响应详情页面-高级功能**
+    * [ ] 更新 `lib/my_app_web/live/response_live/show.html.heex`
+      * [ ] 添加导出按钮
+    * [ ] 在 `lib/my_app_web/live/response_live/show.ex` 中添加导出功能
 
 ---
 
