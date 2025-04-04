@@ -285,6 +285,77 @@
 
 ---
 
+## 阶段四：前端测试实现
+
+### 步骤 21-25：LiveView 测试基础设施
+
+21. **[✓] 测试工具和辅助函数准备**
+    * [✓] 更新 `/test/support/conn_case.ex` 添加 LiveView 测试辅助函数
+    * [✓] 创建 `/test/support/fixtures/forms_fixtures.ex` 添加表单测试数据生成函数
+      * [✓] 实现 `form_fixture/1` 创建测试表单
+      * [✓] 实现 `form_item_fixture/2` 创建测试表单项
+      * [✓] 实现 `item_option_fixture/2` 创建测试选项
+
+22. **[✓] 表单列表页面测试**
+    * [✓] 创建 `/test/my_app_web/live/form_live/index_test.exs`
+      * [✓] 测试表单列表页面加载
+      * [✓] 测试创建新表单按钮存在
+      * [✓] 测试表单列表显示
+      * [✓] 测试新表单创建功能
+
+23. **[✓] 表单创建和验证测试**
+    * [✓] 在 `/test/my_app_web/live/form_live/index_test.exs` 中
+      * [✓] 测试表单创建表单提交验证
+      * [✓] 测试表单错误提示显示
+      * [✓] 测试表单成功保存后跳转
+
+24. **[✓] 前端 JavaScript Hooks 集成测试**
+    * [✓] 创建前端表单验证和提交钩子
+      * [✓] 在 `/assets/js/hooks.js` 中实现 `FormHook`
+      * [✓] 在 `/assets/js/app.js` 中注册钩子
+    * [✓] 在 LiveView 测试中验证前端事件处理
+
+25. **[✓] 测试计划文档更新**
+    * [✓] 更新 `/test/TDD_PLAN.md` 添加前端测试计划
+    * [✓] 在测试计划中标记已完成的测试项目
+    * [✓] 添加后续前端测试计划和优先级
+
+### 步骤 26-30：功能测试实现
+
+26. **[ ] 表单编辑页面测试**
+    * [ ] 创建 `/test/my_app_web/live/form_live/edit_test.exs`
+      * [ ] 测试表单编辑页面加载
+      * [ ] 测试表单项添加功能
+      * [ ] 测试表单项编辑功能
+      * [ ] 测试表单发布功能
+
+27. **[ ] 表单显示页面测试**
+    * [ ] 创建 `/test/my_app_web/live/form_live/show_test.exs`
+      * [ ] 测试表单显示页面加载
+      * [ ] 测试表单项显示正确
+      * [ ] 测试权限检查功能
+
+28. **[ ] 表单提交页面测试**
+    * [ ] 创建 `/test/my_app_web/live/form_live/submit_test.exs`
+      * [ ] 测试表单提交页面加载
+      * [ ] 测试表单验证功能
+      * [ ] 测试成功提交功能
+
+29. **[ ] 响应页面测试**
+    * [ ] 创建 `/test/my_app_web/live/form_live/responses_test.exs`
+      * [ ] 测试响应列表页面
+      * [ ] 测试响应详情页面
+      * [ ] 测试响应删除功能
+
+30. **[ ] 组件测试**
+    * [ ] 创建 `/test/my_app_web/components/form_components_test.exs`
+      * [ ] 测试表单头部组件渲染
+      * [ ] 测试文本输入字段组件
+      * [ ] 测试单选按钮字段组件
+      * [ ] 测试表单构建器组件
+
+---
+
 **注意:**
 
 *   每完成一步（或一个函数的实现），都应该运行相关的测试 (`mix test path/to/test.exs:line_number` 或 `mix test path/to/file.exs`) 确认其通过，并运行 `mix test test/my_app/forms_test.exs test/my_app/responses_test.exs` 确保没有破坏其他测试。
@@ -294,3 +365,6 @@
 *   前端实现采用Phoenix LiveView，充分利用其实时交互特性进行表单验证和动态更新。
 *   组件设计应考虑可重用性，便于扩展新的表单项类型。
 *   表单填写页面应关注用户体验，确保在移动设备上也能良好工作。
+*   前端测试应检查事件处理和状态更新，确保用户交互正常工作。
+*   测试应覆盖边缘情况，如表单验证错误、提交空表单等异常情况。
+*   使用 `floki` 库来测试 HTML 内容，确保渲染内容符合预期。
