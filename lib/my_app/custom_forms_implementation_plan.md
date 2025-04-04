@@ -56,9 +56,9 @@
 ## 阶段二：实现核心 `Response` 模块功能
 
 7.  **数据库基础 (Responses 相关)**
-    *   [ ] **生成迁移文件**: 运行 `mix ecto.gen.migration create_responses_tables` (或类似，包含 responses, answers)。
-    *   [ ] **编写迁移**: 在迁移文件中定义 `responses`, `answers` 表的结构，包括字段 (`submitted_at`, `respondent_info`, `value` - 推荐 `map` 或 `jsonb`)、类型、约束、索引、外键。
-    *   [ ] **运行迁移**: 运行 `mix ecto.migrate` 创建数据库表。
+    *   [x] **生成迁移文件**: 运行 `mix ecto.gen.migration create_responses_tables` (或类似，包含 responses, answers)。
+    *   [x] **编写迁移**: 在迁移文件中定义 `responses`, `answers` 表的结构，包括字段 (`submitted_at`, `respondent_info`, `value` - 推荐 `map` 或 `jsonb`)、类型、约束、索引、外键。
+    *   [x] **运行迁移**: 运行 `mix ecto.migrate` 创建数据库表。
 
 8.  **实现 `MyApp.Responses.create_response/2`**
     *   [ ] 在 `lib/my_app/responses.ex` 中定义 `create_response/2` 函数 (接收 `form_id` 和 `answers_map`)。
