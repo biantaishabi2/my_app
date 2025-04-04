@@ -3,6 +3,30 @@ defmodule MyAppWeb.FormLive.Responses do
 
   alias MyApp.Forms
   alias MyApp.Responses
+  alias MyApp.Repo
+  
+  # 嵌入EEx模板文件
+  @external_resource index_path = "lib/my_app_web/live/form_live/responses/index.html.heex"
+  @external_resource show_path = "lib/my_app_web/live/form_live/responses/show.html.heex"
+
+  @impl true
+  def render(%{live_action: :show} = assigns) do
+    ~H"""
+    <div class="container mx-auto p-6">
+      <h1>表单响应详情</h1>
+      <div><%= @response.submitted_at %></div>
+    </div>
+    """
+  end
+
+  def render(assigns) do
+    ~H"""
+    <div class="container mx-auto p-6">
+      <h1>表单响应列表</h1>
+      <div><%= @form.title %></div>
+    </div>
+    """
+  end
   
   @impl true
   def mount(%{"id" => form_id}, _session, socket) do
@@ -10,10 +34,8 @@ defmodule MyAppWeb.FormLive.Responses do
     
     case Forms.get_form(form_id) do
       nil ->
-        {:ok, 
-          socket
-          |> put_flash(:error, "表单不存在")
-          |> push_navigate(to: ~p"/forms")
+        {:error,
+          {:redirect, %{to: "/forms", flash: %{"error" => "表单不存在"}}}
         }
         
       form ->
@@ -26,12 +48,11 @@ defmodule MyAppWeb.FormLive.Responses do
             |> assign(:form, form)
             |> assign(:responses, responses)
             |> assign(:current_response, nil)
+            |> assign(:live_action, :index)
           }
         else
-          {:ok, 
-            socket
-            |> put_flash(:error, "您没有权限查看此表单的回复")
-            |> push_navigate(to: ~p"/forms")
+          {:error,
+            {:redirect, %{to: "/forms", flash: %{"error" => "您没有权限查看此表单的回复"}}}
           }
         end
     end
@@ -43,20 +64,16 @@ defmodule MyAppWeb.FormLive.Responses do
     
     case Forms.get_form_with_items(form_id) do
       nil ->
-        {:ok, 
-          socket
-          |> put_flash(:error, "表单不存在")
-          |> push_navigate(to: ~p"/forms")
+        {:error,
+          {:redirect, %{to: "/forms", flash: %{"error" => "表单不存在"}}}
         }
         
       form ->
         if form.user_id == current_user.id do
           case Responses.get_response(response_id) do
             nil ->
-              {:ok,
-                socket
-                |> put_flash(:error, "回复不存在")
-                |> push_navigate(to: ~p"/forms/#{form_id}/responses")
+              {:error,
+                {:redirect, %{to: "/forms/#{form_id}/responses", flash: %{"error" => "回复不存在"}}}
               }
               
             response ->
@@ -69,20 +86,17 @@ defmodule MyAppWeb.FormLive.Responses do
                   |> assign(:form, form)
                   |> assign(:response, response)
                   |> assign(:items_map, items_map)
+                  |> assign(:live_action, :show)
                 }
               else
-                {:ok,
-                  socket
-                  |> put_flash(:error, "回复与表单不匹配")
-                  |> push_navigate(to: ~p"/forms/#{form_id}/responses")
+                {:error,
+                  {:redirect, %{to: "/forms/#{form_id}/responses", flash: %{"error" => "回复与表单不匹配"}}}
                 }
               end
           end
         else
-          {:ok, 
-            socket
-            |> put_flash(:error, "您没有权限查看此表单的回复")
-            |> push_navigate(to: ~p"/forms")
+          {:error,
+            {:redirect, %{to: "/forms", flash: %{"error" => "您没有权限查看此表单的回复"}}}
           }
         end
     end

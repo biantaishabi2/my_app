@@ -18,10 +18,8 @@ defmodule MyAppWeb.FormLive.Submit do
       
       form ->
         if form.status != :published do
-          {:ok, 
-            socket
-            |> put_flash(:error, "表单未发布，无法填写")
-            |> push_navigate(to: ~p"/forms")
+          {:error, 
+            {:redirect, %{to: "/forms", flash: %{"error" => "表单未发布，无法填写"}}}
           }
         else
           items_map = build_items_map(form.items)

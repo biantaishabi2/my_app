@@ -28,30 +28,86 @@
         </div>
         
         <div class="p-6">
-          <.form
-            for={%{}}
+          <form
+            id="form-submission"
             phx-change="validate"
             phx-submit="submit_form"
-            id="form-submission"
             phx-hook="FormSubmit"
           >
             <div class="space-y-6">
               <%= for item <- @form.items do %>
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <.text_input_field
-                      field={item}
-                      form_state={@form_state}
-                      error={@errors[item.id]}
-                    />
+                    <div class="form-field form-item mb-4">
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="text"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <input 
+                        type="hidden"
+                        id={"answer_#{item.id}"}
+                        name={"answer[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        phx-change="validate"
+                      />
+                      <%= if @errors[item.id] do %>
+                        <div class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
                   
                   <% :radio -> %>
-                    <.radio_field
-                      field={item}
-                      options={item.options || []}
-                      form_state={@form_state}
-                      error={@errors[item.id]}
-                    />
+                    <div class="form-field form-item mb-4">
+                      <fieldset>
+                        <legend class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
+                          <%= item.label %>
+                          <%= if item.required do %>
+                            <span class="form-item-required text-red-500 required-mark">*</span>
+                          <% end %>
+                        </legend>
+                        <div class="space-y-2">
+                          <%= for option <- item.options || [] do %>
+                            <div class="flex items-center form-item-option">
+                              <input 
+                                type="radio" 
+                                id={"#{item.id}_#{option.id}"}
+                                name={"form[#{item.id}]"}
+                                value={option.value}
+                                checked={Map.get(@form_state || %{}, "#{item.id}") == option.value}
+                                required={item.required}
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                phx-debounce="blur"
+                                phx-change="validate"
+                              />
+                              <label for={"#{item.id}_#{option.id}"} class="ml-2 text-sm text-gray-700">
+                                <%= option.label %>
+                              </label>
+                            </div>
+                          <% end %>
+                          <input
+                            type="hidden"
+                            id={"answer_#{item.id}"}
+                            name={"answer[#{item.id}]"}
+                            value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                            phx-change="validate"
+                          />
+                        </div>
+                        <%= if @errors[item.id] do %>
+                          <div class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
+                        <% end %>
+                      </fieldset>
+                    </div>
                 <% end %>
               <% end %>
             </div>
@@ -59,12 +115,13 @@
             <div class="mt-8 flex justify-end">
               <button
                 type="submit"
+                phx-click="submit_form"
                 class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
               >
                 提交
               </button>
             </div>
-          </.form>
+          </form>
         </div>
       </div>
     <% end %>
