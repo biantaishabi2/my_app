@@ -182,19 +182,27 @@
 
 2. **LiveView页面测试 - 已编写但未完全通过**
    - 表单列表页面测试 - 部分通过
-   - 表单编辑功能测试 - 待执行（需要实现缺失的后端功能）
-   - 表单显示页面测试 - 待执行
-   - 表单提交功能测试 - 待执行
-   - 表单响应查看功能测试 - 待执行
+   - 表单编辑功能测试 - 部分通过（后端功能已实现）
+   - 表单显示页面测试 - 已通过
+   - 表单提交功能测试 - 待通过
+   - 表单响应查看功能测试 - 待通过
 
 3. **测试数据准备**
    - 创建了表单测试数据生成函数 (forms_fixtures.ex)
    - 创建了响应测试数据生成函数 (responses_fixtures.ex)
 
-4. **待解决问题**
-   - 数据库连接数限制问题
-   - 未实现的后端功能（如 update_form_item, delete_form_item 等）
-   - 弃用API调用（push_redirect -> push_navigate）
+4. **已解决问题**
+   - 数据库连接数限制问题已解决
+   - 后端功能已实现（get_form_item/1, get_form_item_with_options/1, update_form_item/2, delete_form_item/1, reorder_form_items/2, delete_response/1）
+   - 弃用API调用已修复（已将 push_redirect 替换为 push_navigate）
+   - 解决了CSS类和HTML元素不匹配的问题：
+     - 添加 `.status-badge`, `.form-item`, `.form-item-required`, `.form-item-option` 等类名
+     - 修改HTML元素类型以匹配测试期望
+
+5. **待解决问题**
+   - 添加缺失的事件处理函数（如 cancel_new_form）
+   - 修复未使用变量的警告
+   - 调整测试用例以适应实际应用功能
 
 ## 阶段五：优先实现缺失的后端功能测试
 

@@ -5,12 +5,12 @@
         <h1 class="text-2xl font-bold text-gray-800"><%= @form.title %></h1>
         <div class="flex space-x-2">
           <%= if @form.user_id == @current_user.id do %>
-            <button
-              phx-click="edit_form"
+            <a 
+              href={~p"/forms/#{@form.id}/edit"}
               class="px-4 py-2 bg-indigo-600 text-white text-sm rounded shadow hover:bg-indigo-700 transition"
             >
               编辑表单
-            </button>
+            </a>
           <% end %>
           
           <%= if @form.status == :published do %>
@@ -25,9 +25,9 @@
       </div>
       
       <%= if @form.description do %>
-        <div class="mt-2 text-gray-600">
+        <p class="mt-2 text-gray-600">
           <%= @form.description %>
-        </div>
+        </p>
       <% end %>
 
       <div class="mt-2 text-sm">
@@ -38,11 +38,11 @@
           状态: 
           <%= case @form.status do %>
             <% :draft -> %>
-              <span class="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">
+              <span class="status-badge px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">
                 草稿
               </span>
             <% :published -> %>
-              <span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs">
+              <span class="status-badge px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs">
                 已发布
               </span>
           <% end %>
@@ -61,12 +61,12 @@
           <p>此表单还没有任何表单项</p>
           <%= if @form.user_id == @current_user.id do %>
             <p class="mt-2">
-              <button
-                phx-click="edit_form"
+              <a
+                href={~p"/forms/#{@form.id}/edit"}
                 class="text-indigo-600 hover:text-indigo-800"
               >
                 点击编辑表单
-              </button>
+              </a>
               来添加表单项
             </p>
           <% end %>
@@ -74,12 +74,12 @@
       <% else %>
         <div class="space-y-6">
           <%= for item <- @form.items do %>
-            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div class="form-item bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div class="flex justify-between">
                 <h3 class="font-medium text-gray-800">
                   <%= item.label %>
                   <%= if item.required do %>
-                    <span class="text-red-500">*</span>
+                    <span class="form-item-required text-red-500">必填</span>
                   <% end %>
                 </h3>
                 <span class="text-xs text-gray-500">
@@ -94,11 +94,7 @@
                 </span>
               </div>
               
-              <%= if item.description do %>
-                <div class="mt-1 text-sm text-gray-600">
-                  <%= item.description %>
-                </div>
-              <% end %>
+              <%# 取消对item.description的引用，因为模型中没有该字段 %>
               
               <div class="mt-3">
                 <%= case item.type do %>
@@ -108,7 +104,7 @@
                   <% :radio -> %>
                     <div class="space-y-2">
                       <%= for option <- item.options do %>
-                        <div class="flex items-center">
+                        <div class="form-item-option flex items-center">
                           <input 
                             type="radio" 
                             name={"preview_#{item.id}"} 

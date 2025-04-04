@@ -27,7 +27,17 @@ defmodule MyAppWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
+      import Phoenix.LiveViewTest
       import MyAppWeb.ConnCase
+      
+      # 辅助函数，用于获取HTML元素的属性
+      def attribute(element, name) do
+        element
+        |> render()
+        |> Floki.parse_fragment!()
+        |> Floki.attribute(name)
+        |> List.first()
+      end
     end
   end
 

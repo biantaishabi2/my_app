@@ -82,7 +82,7 @@ defmodule MyAppWeb.FormLive.ShowTest do
       other_form = form_fixture(%{user_id: other_user.id, title: "其他用户的草稿表单", status: :draft})
       
       # 尝试访问该表单
-      assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/forms/#{other_form.id}")
+      assert {:error, {:live_redirect, %{to: path, flash: %{"error" => _}}}} = live(conn, ~p"/forms/#{other_form.id}")
       assert path =~ "/forms"
     end
 

@@ -1,0 +1,123 @@
+commit 7d72ba6a5dfdd867853cbf8175b744c710140634
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:42:07 2025 +0000
+
+    feat: 创建responses和answers数据库表，更新实施计划文档
+
+commit 2bc5598fbab84049ecce279b9cf8e286cde4fd04
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:40:21 2025 +0000
+
+    feat: 实现publish_form/1函数，测试通过，更新实施计划文档
+
+commit 89cd24fd607c8264dc6aeec035abc99062db0c82
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:38:11 2025 +0000
+
+    feat: 实现add_item_option/2函数，测试通过，更新实施计划文档
+
+commit 5b9742365e29fa4953da1e2ff7d08b8b6c892127
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:36:01 2025 +0000
+
+    feat: 实现add_form_item/2函数，测试通过，更新实施计划文档
+
+commit b593636b95baca08deee4db0cba098bcfeb22979
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:32:31 2025 +0000
+
+    feat: 实现get_form/1函数，测试通过
+
+commit 3002a94ccfaa6cbd9fae9d2c5dc5e76978c0b0d8
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:31:16 2025 +0000
+
+    feat: 完成create_form/1函数实现，所有相关测试通过
+
+commit ac3099d493af54c2e15543e3d3435a9d627edafa
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:16:00 2025 +0000
+
+    docs: 添加自定义表单系统的实施计划文档
+    
+    - 创建 lib/my_app/custom_forms_implementation_plan.md 文件。
+    
+    - 详细列出实现 Forms 和 Responses 核心功能的步骤 (数据库迁移, 函数实现, 测试运行)。
+    
+    - 用于指导后续 TDD 开发流程。
+
+commit 93d501dbfad55e755d0c0546e24e139a3f46153c
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 09:08:40 2025 +0000
+
+    chore: 准备测试环境并确认核心功能测试按预期失败
+    
+    - 运行 mix test 初始失败 (原因: 模块/Schema 未定义)。
+    
+    - 添加空的 Context 模块 (Forms, Responses) 和基础 Schema 文件 (Form, FormItem, ItemOption, Response, Answer) 以解决编译问题。
+    
+    - 再次运行 mix test 遇到 'too_many_connections' 数据库错误。
+    
+    - 修改 forms_test.exs 和 responses_test.exs，设置 async: false 尝试解决连接问题。
+    
+    - 再次运行 mix test 仍然报错，并发现 chat_test.exs 存在编译错误。
+    
+    - 通过指定测试文件 (mix test test/... test/...) 忽略 chat_test.exs。
+    
+    - 最终成功运行测试，确认按预期因函数未定义 (UndefinedFunctionError) 而失败。
+
+commit 8b70636965078747ba4ca8c65d48b974454aba9f
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 08:54:24 2025 +0000
+
+    feat: 添加核心 Form 和 Response 模块的初始测试 (TDD 阶段 1 & 2)
+    
+    - 创建测试文件: forms_test.exs, responses_test.exs
+    
+    - 编写测试覆盖: Form (创建, 获取, 添加文本/单选项, 添加选项, 发布), Response (创建 - 有效/无效, 获取, 按表单列出)
+    
+    - 更新 TDD_PLAN.md: 标记阶段 1 & 2 为完成, 添加具体测试用例名, 添加待办事项 (待测功能, 待取消注释的断言)
+
+commit 7dbe17af8a1f497d030d6609a45831d420479920
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 08:40:11 2025 +0000
+
+    编写测试实施计划
+
+commit ca55aa736b47b90399db7ee308a5ffac1f011088
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 08:28:52 2025 +0000
+
+    update
+
+commit c32219da890552ab8e29e35fefb1f97b4da3ea8f
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 03:12:41 2025 +0000
+
+    Revert "for revert"
+    
+    This reverts commit 81806e8ca2165dc8c1fa610047fa61d3ab15eb05.
+
+commit 81806e8ca2165dc8c1fa610047fa61d3ab15eb05
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 03:08:41 2025 +0000
+
+    for revert
+
+commit f37f26c0d51e9e9cd1fd86f2ee7a57e6ba140c7c
+Author: Test User <test@example.com>
+Date:   Fri Apr 4 01:01:31 2025 +0000
+
+    优化了一些设置页面等
+
+commit 29595d067ccad78d0cf2d348d21ffe845c57a42b
+Author: Test User <test@example.com>
+Date:   Thu Apr 3 05:48:06 2025 +0000
+
+    修复最后一条消息被遮挡}
+
+commit 3a35e4209285fec43438206b80c0aaf1a1c083a2
+Author: Test User <test@example.com>
+Date:   Thu Apr 3 05:04:57 2025 +0000
+
+    update
