@@ -15,12 +15,13 @@ defmodule MyApp.Responses.Answer do
 
     # No timestamps needed usually
     field :inserted_at, :utc_datetime, read_after_writes: true
+    field :updated_at, :utc_datetime, read_after_writes: true
   end
 
   @doc false
   def changeset(answer, attrs) do
     answer
-    |> cast(attrs, [:value, :response_id, :form_item_id])
+    |> cast(attrs, [:value, :response_id, :form_item_id, :inserted_at, :updated_at])
     |> validate_required([:value, :response_id, :form_item_id])
     |> foreign_key_constraint(:response_id)
     |> foreign_key_constraint(:form_item_id)

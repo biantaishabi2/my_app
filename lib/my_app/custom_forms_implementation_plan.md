@@ -61,32 +61,32 @@
     *   [x] **运行迁移**: 运行 `mix ecto.migrate` 创建数据库表。
 
 8.  **实现 `MyApp.Responses.create_response/2`**
-    *   [ ] 在 `lib/my_app/responses.ex` 中定义 `create_response/2` 函数 (接收 `form_id` 和 `answers_map`)。
-    *   [ ] 引入 `Repo`, `MyApp.Responses.Response`, `MyApp.Responses.Answer`, `MyApp.Forms` 别名。
-    *   [ ] **获取并验证表单**: 使用 `Forms.get_form/1` 获取 `form_id` 对应的表单，并预加载 `items` 及其 `options` (`Repo.preload(form, [items: :options])`)。验证表单是否存在且状态为 `:published`。
-    *   [ ] **验证答案**: 
+    *   [x] 在 `lib/my_app/responses.ex` 中定义 `create_response/2` 函数 (接收 `form_id` 和 `answers_map`)。
+    *   [x] 引入 `Repo`, `MyApp.Responses.Response`, `MyApp.Responses.Answer`, `MyApp.Forms` 别名。
+    *   [x] **获取并验证表单**: 使用 `Forms.get_form/1` 获取 `form_id` 对应的表单，并预加载 `items` 及其 `options` (`Repo.preload(form, [items: :options])`)。验证表单是否存在且状态为 `:published`。
+    *   [x] **验证答案**: 
         *   遍历表单的 `items`。
         *   检查必填项 (`required: true`) 是否在 `answers_map` 中存在答案。
         *   对于 `:radio` (及后续 `:dropdown`) 类型，验证 `answers_map` 中的值是否是该 `item` 的有效 `option.value` 之一。
         *   (后续可添加其他验证，如 `:text_input` 格式)。
-        *   如果验证失败，返回 `{:error, reason}` (例如 `{:error, :validation, changeset}` 或 `{:error, :invalid_answer, item_id}`）。
-    *   [ ] **构建数据**: 如果验证通过，创建 `Response` 结构 (设置 `submitted_at`, `form_id`) 和 `Answer` 结构列表 (设置 `value`, `form_item_id`)。
-    *   [ ] **原子化插入**: 使用 `Repo.transaction/1` 和 `Ecto.Multi`，将 `Response` 和所有 `Answers` 一起插入数据库。
-    *   [ ] **运行测试**: 涉及 `create_response` 的测试，如 `test/my_app/responses_test.exs:51` (valid), `test/my_app/responses_test.exs:90` (missing text), `test/my_app/responses_test.exs:106` (missing radio), `test/my_app/responses_test.exs:117` (invalid radio value), `test/my_app/responses_test.exs:129` (draft form), `test/my_app/responses_test.exs:138` (non-existent form)。
+        *   如果验证失败，返回 `{:error, reason}` (例如 `{:error, :validation_failed}` 或 `{:error, :invalid_answer, item_id}`）。
+    *   [x] **构建数据**: 如果验证通过，创建 `Response` 结构 (设置 `submitted_at`, `form_id`) 和 `Answer` 结构列表 (设置 `value`, `form_item_id`)。
+    *   [x] **原子化插入**: 使用 `Repo.transaction/1`，将 `Response` 和所有 `Answers` 一起插入数据库。
+    *   [x] **运行测试**: 涉及 `create_response` 的测试，如 `test/my_app/responses_test.exs:51` (valid), `test/my_app/responses_test.exs:90` (missing text), `test/my_app/responses_test.exs:106` (missing radio), `test/my_app/responses_test.exs:117` (invalid radio value), `test/my_app/responses_test.exs:129` (draft form), `test/my_app/responses_test.exs:138` (non-existent form)。
 
 9.  **实现 `MyApp.Responses.get_response/1`**
-    *   [ ] 在 `lib/my_app/responses.ex` 中定义 `get_response/1` 函数。
-    *   [ ] 使用 `Repo.get/2` 获取 `Response`。
-    *   [ ] 使用 `Repo.preload/2` 预加载 `:answers` 关联。
-    *   [ ] **取消注释测试断言**: 回到 `test/my_app/responses_test.exs` 中 `get_response/1` 的测试，取消关于 `answers` 预加载和内容的断言注释。
-    *   [ ] **运行测试**: `test/my_app/responses_test.exs:149` (get valid), `test/my_app/responses_test.exs:180` (get non-existent)。
+    *   [x] 在 `lib/my_app/responses.ex` 中定义 `get_response/1` 函数。
+    *   [x] 使用 `Repo.get/2` 获取 `Response`。
+    *   [x] 使用 `Repo.preload/2` 预加载 `:answers` 关联。
+    *   [x] **取消注释测试断言**: 回到 `test/my_app/responses_test.exs` 中 `get_response/1` 的测试，取消关于 `answers` 预加载和内容的断言注释。
+    *   [x] **运行测试**: `test/my_app/responses_test.exs:149` (get valid), `test/my_app/responses_test.exs:180` (get non-existent)。
 
 10. **实现 `MyApp.Responses.list_responses_for_form/1`**
-    *   [ ] 在 `lib/my_app/responses.ex` 中定义 `list_responses_for_form/1` 函数。
-    *   [ ] 使用 `Ecto.Query` 构建查询，根据 `form_id` 筛选 `Response`。
-    *   [ ] 使用 `Repo.all/1` 执行查询。
-    *   [ ] (可选) 根据需要决定是否预加载 `:answers`。
-    *   [ ] **运行测试**: `test/my_app/responses_test.exs:189` (list valid), `test/my_app/responses_test.exs:218` (list empty), `test/my_app/responses_test.exs:223` (list non-existent form)。
+    *   [x] 在 `lib/my_app/responses.ex` 中定义 `list_responses_for_form/1` 函数。
+    *   [x] 使用 `Ecto.Query` 构建查询，根据 `form_id` 筛选 `Response`。
+    *   [x] 使用 `Repo.all/1` 执行查询。
+    *   [x] (可选) 根据需要决定是否预加载 `:answers`。
+    *   [x] **运行测试**: `test/my_app/responses_test.exs:189` (list valid), `test/my_app/responses_test.exs:218` (list empty), `test/my_app/responses_test.exs:223` (list non-existent form)。
 
 ---
 

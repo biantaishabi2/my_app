@@ -18,12 +18,13 @@ defmodule MyApp.Responses.Response do
     # No timestamps() here, submitted_at serves that purpose primarily
     # Add inserted_at/updated_at if needed for internal tracking
     field :inserted_at, :utc_datetime, read_after_writes: true
+    field :updated_at, :utc_datetime, read_after_writes: true
   end
 
   @doc false
   def changeset(response, attrs) do
     response
-    |> cast(attrs, [:form_id, :submitted_at, :respondent_info])
+    |> cast(attrs, [:form_id, :submitted_at, :respondent_info, :inserted_at, :updated_at])
     |> validate_required([:form_id, :submitted_at])
     |> foreign_key_constraint(:form_id)
     |> put_assoc(:answers, attrs[:answers] || []) # Basic handling for nested answers
