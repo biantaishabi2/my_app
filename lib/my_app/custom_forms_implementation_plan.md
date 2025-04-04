@@ -21,19 +21,19 @@
     *   [x] **运行测试**: `mix test test/my_app/forms_test.exs:14` (create_form valid) 和 `test/my_app/forms_test.exs:21` (create_form invalid)。
 
 3.  **实现 `MyApp.Forms.get_form/1`**
-    *   [ ] 在 `lib/my_app/forms.ex` 中定义 `get_form/1` 函数。
-    *   [ ] 使用 `Repo.get/2` 通过 ID 获取表单。
+    *   [x] 在 `lib/my_app/forms.ex` 中定义 `get_form/1` 函数。
+    *   [x] 使用 `Repo.get/2` 通过 ID 获取表单。
     *   [ ] **(注意)** 如果需要预加载关联数据 (如 `items`)，后续在此处添加 `Repo.preload/2`。
-    *   [ ] **运行测试**: `mix test test/my_app/forms_test.exs:29` (get_form valid) 和 `test/my_app/forms_test.exs:45` (get_form non-existent)。
+    *   [x] **运行测试**: `mix test test/my_app/forms_test.exs:29` (get_form valid) 和 `test/my_app/forms_test.exs:45` (get_form non-existent)。
 
 4.  **实现 `MyApp.Forms.add_form_item/2`**
-    *   [ ] 在 `lib/my_app/forms.ex` 中定义 `add_form_item/2` 函数 (接收 `form` struct 和 `item_attrs`)。
-    *   [ ] 引入 `MyApp.Forms.FormItem` 别名。
-    *   [ ] **计算 `order`**: 查询当前表单下已有 `items` 的数量，新 `order` 为 `count + 1`。
-    *   [ ] 构造 `item_attrs`，包含计算好的 `order` 和 `form_id`。
-    *   [ ] 使用 `FormItem.changeset/2` 处理 `item_attrs`。
-    *   [ ] 使用 `Repo.insert/1` 保存表单项。
-    *   [ ] **运行测试**: 涉及 `add_form_item` 的测试，如 `test/my_app/forms_test.exs:60` (add text_input), `test/my_app/forms_test.exs:105` (add radio), `test/my_app/forms_test.exs:83` (missing label), `test/my_app/forms_test.exs:89` (missing type), `test/my_app/forms_test.exs:95` (order)。
+    *   [x] 在 `lib/my_app/forms.ex` 中定义 `add_form_item/2` 函数 (接收 `form` struct 和 `item_attrs`)。
+    *   [x] 引入 `MyApp.Forms.FormItem` 别名。
+    *   [x] **计算 `order`**: 查询当前表单下已有 `items` 的数量，新 `order` 为 `count + 1`。
+    *   [x] 构造 `item_attrs`，包含计算好的 `order` 和 `form_id`。
+    *   [x] 使用 `FormItem.changeset/2` 处理 `item_attrs`。
+    *   [x] 使用 `Repo.insert/1` 保存表单项。
+    *   [x] **运行测试**: 涉及 `add_form_item` 的测试，如 `test/my_app/forms_test.exs:60` (add text_input), `test/my_app/forms_test.exs:105` (add radio), `test/my_app/forms_test.exs:83` (missing label), `test/my_app/forms_test.exs:89` (missing type), `test/my_app/forms_test.exs:95` (order)。
 
 5.  **实现 `MyApp.Forms.add_item_option/2`**
     *   [ ] 在 `lib/my_app/forms.ex` 中定义 `add_item_option/2` 函数 (接收 `form_item` struct 和 `option_attrs`)。
