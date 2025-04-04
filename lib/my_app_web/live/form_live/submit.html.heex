@@ -81,7 +81,7 @@
                             <div class="flex items-center form-item-option">
                               <input 
                                 type="radio" 
-                                id={"#{item.id}_#{option.id}"}
+                                id={"#{item.id}_#{option.value}"}
                                 name={"form[#{item.id}]"}
                                 value={option.value}
                                 checked={Map.get(@form_state || %{}, "#{item.id}") == option.value}
@@ -90,7 +90,7 @@
                                 phx-debounce="blur"
                                 phx-change="validate"
                               />
-                              <label for={"#{item.id}_#{option.id}"} class="ml-2 text-sm text-gray-700">
+                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
                                 <%= option.label %>
                               </label>
                             </div>

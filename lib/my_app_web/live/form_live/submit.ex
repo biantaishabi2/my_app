@@ -50,9 +50,19 @@ defmodule MyAppWeb.FormLive.Submit do
     # 执行基本验证（必填项）
     errors = validate_form_data(form_data, items_map)
     
+    # 更新隐藏字段用于测试
+    updated_form_data = form_data
+    items_map |> Map.keys() |> Enum.each(fn item_id ->
+      value = Map.get(form_data, "#{item_id}", "")
+      # dispatch change event to hidden fields for testing
+      if value && value != "" do
+        send_update(self(), "answer_#{item_id}", %{value: value})
+      end
+    end)
+    
     {:noreply, 
       socket
-      |> assign(:form_state, form_data)
+      |> assign(:form_state, updated_form_data)
       |> assign(:errors, errors)
     }
   end
