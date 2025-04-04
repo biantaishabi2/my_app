@@ -45,11 +45,11 @@
     *   [x] **运行测试**: 涉及 `add_item_option` 的测试，如 `test/my_app/forms_test.exs:128` (add option), `test/my_app/forms_test.exs:143` (missing label), `test/my_app/forms_test.exs:149` (missing value), `test/my_app/forms_test.exs:155` (order)。
 
 6.  **实现 `MyApp.Forms.publish_form/1`**
-    *   [ ] 在 `lib/my_app/forms.ex` 中定义 `publish_form/1` 函数。
-    *   [ ] 检查传入表单的当前 `status`。如果不是 `:draft`，返回错误（如 `{:error, :already_published}` 或 `{:error, :invalid_status}`）。
-    *   [ ] 如果是 `:draft`，使用 `Form.changeset/2` (或创建专用 changeset) 将 `status` 更新为 `:published`。
-    *   [ ] 使用 `Repo.update/1` 更新表单。
-    *   [ ] **运行测试**: `test/my_app/forms_test.exs:183` (publish draft), `test/my_app/forms_test.exs:194` (re-publish published)。
+    *   [x] 在 `lib/my_app/forms.ex` 中定义 `publish_form/1` 函数。
+    *   [x] 检查传入表单的当前 `status`。如果不是 `:draft`，返回错误（如 `{:error, :already_published}` 或 `{:error, :invalid_status}`）。
+    *   [x] 如果是 `:draft`，使用 `Form.changeset/2` (或创建专用 changeset) 将 `status` 更新为 `:published`。
+    *   [x] 使用 `Repo.update/1` 更新表单。
+    *   [x] **运行测试**: `test/my_app/forms_test.exs:183` (publish draft), `test/my_app/forms_test.exs:194` (re-publish published)。
 
 ---
 

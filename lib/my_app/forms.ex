@@ -106,5 +106,25 @@ defmodule MyApp.Forms do
     |> Repo.insert()
   end
 
+  @doc """
+  Publishes a form by changing its status from :draft to :published.
+  Returns error if the form is already published.
+
+  ## Examples
+
+      iex> publish_form(form)
+      {:ok, %Form{}}
+
+      iex> publish_form(published_form)
+      {:error, :already_published}
+
+  """
+  def publish_form(%Form{status: :published}), do: {:error, :already_published}
+  def publish_form(%Form{} = form) do
+    form
+    |> Form.changeset(%{status: :published})
+    |> Repo.update()
+  end
+
   # Other function implementations will go here
 end 
