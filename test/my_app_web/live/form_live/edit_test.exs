@@ -27,12 +27,24 @@ defmodule MyAppWeb.FormLive.EditTest do
       # 验证页面标题和表单信息
       assert html =~ form.title
       assert html =~ "编辑表单"
+      
+      # 点击"编辑信息"按钮
+      view
+      |> element("button", "编辑信息")
+      |> render_click()
+      
+      # 验证编辑表单模式
       assert has_element?(view, "input#form-title[value='#{form.title}']")
       assert has_element?(view, "textarea#form-description", form.description)
     end
 
     test "编辑表单信息", %{conn: conn, form: form} do
       {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 点击"编辑信息"按钮
+      view
+      |> element("button", "编辑信息")
+      |> render_click()
       
       # 更新表单标题和描述
       updated_title = "更新后的标题"

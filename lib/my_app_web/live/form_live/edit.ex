@@ -64,7 +64,7 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:page_title, "编辑表单")
             |> assign(:form, form_with_pages)
             |> assign(:form_changeset, Forms.change_form(form_with_pages))
-            |> assign(:editing_form_info, true)
+            |> assign(:editing_form_info, Enum.empty?(all_form_items) && (form_with_pages.title == nil || form_with_pages.title == ""))
             |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)

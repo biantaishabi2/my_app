@@ -374,13 +374,17 @@
           <button
             id="add-new-form-item-button"
             phx-click="add_item"
-            class="inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            class={if @item_type, do: "inline-flex justify-center items-center px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500", else: "inline-flex justify-center items-center px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gray-300 text-gray-500 cursor-not-allowed"}
             disabled={@editing_item || !@item_type}
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
             </svg>
-            添加"<%= display_selected_type(@item_type) %>"控件
+            <%= if @item_type do %>
+              添加"<%= display_selected_type(@item_type) %>"控件
+            <% else %>
+              请先选择一个控件类型
+            <% end %>
           </button>
         </div>
       <% end %>
