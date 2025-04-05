@@ -92,6 +92,8 @@
                       下拉菜单
                     <% :radio -> %>
                       单选
+                    <% :checkbox -> %>
+                      复选框
                     <% :rating -> %>
                       评分
                     <% other -> %>
@@ -130,6 +132,24 @@
                           <% end %>
                         </ul>
                       </div>
+                    </div>
+                    
+                  <% :checkbox -> %>
+                    <div class="space-y-2">
+                      <%= for option <- item.options do %>
+                        <div class="form-item-option flex items-center">
+                          <input 
+                            type="checkbox" 
+                            name={"preview_#{item.id}[]"} 
+                            id={"preview_#{item.id}_#{option.id}"} 
+                            disabled 
+                            class="h-4 w-4 text-indigo-600 rounded"
+                          />
+                          <label for={"preview_#{item.id}_#{option.id}"} class="ml-2 text-gray-700">
+                            <%= option.label %> (<%= option.value %>)
+                          </label>
+                        </div>
+                      <% end %>
                     </div>
                     
                   <% :radio -> %>
