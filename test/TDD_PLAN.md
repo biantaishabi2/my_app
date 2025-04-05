@@ -352,17 +352,17 @@
    - [x] **number_field/1**：测试数字输入控件的渲染，包括label、min/max属性
    - [x] **email_field/1**：测试邮箱输入控件的渲染，包括验证提示
    - [x] **phone_field/1**：测试电话输入控件的渲染，包括格式化展示
-   - [ ] **date_field/1**：测试日期选择控件的渲染，包括日期选择器
-   - [ ] **time_field/1**：测试时间选择控件的渲染
-   - [ ] **region_field/1**：测试地区选择控件的渲染，包括省市区联动
+   - [x] **date_field/1**：测试日期选择控件的渲染，包括日期选择器
+   - [x] **time_field/1**：测试时间选择控件的渲染
+   - [x] **region_field/1**：测试地区选择控件的渲染，包括省市区联动
    - [ ] **matrix_field/1**：测试矩阵题控件的渲染，包括行列结构
    - [ ] **image_choice_field/1**：测试图片选择控件的渲染
    - [ ] **file_upload_field/1**：测试文件上传控件的渲染
 
 2. **特殊属性测试**
    - [x] 测试number_field的min/max/step属性
-   - [ ] 测试date_field的日期范围属性
-   - [ ] 测试region_field的级联选择行为
+   - [x] 测试date_field的日期范围属性
+   - [x] 测试region_field的级联选择行为
    - [ ] 测试matrix_field的行列定义和选择模式
    - [ ] 测试file_upload_field的文件类型限制
 
@@ -380,14 +380,15 @@
    - [x] 测试添加number_field控件到表单
    - [x] 测试添加email_field控件到表单
    - [x] 测试添加phone_field控件到表单
-   - [ ] 测试添加date_field控件到表单
-   - [ ] 测试添加region_field控件到表单
+   - [x] 测试添加date_field控件到表单
+   - [x] 测试添加time_field控件到表单
+   - [x] 测试添加region_field控件到表单
    - [ ] 测试添加更复杂控件类型到表单
 
 2. **控件编辑测试**
-   - [ ] 测试编辑number_field的范围属性
-   - [ ] 测试编辑date_field的日期范围
-   - [ ] 测试编辑region_field的默认值
+   - [x] 测试编辑number_field的范围属性
+   - [x] 测试编辑date_field的日期范围
+   - [x] 测试编辑region_field的默认值
    - [ ] 测试编辑matrix_field的行列定义
 
 3. **控件管理测试**
@@ -401,40 +402,46 @@
    - [x] 测试`:number`类型的表单项创建与验证
    - [x] 测试`:email`类型的表单项创建与验证
    - [x] 测试`:phone`类型的表单项创建与验证
-   - [ ] 测试`:date`类型的表单项创建与验证
-   - [ ] 测试`:region`类型的表单项创建与验证
+   - [x] 测试`:date`类型的表单项创建与验证
+   - [x] 测试`:time`类型的表单项创建与验证
+   - [x] 测试`:region`类型的表单项创建与验证
    - [ ] 测试`:matrix`类型的表单项创建与验证
    - [ ] 测试`:image_choice`类型的表单项创建与验证
    - [ ] 测试`:file_upload`类型的表单项创建与验证
 
 2. **特殊属性测试**
    - [x] 测试number_field的min/max/step属性保存
-   - [ ] 测试date_field的日期范围属性保存
-   - [ ] 测试region_field的地区数据结构
+   - [x] 测试date_field的日期范围属性保存
+   - [x] 测试time_field的时间范围属性保存
+   - [x] 测试region_field的地区数据结构
    - [ ] 测试matrix_field的行列数据结构
 
 3. **数据验证测试**
    - [x] 测试number_field的范围验证
    - [x] 测试email_field的格式提示功能
    - [x] 测试phone_field的格式化显示功能
-   - [ ] 测试date_field的日期范围验证
+   - [x] 测试date_field的日期范围验证
+   - [x] 测试time_field的时间范围验证
+   - [x] 测试region_field的地区数据验证
 
 ### 响应提交测试（submit_test.exs和responses_test.exs）
 
 1. **表单提交测试**
-   - [ ] 测试提交包含number_field的表单
-   - [ ] 测试提交包含email_field的表单
-   - [ ] 测试提交包含date_field的表单
-   - [ ] 测试提交包含region_field的表单
+   - [x] 测试提交包含number_field的表单
+   - [x] 测试提交包含email_field的表单
+   - [x] 测试提交包含phone_field的表单
+   - [x] 测试提交包含date_field的表单
+   - [x] 测试提交包含time_field的表单
+   - [x] 测试提交包含region_field的表单
    - [ ] 测试提交包含复杂控件类型的表单
 
 2. **数据验证测试**
-   - [ ] 测试各种控件类型的数据验证规则
-   - [ ] 测试无效数据提交的错误处理
+   - [x] 测试各种控件类型的数据验证规则
+   - [x] 测试无效数据提交的错误处理
 
 3. **响应读取测试**
-   - [ ] 测试读取包含各种控件类型的响应数据
-   - [ ] 测试响应数据的格式化显示
+   - [x] 测试读取包含各种控件类型的响应数据
+   - [x] 测试响应数据的格式化显示
 
 ## 待办事项和注意
 
