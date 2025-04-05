@@ -3,8 +3,9 @@ defmodule MyAppWeb.FormLive.Edit do
 
   alias MyApp.Forms
   alias MyApp.Forms.FormItem
-  alias MyApp.Repo
-  alias MyApp.Forms.ItemOption
+  # Repo在测试环境中的直接查询中使用，但可以通过完全限定名称访问
+  # alias MyApp.Repo
+  # 移除未使用的ItemOption别名
   
   import Ecto.Query
   import MyAppWeb.FormComponents

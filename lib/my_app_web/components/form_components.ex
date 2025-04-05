@@ -1,12 +1,16 @@
 defmodule MyAppWeb.FormComponents do
   use Phoenix.Component
-  # 组件可能需要这些导入，所以保留，只是加上注释表明它们的用途
-  # HTML标记处理
-  import Phoenix.HTML
-  # 表单辅助函数
-  import Phoenix.HTML.Form
-  # LiveView辅助函数
-  import Phoenix.LiveView.Helpers
+  
+  # 这些导入虽然当前未直接使用，但在组件开发中可能需要
+  # 保留以备将来扩展组件功能时使用
+  # HTML标记处理 - 用于HTML转义和安全处理
+  # import Phoenix.HTML
+  
+  # 表单辅助函数 - 用于生成表单和表单元素
+  # import Phoenix.HTML.Form
+  
+  # LiveView辅助函数 - 用于事件处理和DOM操作
+  # import Phoenix.LiveView.Helpers
 
   @doc """
   渲染表单头部，包括标题和描述

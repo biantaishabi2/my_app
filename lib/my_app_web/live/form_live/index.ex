@@ -60,6 +60,45 @@ defmodule MyAppWeb.FormLive.Index do
     end
   end
 
+  # 所有 handle_event 函数，按名称和参数数量分组
+  @impl true
+  def handle_event("cancel_new_form", _params, socket) do
+    IO.puts("===> 取消新表单事件被触发")
+    {:noreply, 
+      socket
+      |> assign(:show_new_form, false)
+      |> assign(:form_values, %{})
+      |> assign(:form_errors, %{})
+    }
+  end
+
+  @impl true
+  def handle_event("delete_form", %{"id" => id}, socket) do
+    current_user = socket.assigns.current_user
+    form = Forms.get_form(id)
+    
+    if form && form.user_id == current_user.id do
+      case Forms.delete_form(form) do
+        {:ok, _} ->
+          {:noreply,
+            socket
+            |> put_flash(:info, "表单已删除")
+            |> assign(:forms, Forms.list_forms(current_user.id))
+          }
+        
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "删除失败: #{inspect(reason)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "表单不存在或您无权删除")}
+    end
+  end
+
+  @impl true
+  def handle_event("edit_form", %{"id" => id}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/edit")}
+  end
+
   @impl true
   def handle_event("new_form", _params, socket) do
     IO.puts("===> 新表单事件被触发")
@@ -71,10 +110,27 @@ defmodule MyAppWeb.FormLive.Index do
       |> assign(:form_errors, %{})
     }
   end
-  
-  @impl true
-  def handle_event("edit_form", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/edit")}
+
+  @impl true 
+  def handle_event("publish_form", %{"id" => id}, socket) do
+    current_user = socket.assigns.current_user
+    form = Forms.get_form(id)
+    
+    if form && form.user_id == current_user.id do
+      case Forms.publish_form(form) do
+        {:ok, _updated_form} ->
+          {:noreply,
+            socket
+            |> put_flash(:info, "表单已发布")
+            |> assign(:forms, Forms.list_forms(current_user.id))
+          }
+        
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "发布失败: #{inspect(reason)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "表单不存在或您无权发布")}
+    end
   end
 
   @impl true
@@ -130,7 +186,7 @@ defmodule MyAppWeb.FormLive.Index do
       }
     end
   end
-  
+
   @impl true
   def handle_event("validate_form", %{"form" => form_params}, socket) do
     IO.puts("===> 验证表单事件被触发")
@@ -150,14 +206,8 @@ defmodule MyAppWeb.FormLive.Index do
   end
 
   @impl true
-  def handle_event("cancel_new_form", _params, socket) do
-    IO.puts("===> 取消新表单事件被触发")
-    {:noreply, 
-      socket
-      |> assign(:show_new_form, false)
-      |> assign(:form_values, %{})
-      |> assign(:form_errors, %{})
-    }
+  def handle_event("view_responses", %{"id" => id}, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/responses")}
   end
   
   # 辅助函数：将 Ecto 错误格式化为简单的键值对并翻译错误消息
@@ -175,56 +225,5 @@ defmodule MyAppWeb.FormLive.Index do
     end)
     
     errors
-  end
-
-
-  # 为了清晰和一致性，保持所有 handle_event 函数按字母顺序排列
-  @impl true 
-  def handle_event("publish_form", %{"id" => id}, socket) do
-    current_user = socket.assigns.current_user
-    form = Forms.get_form(id)
-    
-    if form && form.user_id == current_user.id do
-      case Forms.publish_form(form) do
-        {:ok, _updated_form} ->
-          {:noreply,
-            socket
-            |> put_flash(:info, "表单已发布")
-            |> assign(:forms, Forms.list_forms(current_user.id))
-          }
-        
-        {:error, reason} ->
-          {:noreply, put_flash(socket, :error, "发布失败: #{inspect(reason)}")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "表单不存在或您无权发布")}
-    end
-  end
-
-  @impl true
-  def handle_event("delete_form", %{"id" => id}, socket) do
-    current_user = socket.assigns.current_user
-    form = Forms.get_form(id)
-    
-    if form && form.user_id == current_user.id do
-      case Forms.delete_form(form) do
-        {:ok, _} ->
-          {:noreply,
-            socket
-            |> put_flash(:info, "表单已删除")
-            |> assign(:forms, Forms.list_forms(current_user.id))
-          }
-        
-        {:error, reason} ->
-          {:noreply, put_flash(socket, :error, "删除失败: #{inspect(reason)}")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "表单不存在或您无权删除")}
-    end
-  end
-
-  @impl true
-  def handle_event("view_responses", %{"id" => id}, socket) do
-    {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/responses")}
   end
 end

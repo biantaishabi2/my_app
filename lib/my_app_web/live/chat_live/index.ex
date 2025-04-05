@@ -113,7 +113,7 @@ defmodule MyAppWeb.ChatLive.Index do
                 # 处理错误，设置闪烁消息并返回更新的socket
                 socket = put_flash(socket, :error, "创建对话失败: #{inspect(changeset.errors)}")
                 # 将更新的socket返回并在后续逻辑中使用
-                socket
+                _socket = socket
                 # Return nil to signal failure and skip message creation
                 nil 
             end
@@ -353,7 +353,7 @@ defmodule MyAppWeb.ChatLive.Index do
 
   # 新增的事件处理函数 - 保存编辑后的对话名称
   @impl true
-  def handle_event("save_conversation_name", %{"id" => id_str, "title" => title}, socket) do
+  def handle_event("save_conversation_name", %{"conversation_id" => id_str, "title" => title}, socket) do
     current_user = socket.assigns.current_user
     id = String.to_integer(id_str)
     IO.puts("保存对话名称: #{id}, 标题: #{title}")
@@ -399,8 +399,8 @@ defmodule MyAppWeb.ChatLive.Index do
     editing_id = socket.assigns.editing_conversation_id
     
     if editing_id && Map.has_key?(params, "title") do
-      # 有title但是没有id，使用当前编辑的id
-      handle_event("save_conversation_name", %{"id" => to_string(editing_id), "title" => params["title"]}, socket)
+      # 有title但是没有conversation_id，使用当前编辑的id
+      handle_event("save_conversation_name", %{"conversation_id" => to_string(editing_id), "title" => params["title"]}, socket)
     else
       # 其他情况，取消编辑状态
       {:noreply, assign(socket, editing_conversation_id: nil)}

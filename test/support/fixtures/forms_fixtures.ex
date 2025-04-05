@@ -5,9 +5,10 @@ defmodule MyApp.FormsFixtures do
   """
 
   alias MyApp.Forms
-  alias MyApp.Forms.Form
-  alias MyApp.Forms.FormItem
-  alias MyApp.Forms.ItemOption
+  # 以下别名虽然当前未直接使用，但保留注释以便理解上下文
+  # alias MyApp.Forms.Form - 表单模型
+  # alias MyApp.Forms.FormItem - 表单项模型 
+  # alias MyApp.Forms.ItemOption - 选项模型
   
   @doc """
   生成一个测试表单.

@@ -586,7 +586,7 @@
                     <% else %>
                       <!-- 编辑状态 -->
                       <form phx-submit="save_conversation_name" class="flex-grow flex items-center" phx-click-away="cancel_edit_name" onsubmit="event.target.querySelector('input[type=text]').blur(); return true;">
-                        <input type="hidden" name="id" value={conv.id}>
+                        <input type="hidden" name="conversation_id" value={conv.id}>
                         <input type="text" name="title" value={conv.title || "(无标题)"} 
                                class="bg-white text-gray-800 border border-sky-500 focus:outline-none focus:border-sky-600 w-full px-2 py-1 rounded"
                                phx-window-keydown="handle_edit_keydown"

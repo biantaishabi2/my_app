@@ -7,7 +7,8 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
   import MyApp.ResponsesFixtures
 
   alias MyApp.Forms
-  alias MyApp.Responses
+  # Context可以直接通过调用函数使用而不必显式引入别名
+  # alias MyApp.Responses
 
   setup :register_and_log_in_user
 
@@ -48,7 +49,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "访问表单响应列表页面", %{conn: conn, form: form} do
-      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证页面标题和表单信息
       assert has_element?(view, "h1", "表单响应")
@@ -58,7 +59,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "显示响应列表", %{conn: conn, form: form, responses: responses} do
-      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证页面显示响应总数信息
       assert html =~ "共有 3 条回复"
@@ -96,7 +97,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "删除响应", %{conn: conn, form: form, responses: [response | _]} do
-      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证初始状态下页面显示该响应
       assert html =~ response.id
@@ -130,7 +131,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
       assert flash["error"] =~ "没有权限"
       
       # 验证可以正常访问表单列表页面
-      {:ok, view, html} = live(conn, "/forms") 
+      {:ok, _view, html} = live(conn, "/forms") 
       assert html =~ "我的表单"
     end
   end
@@ -210,7 +211,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
       assert flash["error"] =~ "表单不存在" || flash["error"] =~ "没有权限"
       
       # 验证可以正常访问表单列表页面
-      {:ok, view, html} = live(conn, "/forms") 
+      {:ok, _view, html} = live(conn, "/forms") 
       assert html =~ "我的表单"
     end
   end

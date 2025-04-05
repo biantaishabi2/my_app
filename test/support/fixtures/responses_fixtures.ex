@@ -5,8 +5,9 @@ defmodule MyApp.ResponsesFixtures do
   """
 
   alias MyApp.Responses
-  alias MyApp.Responses.Response
-  alias MyApp.Responses.Answer
+  # 以下别名虽然当前未直接使用，但保留注释以便理解数据结构
+  # alias MyApp.Responses.Response - 表单响应模型
+  # alias MyApp.Responses.Answer - 表单响应答案模型
 
   @doc """
   生成一个测试响应.
