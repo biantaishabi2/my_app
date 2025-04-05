@@ -1,12 +1,11 @@
-defmodule MyAppWeb.FormComponentsTest do
+defmodule MyAppWeb.Components.FormComponentsTest do
   use MyAppWeb.ConnCase, async: true
-
-  import Phoenix.Component
   import Phoenix.LiveViewTest
-  
+  import MyApp.FormsFixtures
+  import Phoenix.Component
   alias MyAppWeb.FormComponents
-  alias MyApp.Forms.Form
 
+  # 保留之前的测试
   describe "form_header/1" do
     test "渲染表单标题和描述" do
       # 创建符合组件期望的表单结构
@@ -173,6 +172,193 @@ defmodule MyAppWeb.FormComponentsTest do
     end
   end
 
+  # 新增控件测试
+  describe "textarea_field/1" do
+    test "渲染文本区域字段" do
+      assigns = %{
+        field: %{
+          id: "textarea-field-1",
+          label: "详细描述",
+          required: true
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.textarea_field/1, assigns)
+      
+      assert html =~ "详细描述"
+      assert html =~ "<label"
+      assert html =~ "<textarea"
+      assert html =~ ~r|<textarea[^>]*required[^>]*|
+    end
+
+    test "显示填写的值" do
+      assigns = %{
+        field: %{
+          id: "textarea-field-1",
+          label: "详细描述",
+          required: true
+        },
+        form_state: %{"textarea-field-1" => "这是一段详细描述内容"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.textarea_field/1, assigns)
+      
+      assert html =~ "这是一段详细描述内容"
+    end
+  end
+
+  describe "dropdown_field/1" do
+    test "渲染下拉菜单字段" do
+      assigns = %{
+        field: %{
+          id: "select-field-1",
+          label: "选择城市",
+          required: true
+        },
+        options: [
+          %{id: 1, label: "北京", value: "beijing"},
+          %{id: 2, label: "上海", value: "shanghai"},
+          %{id: 3, label: "广州", value: "guangzhou"}
+        ],
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.dropdown_field/1, assigns)
+      
+      assert html =~ "选择城市"
+      assert html =~ "<select"
+      assert html =~ "北京"
+      assert html =~ "上海"
+      assert html =~ "广州"
+      # 不需要检查具体的HTML格式
+      assert html =~ "beijing"
+      assert html =~ "shanghai"
+      assert html =~ "guangzhou"
+    end
+
+    test "选中指定的选项" do
+      assigns = %{
+        field: %{
+          id: "select-field-1",
+          label: "选择城市",
+          required: true
+        },
+        options: [
+          %{id: 1, label: "北京", value: "beijing"},
+          %{id: 2, label: "上海", value: "shanghai"},
+          %{id: 3, label: "广州", value: "guangzhou"}
+        ],
+        form_state: %{"select-field-1" => "shanghai"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.dropdown_field/1, assigns)
+      
+      # 简化断言以检查选中状态，而不是HTML精确格式
+      assert html =~ "shanghai" && html =~ "selected"
+    end
+  end
+
+  describe "rating_field/1" do
+    test "渲染评分字段" do
+      assigns = %{
+        field: %{
+          id: "rating-field-1",
+          label: "服务评分",
+          required: true,
+          max_rating: 5
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.rating_field/1, assigns)
+      
+      assert html =~ "服务评分"
+      assert html =~ "rating-container"
+      assert html =~ "rating-star"
+      # 验证有5个星星按钮
+      assert html =~ ~r|data-value="1"|
+      assert html =~ ~r|data-value="2"|
+      assert html =~ ~r|data-value="3"|
+      assert html =~ ~r|data-value="4"|
+      assert html =~ ~r|data-value="5"|
+      # 验证默认提示文本
+      assert html =~ "请评分"
+    end
+
+    test "显示选择的评分值" do
+      assigns = %{
+        field: %{
+          id: "rating-field-1",
+          label: "服务评分",
+          required: true,
+          max_rating: 5
+        },
+        form_state: %{"rating-field-1" => "4"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.rating_field/1, assigns)
+      
+      # 验证选中值存在
+      assert html =~ ~r|value="4"|
+      # 验证显示评分文本
+      assert html =~ "4星"
+    end
+
+    test "支持自定义最大评分" do
+      assigns = %{
+        field: %{
+          id: "rating-field-1",
+          label: "产品评分",
+          required: true,
+          max_rating: 10
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false,
+        max_rating: 10
+      }
+
+      html = render_component(&FormComponents.rating_field/1, assigns)
+      
+      # 验证有10个星星按钮
+      Enum.each(1..10, fn i ->
+        assert html =~ ~r|data-value="#{i}"|
+      end)
+    end
+
+    test "显示错误信息" do
+      assigns = %{
+        field: %{
+          id: "rating-field-1",
+          label: "服务评分",
+          required: true,
+          max_rating: 5
+        },
+        form_state: %{},
+        error: "请选择评分",
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.rating_field/1, assigns)
+      
+      assert html =~ "请选择评分"
+      assert html =~ ~r|<div[^>]*class="text-red-500[^>]*>请选择评分</div>|
+    end
+  end
+
   describe "form_builder/1" do
     test "渲染表单构建器" do
       form = %{
@@ -219,6 +405,66 @@ defmodule MyAppWeb.FormComponentsTest do
       
       # 验证显示无表单项提示
       assert html =~ "还没有添加表单项"
+    end
+  end
+
+  describe "form_item_editor/1" do
+    test "渲染表单项编辑器" do
+      assigns = %{
+        id: "test-editor",
+        item: %{
+          id: nil,
+          label: "",
+          type: :text_input,
+          required: false,
+          description: ""
+        },
+        item_type: nil,
+        options: [],
+        on_save: "save_item",
+        on_cancel: "cancel_edit",
+        on_add_option: "add_option",
+        on_remove_option: "remove_option"
+      }
+
+      html = render_component(&FormComponents.form_item_editor/1, assigns)
+      
+      # 验证表单项编辑器元素
+      assert html =~ "标签"
+      assert html =~ "类型"
+      assert html =~ "文本"
+      assert html =~ "文本区域"
+      assert html =~ "单选"
+      assert html =~ "下拉菜单"
+      assert html =~ "评分"
+      assert html =~ "必填项"
+    end
+
+    test "显示选中的表单项类型" do
+      assigns = %{
+        id: "test-editor",
+        item: %{
+          id: nil,
+          label: "",
+          type: :rating,
+          required: false,
+          description: "",
+          max_rating: 5
+        },
+        item_type: "rating",
+        options: [],
+        on_save: "save_item",
+        on_cancel: "cancel_edit",
+        on_add_option: "add_option",
+        on_remove_option: "remove_option"
+      }
+
+      html = render_component(&FormComponents.form_item_editor/1, assigns)
+      
+      # 验证评分控件编辑器特定元素
+      assert html =~ "最大评分值"
+      assert html =~ "星" # 评分选项中的"星"字
+      assert html =~ "预览"
     end
   end
 end

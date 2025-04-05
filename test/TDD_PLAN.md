@@ -167,8 +167,12 @@
 8. **组件单元测试** - `/test/my_app_web/components/form_components_test.exs`
    - [x] 测试 `form_header/1`组件渲染
    - [x] 测试 `text_input_field/1`组件渲染和交互
+   - [x] 测试 `textarea_field/1`组件渲染和交互
    - [x] 测试 `radio_field/1`组件渲染和交互
+   - [x] 测试 `dropdown_field/1`组件渲染和交互
+   - [x] 测试 `rating_field/1`组件渲染和交互
    - [x] 测试 `form_builder/1`组件的整体功能
+   - [x] 测试 `form_item_editor/1`组件渲染和类型切换功能
 
 ## 阶段四：前端测试状态总结（2025-04-05）
 
