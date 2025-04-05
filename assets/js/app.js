@@ -95,6 +95,29 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// 添加对所有链接点击的处理
+document.addEventListener("click", function(e) {
+  if (e.target.tagName === "A" || e.target.closest("a")) {
+    // 显示加载状态条
+    topbar.show(300);
+    
+    // 防止重复点击
+    const link = e.target.tagName === "A" ? e.target : e.target.closest("a");
+    if (!link.dataset.processing) {
+      link.dataset.processing = "true";
+      link.style.pointerEvents = "none";
+      link.style.opacity = "0.7";
+      
+      // 1秒后恢复，以防导航未成功
+      setTimeout(() => {
+        link.removeAttribute("data-processing");
+        link.style.pointerEvents = "";
+        link.style.opacity = "";
+      }, 1000);
+    }
+  }
+});
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

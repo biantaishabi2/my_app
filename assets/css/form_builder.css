@@ -1,0 +1,120 @@
+/* 表单构建器布局样式 */
+.form-builder-container {
+  display: flex;
+  flex-direction: row;
+  min-height: 80vh;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* 侧边栏样式 */
+.form-builder-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 侧边栏分组 */
+.sidebar-group {
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* 侧边栏分组标题 */
+.sidebar-group-title {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  background-color: #f3f4f6;
+  transition: background-color 0.2s;
+}
+
+.sidebar-group-title:hover {
+  background-color: #e5e7eb;
+}
+
+.sidebar-group-title svg {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-group-title.collapsed svg {
+  transform: rotate(-90deg);
+}
+
+/* 侧边栏控件列表 */
+.controls-list {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.controls-list.collapsed {
+  max-height: 0;
+}
+
+.controls-list.expanded {
+  max-height: 500px;
+}
+
+/* 侧边栏控件项 */
+.control-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.control-item:hover {
+  background-color: #e5e7eb;
+}
+
+.control-item.selected {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+}
+
+.control-item svg {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
+/* 主内容区域 */
+.form-builder-main {
+  flex-grow: 1;
+  max-width: calc(100% - 270px);
+  overflow-y: auto;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .form-builder-container {
+    flex-direction: column;
+  }
+  
+  .form-builder-sidebar {
+    width: 100%;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .form-builder-main {
+    max-width: 100%;
+  }
+} 

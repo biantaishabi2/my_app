@@ -223,12 +223,30 @@ defmodule MyAppWeb.FormComponents do
                 </button>
                 <button
                   type="button"
+                  id="textarea-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="textarea"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "textarea" || @item.type == :textarea, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  文本区域
+                </button>
+                <button
+                  type="button"
                   id="radio-type-btn"
                   phx-click="type_changed"
                   phx-value-type="radio"
                   class={"px-3 py-2 border rounded-md #{if @item_type == "radio" || @item.type == :radio, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   单选按钮
+                </button>
+                <button
+                  type="button"
+                  id="dropdown-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="dropdown"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "dropdown" || @item.type == :dropdown, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  下拉菜单
                 </button>
                 <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
               </div>
@@ -273,7 +291,7 @@ defmodule MyAppWeb.FormComponents do
           <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
         </div>
         
-        <%= if @item.type == :radio || @item_type == "radio" do %>
+        <%= if @item.type == :radio || @item_type == "radio" || @item.type == :dropdown || @item_type == "dropdown" do %>
           <div class="pt-4 border-t border-gray-200">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
@@ -353,5 +371,91 @@ defmodule MyAppWeb.FormComponents do
   # 辅助函数，将表单项类型转换为显示文本
   defp display_item_type(:text_input), do: "文本输入框"
   defp display_item_type(:radio), do: "单选按钮"
+  defp display_item_type(:textarea), do: "文本区域"
+  defp display_item_type(:dropdown), do: "下拉菜单"
   defp display_item_type(_), do: "未知类型"
+
+  @doc """
+  渲染文本区域字段组件
+  
+  ## 示例
+      <.textarea_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def textarea_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    assigns = assign_new(assigns, :rows, fn -> 4 end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <textarea 
+        id={@field.id}
+        name={@field.id}
+        rows={@rows}
+        required={@field.required}
+        disabled={@disabled}
+        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @error, do: "border-red-500", else: "border-gray-300"}"}
+        phx-debounce="blur"
+      ><%= Map.get(@form_state, @field.id, "") %></textarea>
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  渲染下拉菜单字段组件
+  
+  ## 示例
+      <.dropdown_field
+        field={@field}
+        options={@options}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def dropdown_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <select 
+        id={@field.id}
+        name={@field.id}
+        required={@field.required}
+        disabled={@disabled}
+        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @error, do: "border-red-500", else: "border-gray-300"}"}
+        phx-debounce="blur"
+      >
+        <option value="" disabled selected={!Map.get(@form_state, @field.id, "")}>请选择...</option>
+        <%= for option <- @options do %>
+          <option value={option.value} selected={Map.get(@form_state, @field.id) == option.value}>
+            <%= option.label %>
+          </option>
+        <% end %>
+      </select>
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+    </div>
+    """
+  end
 end

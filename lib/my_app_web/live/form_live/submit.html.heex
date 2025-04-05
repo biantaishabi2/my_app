@@ -94,6 +94,62 @@
                         <% end %>
                       </fieldset>
                     </div>
+                  
+                  <% :dropdown -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <select 
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        required={item.required}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      >
+                        <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}", "")}>请选择...</option>
+                        <%= for option <- item.options || [] do %>
+                          <option 
+                            value={option.value} 
+                            selected={Map.get(@form_state || %{}, "#{item.id}") == option.value}
+                          >
+                            <%= option.label %>
+                          </option>
+                        <% end %>
+                      </select>
+                      <%= if item.description do %>
+                        <div class="text-sm text-gray-500 mt-1"><%= item.description %></div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                  
+                  <% :textarea -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <textarea 
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        rows="4"
+                        required={item.required}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      ><%= Map.get(@form_state || %{}, "#{item.id}", "") %></textarea>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
                 <% end %>
               <% end %>
             </div>

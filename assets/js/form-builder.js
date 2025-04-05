@@ -198,8 +198,85 @@ const FormSubmit = {
   }
 };
 
+// 表单构建器的钩子
+const FormBuilderHooks = {
+  // 表单构建器侧边栏钩子
+  FormBuilderSidebar: {
+    mounted() {
+      console.log("FormBuilderSidebar钩子已挂载");
+      this.setupGroupToggles();
+    },
+    
+    updated() {
+      this.setupGroupToggles();
+    },
+    
+    setupGroupToggles() {
+      // 获取所有分组标题元素
+      const groupToggles = document.querySelectorAll('.sidebar-group-title');
+      
+      // 为每个分组标题添加点击事件
+      groupToggles.forEach(toggle => {
+        if (!toggle.hasAttribute('data-toggle-setup')) {
+          toggle.setAttribute('data-toggle-setup', 'true');
+          
+          toggle.addEventListener('click', () => {
+            const groupId = toggle.id.replace('-toggle', '');
+            const contentList = document.getElementById(`${groupId}-list`);
+            
+            if (contentList) {
+              if (contentList.classList.contains('expanded')) {
+                contentList.classList.remove('expanded');
+                contentList.classList.add('collapsed');
+                
+                // 添加图标旋转等视觉效果
+                toggle.classList.add('collapsed');
+              } else {
+                contentList.classList.remove('collapsed');
+                contentList.classList.add('expanded');
+                
+                // 移除图标旋转等视觉效果
+                toggle.classList.remove('collapsed');
+              }
+            }
+          });
+        }
+      });
+      
+      // 设置控件项的点击事件
+      const controlItems = document.querySelectorAll('.control-item:not([style*="cursor: not-allowed"])');
+      controlItems.forEach(item => {
+        if (!item.hasAttribute('data-control-setup')) {
+          item.setAttribute('data-control-setup', 'true');
+          
+          item.addEventListener('click', () => {
+            // 移除其他控件的选中状态
+            document.querySelectorAll('.control-item.selected').forEach(selected => {
+              if (selected !== item) {
+                selected.classList.remove('selected');
+              }
+            });
+            
+            // 添加当前控件的选中状态
+            item.classList.add('selected');
+          });
+        }
+      });
+    }
+  },
+  
+  // 表单项编辑器钩子
+  FormItemEditor: {
+    mounted() {
+      console.log("FormItemEditor钩子已挂载");
+    }
+  }
+};
+
 // 导出所有钩子
 export default {
   FormBuilder,
-  FormSubmit
+  FormSubmit,
+  FormBuilderSidebar: FormBuilderHooks.FormBuilderSidebar,
+  FormItemEditor: FormBuilderHooks.FormItemEditor
 };

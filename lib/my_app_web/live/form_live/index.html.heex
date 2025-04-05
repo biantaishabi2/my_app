@@ -4,6 +4,7 @@
     <button
       id="new-form-btn"
       phx-click="new_form"
+      phx-hook="FormButtons"
       class="form-button-primary"
     >
       创建新表单
@@ -52,14 +53,18 @@
 
         <div class="flex justify-end space-x-3">
           <button
+            id="cancel-new-form-btn"
             type="button"
             phx-click="cancel_new_form"
+            phx-hook="FormButtons"
             class="form-button-secondary"
           >
             取消
           </button>
           <button
+            id="save-new-form-btn"
             type="submit"
+            phx-hook="FormButtons"
             class="form-button-primary"
           >
             保存
@@ -115,33 +120,35 @@
                 <%= Calendar.strftime(form.inserted_at, "%Y-%m-%d %H:%M") %>
               </td>
               <td class="space-x-2">
-                <button
-                  phx-click="edit_form"
-                  phx-value-id={form.id}
+                <a
+                  href={~p"/forms/#{form.id}/edit"}
                   class="text-indigo-600 hover:text-indigo-900"
                 >
                   编辑
-                </button>
+                </a>
                 <%= if form.status == :draft do %>
                   <button
+                    id={"publish-form-#{form.id}"}
                     phx-click="publish_form"
                     phx-value-id={form.id}
+                    phx-hook="FormButtons"
                     class="text-green-600 hover:text-green-900"
                   >
                     发布
                   </button>
                 <% else %>
-                  <button
-                    phx-click="view_responses"
-                    phx-value-id={form.id}
+                  <a
+                    href={~p"/forms/#{form.id}/responses"}
                     class="text-blue-600 hover:text-blue-900"
                   >
                     查看回复
-                  </button>
+                  </a>
                 <% end %>
                 <button
+                  id={"delete-form-#{form.id}"}
                   phx-click="delete_form"
                   phx-value-id={form.id}
+                  phx-hook="FormButtons"
                   data-confirm="确定要删除此表单吗？此操作不可撤销。"
                   class="text-red-600 hover:text-red-900"
                 >

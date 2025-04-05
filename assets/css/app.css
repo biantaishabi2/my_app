@@ -4,6 +4,8 @@
 
 /* 导入表单系统样式 */
 @import "./form.css";
+/* 导入表单构建器样式 */
+@import "./form_builder.css";
 
 /* 全局样式重置 */
 html, body {

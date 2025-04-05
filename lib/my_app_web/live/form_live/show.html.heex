@@ -86,6 +86,10 @@
                   <%= case item.type do %>
                     <% :text_input -> %>
                       文本输入
+                    <% :textarea -> %>
+                      文本区域
+                    <% :dropdown -> %>
+                      下拉菜单
                     <% :radio -> %>
                       单选
                     <% other -> %>
@@ -100,6 +104,31 @@
                 <%= case item.type do %>
                   <% :text_input -> %>
                     <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">示例文本输入</div>
+                    
+                  <% :textarea -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75 min-h-[80px]">示例文本区域</div>
+                    
+                  <% :dropdown -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-500">下拉选择框</span>
+                      </div>
+                      <select class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75" disabled>
+                        <option disabled selected>请选择...</option>
+                        <%= for option <- item.options do %>
+                          <option value={option.value}><%= option.label %></option>
+                        <% end %>
+                      </select>
+                      
+                      <div class="mt-2 border-t pt-2 text-sm text-gray-500">
+                        <p class="mb-1">可选项:</p>
+                        <ul class="list-disc pl-5">
+                          <%= for option <- item.options do %>
+                            <li><span class="font-medium"><%= option.label %></span> (<%= option.value %>)</li>
+                          <% end %>
+                        </ul>
+                      </div>
+                    </div>
                     
                   <% :radio -> %>
                     <div class="space-y-2">

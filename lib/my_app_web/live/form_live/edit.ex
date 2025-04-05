@@ -301,8 +301,9 @@ defmodule MyAppWeb.FormLive.Edit do
         
       case Forms.update_form_item(current_item, clean_params) do
         {:ok, updated_item} ->
-          # 如果是单选按钮类型，还需要处理选项
-          if updated_item.type == :radio do
+          # 如果是单选按钮或下拉菜单类型，需要添加选项
+          if updated_item.type == :radio or updated_item.type == :dropdown do
+            IO.puts("添加选项到#{updated_item.type}类型表单项")
             process_options(updated_item, item_params)
           end
           
@@ -382,9 +383,9 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, new_item} ->
           IO.puts("成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}")
           
-          # 如果是单选按钮类型，还需要添加选项
-          if new_item.type == :radio do
-            IO.puts("添加单选按钮选项")
+          # 如果是单选按钮或下拉菜单类型，需要添加选项
+          if new_item.type == :radio or new_item.type == :dropdown do
+            IO.puts("添加选项到#{new_item.type}类型表单项")
             process_options(new_item, item_params)
           end
           
@@ -573,6 +574,13 @@ defmodule MyAppWeb.FormLive.Edit do
     }
   end
 
+  @impl true
+  def handle_event("toggle_group", %{"group" => _group}, socket) do
+    # 侧边栏分组折叠/展开的处理在前端JavaScript中完成
+    # 这里只需返回不变的socket
+    {:noreply, socket}
+  end
+
   # 辅助函数
 
   # 处理表单项参数
@@ -638,7 +646,17 @@ defmodule MyAppWeb.FormLive.Edit do
     IO.puts("表单项: #{inspect(item)}")
     
     # 先获取当前选项以备参考
-    current_options = if item.options, do: item.options, else: []
+    current_options = case item.options do
+      %Ecto.Association.NotLoaded{} -> 
+        IO.puts("选项关联未加载，使用空列表")
+        []
+      options when is_list(options) -> 
+        IO.puts("选项已加载，当前有 #{length(options)} 个选项")
+        options
+      _ -> 
+        IO.puts("其他情况，使用空列表")
+        []
+    end
     IO.puts("当前选项数量: #{length(current_options)}")
     
     # 从表单中获取选项 - 直接检查表单参数中的选项数据
@@ -692,11 +710,16 @@ defmodule MyAppWeb.FormLive.Edit do
     IO.puts("最终选项内容: #{inspect(options)}")
     
     # 先删除现有选项（如果更新现有表单项）
-    if item.options && is_list(item.options) && !Enum.empty?(item.options) do
-      IO.puts("删除现有选项")
-      Enum.each(item.options, fn option ->
-        Forms.delete_item_option(option)
-      end)
+    case item.options do
+      %Ecto.Association.NotLoaded{} -> 
+        IO.puts("选项未加载，跳过删除操作")
+      options when is_list(options) and length(options) > 0 ->
+        IO.puts("删除#{length(options)}个现有选项")
+        Enum.each(options, fn option ->
+          Forms.delete_item_option(option)
+        end)
+      _ ->
+        IO.puts("没有现有选项需要删除")
     end
     
     # 添加所有选项  
@@ -803,4 +826,12 @@ defmodule MyAppWeb.FormLive.Edit do
     |> assign(:editing_form_info, false)
     |> put_flash(:info, info_message)
   end
+
+  # 辅助函数：显示选中的控件类型名称
+  defp display_selected_type(nil), do: "未选择"
+  defp display_selected_type("text_input"), do: "文本输入"
+  defp display_selected_type("textarea"), do: "文本区域"
+  defp display_selected_type("radio"), do: "单选按钮"
+  defp display_selected_type("dropdown"), do: "下拉菜单"
+  defp display_selected_type(_), do: "未知类型"
 end

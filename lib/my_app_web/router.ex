@@ -100,8 +100,7 @@ defmodule MyAppWeb.Router do
     pipe_through [:form_browser, :require_authenticated_user]
     
     live_session :form_system,
-      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}],
-      layout: false do
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms", FormLive.Index, :index
       live "/forms/:id", FormLive.Show, :show
       live "/forms/:id/edit", FormLive.Edit, :edit
@@ -115,8 +114,7 @@ defmodule MyAppWeb.Router do
     pipe_through [:form_browser, :require_authenticated_user]
     
     live_session :form_submission,
-      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}],
-      layout: false do
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms/:id/submit", FormLive.Submit, :new
     end
   end
