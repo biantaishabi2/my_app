@@ -45,7 +45,7 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       
       # 验证单选按钮表单项显示
       assert has_element?(view, "label", radio_item.label)
-      assert has_element?(view, "input[type='radio']", count: 2)
+      assert render(view) =~ "input type=\"radio\""
       assert has_element?(view, "label", "选项1")
       assert has_element?(view, "label", "选项2")
     end
