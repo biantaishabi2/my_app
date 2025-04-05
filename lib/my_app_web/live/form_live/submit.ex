@@ -16,17 +16,12 @@ defmodule MyAppWeb.FormLive.Submit do
       
       form ->
         if form.status != :published do
-          # 强制返回测试代码期望的格式，直接硬编码
-          # 注意：这是针对测试的特殊处理，正常应该通过socket重定向
-          if Mix.env() == :test do
-            {:error, {:redirect, %{to: "/forms", flash: %{"error" => "表单未发布，无法填写"}}}}
-          else
-            {:ok, 
-              socket
-              |> put_flash(:error, "表单未发布，无法填写")
-              |> push_navigate(to: ~p"/forms")
-            }
-          end
+          # 表单未发布，重定向到表单列表
+          {:ok, 
+            socket
+            |> put_flash(:error, "表单未发布，无法填写")
+            |> push_navigate(to: ~p"/forms")
+          }
         else
           items_map = build_items_map(form.items)
           
@@ -118,23 +113,13 @@ defmodule MyAppWeb.FormLive.Submit do
         respondent_info: respondent_info
       }) do
         {:ok, _response} ->
-          # 根据环境决定返回格式，确保测试能正确重定向
-          # 这种混合环境的写法不是好的实践，但为了适应测试需求
-          if Mix.env() == :test do
-            # 返回信息，让测试能追踪重定向
-            socket = socket 
-              |> assign(:submitted, true)
-              |> put_flash(:info, "表单提交成功")
-            send(self(), {:redirect_form, %{to: "/forms"}})
-            {:noreply, socket}
-          else
-            {:noreply, 
-              socket
-              |> assign(:submitted, true)
-              |> put_flash(:info, "表单提交成功")
-              |> push_navigate(to: ~p"/forms")
-            }
-          end
+          # 提交成功后，更新状态并重定向
+          {:noreply, 
+            socket
+            |> assign(:submitted, true)
+            |> put_flash(:info, "表单提交成功")
+            |> push_navigate(to: ~p"/forms")
+          }
           
         {:error, reason} ->
           {:noreply, 
