@@ -15,8 +15,8 @@ defmodule MyAppWeb.FormLive.EditTest do
       form = form_fixture(%{user_id: user.id, title: "测试表单", description: "测试描述"})
       text_item = form_item_fixture(form, %{label: "文本问题", type: :text_input, required: true})
       radio_item = form_item_fixture(form, %{label: "单选问题", type: :radio, required: true})
-      option1 = item_option_fixture(radio_item, %{label: "选项1", value: "option1"})
-      option2 = item_option_fixture(radio_item, %{label: "选项2", value: "option2"})
+      _option1 = item_option_fixture(radio_item, %{label: "选项1", value: "option1"})
+      _option2 = item_option_fixture(radio_item, %{label: "选项2", value: "option2"})
       
       %{form: form, text_item: text_item, radio_item: radio_item}
     end

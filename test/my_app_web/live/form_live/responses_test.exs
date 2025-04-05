@@ -49,7 +49,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "访问表单响应列表页面", %{conn: conn, form: form} do
-      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证页面标题和表单信息
       assert has_element?(view, "h1", "表单响应")
@@ -59,7 +59,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "显示响应列表", %{conn: conn, form: form, responses: responses} do
-      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证页面显示响应总数信息
       assert html =~ "共有 3 条回复"
@@ -97,7 +97,7 @@ defmodule MyAppWeb.FormLive.ResponsesTest do
     end
 
     test "删除响应", %{conn: conn, form: form, responses: [response | _]} do
-      {:ok, _view, html} = live(conn, ~p"/forms/#{form.id}/responses")
+      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/responses")
       
       # 验证初始状态下页面显示该响应
       assert html =~ response.id

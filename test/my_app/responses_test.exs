@@ -95,7 +95,7 @@ defmodule MyApp.ResponsesTest do
       invalid_answers = %{
         radio_item.id => "1" # Provide radio answer, omit text answer
       }
-      assert {:error, reason} = Responses.create_response(form.id, invalid_answers)
+      assert {:error, _reason} = Responses.create_response(form.id, invalid_answers)
       # Check the error reason, e.g., {:validation, changeset} or specific atom
       # assert reason == :validation_failed
       # Or assert specific changeset error
