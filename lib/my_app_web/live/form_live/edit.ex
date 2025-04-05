@@ -15,7 +15,10 @@ defmodule MyAppWeb.FormLive.Edit do
   def mount(%{"id" => id}, _session, socket) do
     current_user = socket.assigns.current_user
     
-    case Forms.get_form_with_items(id) do
+    # 获取控件类型
+    all_types = Forms.list_available_form_item_types()
+    
+    case Forms.get_form(id) do
       nil ->
         {:ok, 
           socket
@@ -38,6 +41,10 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:item_type, nil)
             |> assign(:delete_item_id, nil)
             |> assign(:show_publish_confirm, false)
+            # 控件分类相关状态
+            |> assign(:all_item_types, all_types) # 按类别分组的控件类型
+            |> assign(:active_category, :basic) # 当前激活的类别
+            |> assign(:search_term, nil) # 搜索关键词
             # 初始化临时值，用于表单编辑
             |> assign(:temp_title, form.title)
             |> assign(:temp_description, form.description)
@@ -386,7 +393,7 @@ defmodule MyAppWeb.FormLive.Edit do
           end
           
           # 强制重新加载表单和表单项，确保所有更改都已应用
-          updated_form = Forms.get_form_with_items(socket.assigns.form.id)
+          updated_form = Forms.get_form(socket.assigns.form.id)
           
           {:noreply, 
             socket
@@ -477,7 +484,7 @@ defmodule MyAppWeb.FormLive.Edit do
           :timer.sleep(50)
             
           # 重新加载表单项，确保获取完整数据
-          updated_form = Forms.get_form_with_items(form.id)
+          updated_form = Forms.get_form(form.id)
           
           # 确认表单项是否成功添加
           item_labels = Enum.map(updated_form.items, & &1.label) |> Enum.join(", ")
@@ -567,7 +574,7 @@ defmodule MyAppWeb.FormLive.Edit do
     case Forms.reorder_form_items(form_id, item_ids) do
       :ok ->
         # 重新加载表单项
-        updated_form = Forms.get_form_with_items(form_id)
+        updated_form = Forms.get_form(form_id)
         
         {:noreply, 
           socket
@@ -627,10 +634,36 @@ defmodule MyAppWeb.FormLive.Edit do
   end
   
   @impl true
+  def handle_event("change_category", %{"category" => category}, socket) do
+    # 将类别字符串转为原子
+    category_atom = String.to_existing_atom(category)
+    
+    {:noreply, 
+      socket
+      |> assign(:active_category, category_atom)
+      |> assign(:search_term, nil) # 切换类别时清空搜索
+    }
+  end
+  
+  @impl true
+  def handle_event("search_item_types", %{"search" => search_term}, socket) do
+    filtered_types = if search_term == "" do
+      nil # 空搜索恢复正常类别显示
+    else
+      Forms.search_form_item_types(search_term)
+    end
+    
+    {:noreply, 
+      socket
+      |> assign(:search_term, filtered_types)
+    }
+  end
+  
+  @impl true
   # 处理异步表单项添加后的事件，确保界面正确更新
   def handle_info(:after_item_added, socket) do
     # 重新获取最新数据
-    updated_form = Forms.get_form_with_items(socket.assigns.form.id)
+    updated_form = Forms.get_form(socket.assigns.form.id)
     IO.puts("异步更新表单项，确保渲染: #{length(updated_form.items)}项")
     
     # 输出所有表单项，用于调试
@@ -915,7 +948,7 @@ defmodule MyAppWeb.FormLive.Edit do
   # 公共函数：重新加载表单并更新socket
   defp reload_form_and_update_socket(socket, form_id, info_message) do
     # 强制重新加载，确保所有字段都已更新
-    updated_form = Forms.get_form_with_items(form_id)
+    updated_form = Forms.get_form(form_id)
     
     IO.puts("更新后的表单: title=#{updated_form.title}, description=#{updated_form.description}")
     
@@ -941,5 +974,9 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type("time"), do: "时间选择"
   defp display_selected_type("region"), do: "地区选择"
   defp display_selected_type("matrix"), do: "矩阵题"
+  defp display_selected_type("image_choice"), do: "图片选择"
+  defp display_selected_type("file_upload"), do: "文件上传"
   defp display_selected_type(_), do: "未知类型"
+  
+  # 这些函数已经从FormComponents导入:
 end

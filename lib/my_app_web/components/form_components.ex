@@ -10,7 +10,35 @@ defmodule MyAppWeb.FormComponents do
   # import Phoenix.HTML.Form
   
   # LiveView辅助函数 - 用于事件处理和DOM操作
-  # import Phoenix.LiveView.Helpers
+  import Phoenix.LiveView.Helpers
+  
+  # 辅助函数：获取控件类型图标
+  def get_type_icon(type) do
+    case type do
+      :text_input -> "fa-keyboard"
+      :textarea -> "fa-align-left"
+      :radio -> "fa-dot-circle"
+      :checkbox -> "fa-check-square"
+      :dropdown -> "fa-caret-down"
+      :rating -> "fa-star"
+      :number -> "fa-hashtag"
+      :email -> "fa-envelope"
+      :phone -> "fa-phone"
+      :date -> "fa-calendar"
+      :time -> "fa-clock"
+      :region -> "fa-map-marker-alt"
+      :matrix -> "fa-table"
+      :image_choice -> "fa-images"
+      :file_upload -> "fa-file-upload"
+      _ -> "fa-question"
+    end
+  end
+  
+  # 辅助函数：获取控件类别名称
+  def display_category(:basic), do: "基础控件"
+  def display_category(:personal), do: "个人信息"
+  def display_category(:advanced), do: "高级控件"
+  def display_category(_), do: "其他控件"
 
   @doc """
   渲染表单头部，包括标题和描述

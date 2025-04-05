@@ -166,128 +166,121 @@
   <div class="form-builder-container">
     <!-- 左侧控件栏 -->
     <div class="form-builder-sidebar" id="form-builder-sidebar" phx-hook="FormBuilderSidebar">
-      <div class="sidebar-group">
-        <div class="sidebar-group-title" id="basic-controls-toggle" phx-click="toggle_group" phx-value-group="basic">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-          </svg>
-          基本控件
-        </div>
-        <div class="controls-list expanded" id="basic-controls-list">
-          <div class={["control-item", @item_type == "text_input" && "selected"]} 
-               phx-click="type_changed" phx-value-type="text_input">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            文本输入
-          </div>
-          <div class={["control-item", @item_type == "textarea" && "selected"]} 
-               phx-click="type_changed" phx-value-type="textarea">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
-            </svg>
-            文本区域
-          </div>
-          <div class={["control-item", @item_type == "radio" && "selected"]} 
-               phx-click="type_changed" phx-value-type="radio">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            单选按钮
-          </div>
-          <div class={["control-item", @item_type == "dropdown" && "selected"]} 
-               phx-click="type_changed" phx-value-type="dropdown">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-            下拉菜单
+      <!-- 使用新的分类选择器组件 -->
+      <div class="sidebar-header">
+        <h3 class="text-lg font-medium mb-2">控件类型</h3>
+        
+        <!-- 搜索控件 -->
+        <div class="mb-4">
+          <div class="relative rounded-md shadow-sm">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="搜索控件..."
+              phx-keyup="search_item_types"
+              phx-change="search_item_types"
+              phx-debounce="300"
+              name="search"
+              id="item-type-search"
+              data-test-id="item-type-search"
+              class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            />
           </div>
         </div>
-      </div>
-      
-      <div class="sidebar-group">
-        <div class="sidebar-group-title" id="advanced-controls-toggle" phx-click="toggle_group" phx-value-group="advanced">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-          高级控件
+        
+        <!-- 类别标签页 -->
+        <div class="category-tabs" data-test-id="form-item-category-selector">
+          <div class="flex border-b border-gray-200">
+            <button 
+              class={["category-tab", @active_category == :basic && "active"]} 
+              phx-click="change_category" phx-value-category="basic"
+              data-category="basic"
+            >
+              <i class="fas fa-keyboard mr-1"></i>
+              <%= display_category(:basic) %>
+            </button>
+            <button 
+              class={["category-tab", @active_category == :personal && "active"]} 
+              phx-click="change_category" phx-value-category="personal"
+              data-category="personal"
+            >
+              <i class="fas fa-user mr-1"></i>
+              <%= display_category(:personal) %>
+            </button>
+            <button 
+              class={["category-tab", @active_category == :advanced && "active"]} 
+              phx-click="change_category" phx-value-category="advanced"
+              data-category="advanced"
+            >
+              <i class="fas fa-cogs mr-1"></i>
+              <%= display_category(:advanced) %>
+            </button>
+          </div>
         </div>
-        <div class="controls-list expanded" id="advanced-controls-list">
-          <div class={["control-item", @item_type == "number" && "selected"]} 
-               phx-click="type_changed" phx-value-type="number">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-            </svg>
-            数字输入
-          </div>
-          <div class={["control-item", @item_type == "email" && "selected"]} 
-               phx-click="type_changed" phx-value-type="email">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            邮箱输入
-          </div>
-          <div class={["control-item", @item_type == "phone" && "selected"]} 
-               phx-click="type_changed" phx-value-type="phone">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            电话号码
-          </div>
-          <div class={["control-item", @item_type == "date" && "selected"]} 
-               phx-click="type_changed" phx-value-type="date">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            日期选择
-          </div>
-          <div class={["control-item", @item_type == "time" && "selected"]} 
-               phx-click="type_changed" phx-value-type="time">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            时间选择
-          </div>
-          <div class={["control-item", @item_type == "region" && "selected"]} 
-               phx-click="type_changed" phx-value-type="region">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            地区选择
-          </div>
-          <div class={["control-item", @item_type == "matrix" && "selected"]} 
-               phx-click="type_changed" phx-value-type="matrix">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            矩阵题
-          </div>
+        
+        <!-- 移动设备适配的下拉菜单 -->
+        <div class="lg:hidden mt-4">
+          <select 
+            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+            phx-change="change_category"
+            name="category"
+            data-test-id="mobile-category-selector"
+          >
+            <option value="basic" selected={@active_category == :basic} data-mobile-category="basic">
+              <%= display_category(:basic) %>
+            </option>
+            <option value="personal" selected={@active_category == :personal} data-mobile-category="personal">
+              <%= display_category(:personal) %>
+            </option>
+            <option value="advanced" selected={@active_category == :advanced} data-mobile-category="advanced">
+              <%= display_category(:advanced) %>
+            </option>
+          </select>
         </div>
       </div>
-      
-      <div class="sidebar-group">
-        <div class="sidebar-group-title" id="special-controls-toggle" phx-click="toggle_group" phx-value-group="special">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          特殊控件
-        </div>
-        <div class="controls-list expanded" id="special-controls-list">
-          <div class={["control-item", @item_type == "image_choice" && "selected"]} 
-               phx-click="type_changed" phx-value-type="image_choice">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            图片选择
-          </div>
-          <div class={["control-item", @item_type == "file_upload" && "selected"]} 
-               phx-click="type_changed" phx-value-type="file_upload">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            文件上传
-          </div>
-        </div>
+
+      <!-- 控件类型列表 -->
+      <div class="controls-list mt-4">
+        <%= if @search_term do %>
+          <!-- 搜索结果 -->
+          <h4 class="text-sm font-medium text-gray-500 mb-2">搜索结果</h4>
+          
+          <%= if Enum.empty?(@search_term) do %>
+            <p class="text-gray-500 text-sm">未找到匹配的控件类型</p>
+          <% else %>
+            <%= for type <- @search_term do %>
+              <div 
+                class={["control-item", @item_type == Atom.to_string(type) && "selected"]} 
+                phx-click="type_changed" 
+                phx-value-type={type}
+                data-test-id={"item-type-#{type}"}
+              >
+                <i class={"fas #{get_type_icon(type)} mr-2"}></i>
+                <%= display_selected_type(Atom.to_string(type)) %>
+              </div>
+            <% end %>
+          <% end %>
+          
+        <% else %>
+          <!-- 按类别显示控件 -->
+          <h4 class="text-sm font-medium text-gray-500 mb-2"><%= display_category(@active_category) %></h4>
+          
+          <%= for type <- @all_item_types[@active_category] do %>
+            <div 
+              class={["control-item", @item_type == Atom.to_string(type) && "selected"]} 
+              phx-click="type_changed" 
+              phx-value-type={type}
+              data-test-id={"item-type-#{type}"}
+            >
+              <i class={"fas #{get_type_icon(type)} mr-2"}></i>
+              <%= display_selected_type(Atom.to_string(type)) %>
+            </div>
+          <% end %>
+        <% end %>
       </div>
     </div>
     

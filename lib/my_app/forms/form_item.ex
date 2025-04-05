@@ -73,6 +73,9 @@ defmodule MyApp.Forms.FormItem do
     field :multiple_files, :boolean, default: false
     field :max_files, :integer, default: 1 # 默认最多上传1个文件
     
+    # 控件分类属性
+    field :category, Ecto.Enum, values: [:basic, :personal, :advanced], default: :basic
+    
     field :order, :integer
     field :required, :boolean, default: false
     field :validation_rules, :map, default: %{} # Store rules as JSONB or Map
@@ -92,7 +95,7 @@ defmodule MyApp.Forms.FormItem do
       :min_date, :max_date, :date_format, :min_time, :max_time, :time_format,
       :region_level, :default_province, :matrix_rows, :matrix_columns, :matrix_type,
       :selection_type, :image_caption_position, :allowed_extensions, :max_file_size,
-      :multiple_files, :max_files
+      :multiple_files, :max_files, :category
     ])
     |> validate_required([:label, :type, :order, :required, :form_id])
     |> foreign_key_constraint(:form_id)
@@ -103,7 +106,37 @@ defmodule MyApp.Forms.FormItem do
     |> validate_matrix_field_attributes()
     |> validate_image_choice_field_attributes()
     |> validate_file_upload_field_attributes()
+    |> assign_default_category()
     # Add custom validations for type, rules etc.
+  end
+  
+  # 根据控件类型自动分配默认类别
+  defp assign_default_category(changeset) do
+    # 如果已经在参数中设置了类别
+    if get_change(changeset, :category) do
+      changeset
+    else
+      # 根据控件类型分配默认类别
+      type = get_field(changeset, :type)
+      
+      cond do
+        # 基础控件类型
+        type in [:text_input, :textarea, :radio, :checkbox, :dropdown, :number] ->
+          put_change(changeset, :category, :basic)
+        
+        # 个人信息控件类型
+        type in [:email, :phone, :date, :time, :region] ->
+          put_change(changeset, :category, :personal)
+        
+        # 高级控件类型
+        type in [:rating, :matrix, :image_choice, :file_upload] ->
+          put_change(changeset, :category, :advanced)
+        
+        # 默认为基础类型
+        true ->
+          put_change(changeset, :category, :basic)
+      end
+    end
   end
   
   # 验证数字输入控件的属性
