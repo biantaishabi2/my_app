@@ -24,7 +24,9 @@ defmodule MyApp.Forms.FormItem do
       :date,
       :time,
       :region,
-      :matrix
+      :matrix,
+      :image_choice,
+      :file_upload
       # Add other types as needed
     ]
     
@@ -61,6 +63,16 @@ defmodule MyApp.Forms.FormItem do
     field :matrix_columns, {:array, :string}, default: []
     field :matrix_type, Ecto.Enum, values: [:single, :multiple], default: :single
     
+    # 图片选择控件属性
+    field :selection_type, Ecto.Enum, values: [:single, :multiple], default: :single
+    field :image_caption_position, Ecto.Enum, values: [:top, :bottom, :none], default: :bottom
+    
+    # 文件上传控件属性
+    field :allowed_extensions, {:array, :string}, default: []
+    field :max_file_size, :integer, default: 5 # 默认最大文件大小为5MB
+    field :multiple_files, :boolean, default: false
+    field :max_files, :integer, default: 1 # 默认最多上传1个文件
+    
     field :order, :integer
     field :required, :boolean, default: false
     field :validation_rules, :map, default: %{} # Store rules as JSONB or Map
@@ -78,7 +90,9 @@ defmodule MyApp.Forms.FormItem do
       :label, :description, :type, :order, :required, :validation_rules, :form_id, 
       :max_rating, :min, :max, :step, :show_format_hint, :format_display,
       :min_date, :max_date, :date_format, :min_time, :max_time, :time_format,
-      :region_level, :default_province, :matrix_rows, :matrix_columns, :matrix_type
+      :region_level, :default_province, :matrix_rows, :matrix_columns, :matrix_type,
+      :selection_type, :image_caption_position, :allowed_extensions, :max_file_size,
+      :multiple_files, :max_files
     ])
     |> validate_required([:label, :type, :order, :required, :form_id])
     |> foreign_key_constraint(:form_id)
@@ -87,6 +101,8 @@ defmodule MyApp.Forms.FormItem do
     |> validate_time_field_attributes()
     |> validate_region_field_attributes()
     |> validate_matrix_field_attributes()
+    |> validate_image_choice_field_attributes()
+    |> validate_file_upload_field_attributes()
     # Add custom validations for type, rules etc.
   end
   
@@ -203,6 +219,70 @@ defmodule MyApp.Forms.FormItem do
       changeset = if matrix_columns && matrix_columns && 
                     length(matrix_columns) != length(Enum.uniq(matrix_columns)) do
         add_error(changeset, :matrix_columns, "矩阵列标题必须唯一")
+      else
+        changeset
+      end
+      
+      changeset
+    else
+      changeset
+    end
+  end
+  
+  # 验证图片选择控件的属性
+  defp validate_image_choice_field_attributes(changeset) do
+    if get_field(changeset, :type) == :image_choice do
+      # 这里暂时不用添加额外验证，因为我们使用了Ecto.Enum
+      # selection_type和image_caption_position已经通过Ecto.Enum验证了
+      changeset
+    else
+      changeset
+    end
+  end
+  
+  # 验证文件上传控件的属性
+  defp validate_file_upload_field_attributes(changeset) do
+    if get_field(changeset, :type) == :file_upload do
+      max_file_size = get_field(changeset, :max_file_size)
+      allowed_extensions = get_field(changeset, :allowed_extensions)
+      multiple_files = get_field(changeset, :multiple_files)
+      max_files = get_field(changeset, :max_files)
+      
+      # 验证文件大小限制
+      changeset = cond do
+        is_nil(max_file_size) -> 
+          changeset
+        max_file_size <= 0 -> 
+          add_error(changeset, :max_file_size, "文件大小必须大于0")
+        max_file_size > 20 -> 
+          add_error(changeset, :max_file_size, "单个文件大小不能超过20MB")
+        true -> 
+          changeset
+      end
+      
+      # 验证文件数量限制
+      changeset = if multiple_files && max_files do
+        cond do
+          max_files < 1 -> 
+            add_error(changeset, :max_files, "最多文件数必须至少为1")
+          max_files > 10 -> 
+            add_error(changeset, :max_files, "最多允许上传10个文件")
+          true -> 
+            changeset
+        end
+      else
+        changeset
+      end
+      
+      # 验证文件扩展名
+      changeset = if allowed_extensions && length(allowed_extensions) > 0 do
+        invalid_extensions = Enum.filter(allowed_extensions, fn ext -> !String.starts_with?(ext, ".") end)
+        
+        if length(invalid_extensions) > 0 do
+          add_error(changeset, :allowed_extensions, "文件扩展名必须以点号(.)开头")
+        else
+          changeset
+        end
       else
         changeset
       end

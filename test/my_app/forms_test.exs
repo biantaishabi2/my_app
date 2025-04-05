@@ -371,6 +371,122 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{matrix_columns: ["矩阵列标题必须唯一"]} = errors_on(changeset)
     end
+    
+    # 图片选择控件测试
+    test "with valid data adds an image_choice item to the form", %{form: form} do
+      item_attrs = %{
+        label: "选择一个图片",
+        type: :image_choice,
+        required: true,
+        selection_type: :single,
+        image_caption_position: :bottom
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "选择一个图片"
+      assert item.type == :image_choice
+      assert item.selection_type == :single
+      assert item.image_caption_position == :bottom
+    end
+    
+    # 图片选择控件验证
+    test "image_choice field validates selection_type", %{form: form} do
+      # 无效的选择类型
+      item_attrs = %{
+        label: "选择图片",
+        type: :image_choice,
+        selection_type: :invalid_type
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{selection_type: ["is invalid"]} = errors_on(changeset)
+    end
+    
+    # 图片选择控件验证标题位置
+    test "image_choice field validates caption position", %{form: form} do
+      # 无效的标题位置
+      item_attrs = %{
+        label: "选择图片",
+        type: :image_choice,
+        image_caption_position: :invalid_position
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{image_caption_position: ["is invalid"]} = errors_on(changeset)
+    end
+    
+    # 文件上传控件测试
+    test "with valid data adds a file_upload item to the form", %{form: form} do
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        required: true,
+        allowed_extensions: [".pdf", ".doc", ".docx", ".jpg", ".png"],
+        max_file_size: 5,
+        multiple_files: true,
+        max_files: 3
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "上传文件"
+      assert item.type == :file_upload
+      assert item.allowed_extensions == [".pdf", ".doc", ".docx", ".jpg", ".png"]
+      assert item.max_file_size == 5
+      assert item.multiple_files == true
+      assert item.max_files == 3
+    end
+    
+    # 文件上传控件文件大小验证
+    test "file_upload field validates max_file_size", %{form: form} do
+      # 无效的文件大小（超过20MB限制）
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        max_file_size: 25
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{max_file_size: ["单个文件大小不能超过20MB"]} = errors_on(changeset)
+      
+      # 无效的文件大小（负值）
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        max_file_size: -1
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{max_file_size: ["文件大小必须大于0"]} = errors_on(changeset)
+    end
+    
+    # 文件上传控件最大文件数验证
+    test "file_upload field validates max_files", %{form: form} do
+      # 无效的最大文件数（超过10个文件限制）
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        multiple_files: true,
+        max_files: 15
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{max_files: ["最多允许上传10个文件"]} = errors_on(changeset)
+      
+      # 无效的最大文件数（少于1个）
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        multiple_files: true,
+        max_files: 0
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{max_files: ["最多文件数必须至少为1"]} = errors_on(changeset)
+    end
+    
+    # 文件上传控件扩展名验证
+    test "file_upload field validates allowed_extensions", %{form: form} do
+      # 无效的扩展名（不带点号）
+      item_attrs = %{
+        label: "上传文件",
+        type: :file_upload,
+        allowed_extensions: ["pdf", "doc", "docx"]
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{allowed_extensions: ["文件扩展名必须以点号(.)开头"]} = errors_on(changeset)
+    end
   end
 
   describe "add_item_option/3" do

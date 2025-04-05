@@ -777,6 +777,237 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
         
+        <%= if @item.type == :image_choice || @item_type == "image_choice" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">图片选择设置</label>
+            
+            <!-- 选择类型设置 -->
+            <div class="mb-4">
+              <label class="block text-sm text-gray-600 mb-1">选择类型</label>
+              <div class="flex space-x-4">
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[selection_type]" 
+                    value="single" 
+                    checked={@item.selection_type == :single || @item.selection_type == nil}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">单选 (只能选择一张图片)</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[selection_type]" 
+                    value="multiple" 
+                    checked={@item.selection_type == :multiple}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">多选 (可以选择多张图片)</span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- 图片标题位置设置 -->
+            <div class="mb-4">
+              <label class="block text-sm text-gray-600 mb-1">图片标题位置</label>
+              <div class="flex space-x-4">
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[image_caption_position]" 
+                    value="top" 
+                    checked={@item.image_caption_position == :top}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">图片上方</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[image_caption_position]" 
+                    value="bottom" 
+                    checked={@item.image_caption_position == :bottom || @item.image_caption_position == nil}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">图片下方</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[image_caption_position]" 
+                    value="none" 
+                    checked={@item.image_caption_position == :none}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">不显示标题</span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- 图片选择预览 -->
+            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+              <div class="text-sm text-gray-700 mb-2">预览:</div>
+              <div class="flex flex-wrap gap-4">
+                <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
+                  <%= if @item.image_caption_position == :top do %>
+                    <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
+                  <% end %>
+                  <div class="h-32 bg-gray-100 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <%= if @item.image_caption_position == :bottom || @item.image_caption_position == nil do %>
+                    <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
+                  <% end %>
+                  <div class="p-1 border-t border-gray-300 bg-white text-center">
+                    <input 
+                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"} 
+                      disabled 
+                      class="h-4 w-4 text-indigo-600"
+                    />
+                  </div>
+                </div>
+                
+                <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
+                  <%= if @item.image_caption_position == :top do %>
+                    <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
+                  <% end %>
+                  <div class="h-32 bg-gray-100 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <%= if @item.image_caption_position == :bottom || @item.image_caption_position == nil do %>
+                    <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
+                  <% end %>
+                  <div class="p-1 border-t border-gray-300 bg-white text-center">
+                    <input 
+                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"} 
+                      disabled 
+                      class="h-4 w-4 text-indigo-600"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="text-xs text-gray-500 mt-2">
+                选择类型: <%= if @item.selection_type == :multiple, do: "多选", else: "单选" %>, 
+                标题位置: <%= case @item.image_caption_position do %>
+                  <% :top -> %>图片上方
+                  <% :bottom -> %>图片下方
+                  <% :none -> %>不显示标题
+                  <% _ -> %>图片下方
+                <% end %>
+              </div>
+              <div class="text-xs text-gray-500 mt-2">
+                注意: 实际图片上传功能将在表单提交页面实现
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
+        <%= if @item.type == :file_upload || @item_type == "file_upload" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">文件上传设置</label>
+            
+            <!-- 文件扩展名设置 -->
+            <div class="mb-4">
+              <label class="block text-sm text-gray-600 mb-1">允许的文件类型 (多个类型用逗号分隔)</label>
+              <input 
+                type="text" 
+                name="item[allowed_extensions]" 
+                value={if is_list(@item.allowed_extensions), do: Enum.join(@item.allowed_extensions, ", "), else: ""}
+                placeholder=".pdf, .doc, .docx, .jpg, .png"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div class="text-xs text-gray-500 mt-1">
+                例如: .pdf, .doc, .docx, .jpg, .png (必须以点号开头)
+              </div>
+            </div>
+            
+            <!-- 文件大小限制设置 -->
+            <div class="mb-4">
+              <label class="block text-sm text-gray-600 mb-1">最大文件大小 (MB)</label>
+              <input 
+                type="number" 
+                name="item[max_file_size]" 
+                value={@item.max_file_size || 5}
+                min="0.1"
+                max="20"
+                step="0.1"
+                class="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div class="text-xs text-gray-500 mt-1">
+                每个文件的最大大小限制 (最大20MB)
+              </div>
+            </div>
+            
+            <!-- 多文件上传设置 -->
+            <div class="mb-4">
+              <div class="flex items-center">
+                <input
+                  type="checkbox"
+                  id="multiple-files"
+                  name="item[multiple_files]"
+                  checked={@item.multiple_files}
+                  class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label for="multiple-files" class="ml-2 text-sm text-gray-700">允许上传多个文件</label>
+              </div>
+              
+              <%= if @item.multiple_files do %>
+                <div class="mt-3 ml-6">
+                  <label class="block text-sm text-gray-600 mb-1">最大文件数量</label>
+                  <input 
+                    type="number" 
+                    name="item[max_files]" 
+                    value={@item.max_files || 3}
+                    min="1"
+                    max="10"
+                    class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div class="text-xs text-gray-500 mt-1">
+                    允许上传的最大文件数量 (最多10个)
+                  </div>
+                </div>
+              <% end %>
+            </div>
+            
+            <!-- 文件上传预览 -->
+            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+              <div class="text-sm text-gray-700 mb-2">预览:</div>
+              <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <div class="mt-2 text-sm text-gray-600">
+                  点击或拖拽文件到此区域上传
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  <%= if @item.allowed_extensions && @item.allowed_extensions != [] do %>
+                    支持格式: <%= if is_list(@item.allowed_extensions), do: Enum.join(@item.allowed_extensions, ", "), else: @item.allowed_extensions %>
+                  <% else %>
+                    支持所有文件格式
+                  <% end %>
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  最大文件大小: <%= @item.max_file_size || 5 %> MB
+                  <%= if @item.multiple_files do %>
+                    , 最多 <%= @item.max_files || 3 %> 个文件
+                  <% end %>
+                </div>
+                <button type="button" class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" disabled>
+                  选择文件
+                </button>
+              </div>
+              <div class="text-xs text-gray-500 mt-2">
+                注意: 实际文件上传功能将在表单提交页面实现
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
@@ -812,6 +1043,8 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:time), do: "时间选择" 
   defp display_item_type(:region), do: "地区选择"
   defp display_item_type(:matrix), do: "矩阵题"
+  defp display_item_type(:image_choice), do: "图片选择"
+  defp display_item_type(:file_upload), do: "文件上传"
   defp display_item_type(_), do: "未知类型"
   
   @doc """
@@ -858,7 +1091,7 @@ defmodule MyAppWeb.FormComponents do
               <%= for {row, row_idx} <- Enum.with_index(@field.matrix_rows || []) do %>
                 <tr>
                   <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
-                  <%= for {column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
+                  <%= for {_column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
                     <td class="p-2 border border-gray-300 text-center">
                       <%= if @field.matrix_type == :multiple do %>
                         <input 
@@ -928,6 +1161,325 @@ defmodule MyAppWeb.FormComponents do
       _ -> false
     end
   end
+  
+  @doc """
+  渲染图片选择字段组件
+  
+  ## 示例
+      <.image_choice_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+        options={@options}
+      />
+  """
+  def image_choice_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    assigns = assign_new(assigns, :options, fn -> [] end)
+    
+    ~H"""
+    <div class="form-field form-item mb-6">
+      <fieldset>
+        <legend class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+          <%= @field.label %>
+          <%= if @field.required do %>
+            <span class="form-item-required text-red-500">*</span>
+          <% end %>
+        </legend>
+        
+        <%= if @field.description do %>
+          <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+        <% end %>
+        
+        <div class="flex flex-wrap gap-4">
+          <%= for {option, index} <- Enum.with_index(@options) do %>
+            <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
+              <%= if @field.image_caption_position == :top do %>
+                <div class="p-2 text-center bg-white text-sm"><%= option.label %></div>
+              <% end %>
+              
+              <div class="h-32 bg-gray-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              
+              <%= if @field.image_caption_position == :bottom || @field.image_caption_position == nil do %>
+                <div class="p-2 text-center bg-white text-sm"><%= option.label %></div>
+              <% end %>
+              
+              <div class="p-1 border-t border-gray-300 bg-white text-center">
+                <%= if @field.selection_type == :multiple do %>
+                  <input 
+                    type="checkbox"
+                    id={"#{@field.id}_#{index}"}
+                    name={"#{@field.id}[]"}
+                    value={option.value}
+                    checked={is_list(Map.get(@form_state, @field.id)) && option.value in Map.get(@form_state, @field.id, [])}
+                    disabled={@disabled}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                    phx-debounce="blur"
+                  />
+                <% else %>
+                  <input 
+                    type="radio"
+                    id={"#{@field.id}_#{index}"}
+                    name={@field.id}
+                    value={option.value}
+                    checked={Map.get(@form_state, @field.id) == option.value}
+                    required={@field.required}
+                    disabled={@disabled}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                    phx-debounce="blur"
+                  />
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+          
+          <%= if Enum.empty?(@options) do %>
+            <div class="w-full p-4 bg-gray-50 rounded-md text-center text-gray-500">
+              暂无图片选项，请在编辑模式下添加图片选项
+            </div>
+          <% end %>
+        </div>
+        
+        <%= if @error do %>
+          <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+        <% end %>
+      </fieldset>
+    </div>
+    """
+  end
+  
+  @doc """
+  渲染文件上传字段组件
+
+  ## 示例
+      <.file_upload_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+        uploads={@uploads}
+      />
+  """
+  def file_upload_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    assigns = assign_new(assigns, :uploads, fn -> nil end)
+    
+    ~H"""
+    <div class="form-field form-item mb-6">
+      <label class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      
+      <%= if @field.description do %>
+        <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+      <% end %>
+      
+      <%= if @uploads && Map.has_key?(@uploads, String.to_atom("#{@field.id}_uploader")) do %>
+        <% upload = @uploads[String.to_atom("#{@field.id}_uploader")] %>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
+             phx-drop-target={upload.ref}
+             id={"#{@field.id}-upload-dropzone"}>
+          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <div class="mt-2 text-sm text-gray-600">
+            点击或拖拽文件到此区域上传
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+              支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
+            <% else %>
+              支持所有文件格式
+            <% end %>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            最大文件大小: <%= @field.max_file_size || 5 %> MB
+            <%= if @field.multiple_files do %>
+              , 最多 <%= @field.max_files || 3 %> 个文件
+            <% end %>
+          </div>
+          
+          <!-- 隐藏的文件输入框 -->
+          <form id={"#{@field.id}-upload-form"} phx-change={"validate_upload"} phx-value-field-id={@field.id} phx-submit="upload_files">
+            <.live_file_input upload={upload} class="hidden" />
+            <button 
+              type="button" 
+              phx-click="select_files"
+              phx-value-field-id={@field.id}
+              disabled={@disabled || Enum.count(upload.entries) >= upload.max_entries}
+              class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
+            >
+              选择文件
+            </button>
+          </form>
+          
+          <!-- 错误信息显示 -->
+          <%= for err <- upload.errors do %>
+            <div class="text-red-500 text-sm mt-1">
+              <%= error_to_string(err) %>
+            </div>
+          <% end %>
+          
+          <!-- 上传中的文件列表 -->
+          <%= if Enum.any?(upload.entries) do %>
+            <div class="mt-4">
+              <h4 class="text-sm font-medium text-gray-700 mb-2">准备上传的文件:</h4>
+              <ul class="space-y-2">
+                <%= for entry <- upload.entries do %>
+                  <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
+                    <span class="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <%= entry.client_name %>
+                      <span class="ml-2 text-xs text-gray-500">
+                        (<%= format_file_size(entry.client_size) %>)
+                      </span>
+                      
+                      <!-- 上传进度显示 -->
+                      <%= if entry.progress > 0 do %>
+                        <span class="ml-2 text-xs text-gray-500">
+                          <%= Float.round(entry.progress, 1) %>%
+                        </span>
+                        <div class="w-16 h-1 ml-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div class="h-full bg-indigo-500" style={"width: #{entry.progress}%"}></div>
+                        </div>
+                      <% end %>
+                    </span>
+                    
+                    <!-- 取消上传按钮 -->
+                    <button
+                      type="button"
+                      phx-click="cancel_upload"
+                      phx-value-field-id={@field.id}
+                      phx-value-ref={entry.ref}
+                      class="text-red-500 hover:text-red-700"
+                      title="取消上传"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </li>
+                <% end %>
+              </ul>
+              
+              <button
+                type="button"
+                phx-click="upload_files"
+                phx-value-field-id={@field.id}
+                class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                开始上传
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <!-- 非LiveView环境下的简单预览 -->
+        <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <div class="mt-2 text-sm text-gray-600">
+            点击或拖拽文件到此区域上传
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+              支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
+            <% else %>
+              支持所有文件格式
+            <% end %>
+          </div>
+          <div class="mt-1 text-xs text-gray-500">
+            最大文件大小: <%= @field.max_file_size || 5 %> MB
+            <%= if @field.multiple_files do %>
+              , 最多 <%= @field.max_files || 3 %> 个文件
+            <% end %>
+          </div>
+          <button 
+            type="button"
+            disabled={@disabled}
+            class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            选择文件
+          </button>
+        </div>
+      <% end %>
+      
+      <!-- 已上传的文件列表 -->
+      <%= if Map.get(@form_state, @field.id) && !Enum.empty?(Map.get(@form_state, @field.id, [])) do %>
+        <div class="mt-4">
+          <h4 class="text-sm font-medium text-gray-700 mb-2">已上传的文件:</h4>
+          <ul class="space-y-2">
+            <%= for {file, index} <- Enum.with_index(Map.get(@form_state, @field.id, [])) do %>
+              <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
+                <span class="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <a href={file.path} target="_blank" class="text-indigo-600 hover:underline">
+                    <%= file.name || "文件 #{index + 1}" %>
+                  </a>
+                  <%= if file.size do %>
+                    <span class="ml-2 text-xs text-gray-500">
+                      (<%= format_file_size(file.size) %>)
+                    </span>
+                  <% end %>
+                </span>
+                <%= unless @disabled do %>
+                  <button
+                    type="button"
+                    phx-click="remove_file"
+                    phx-value-field-id={@field.id}
+                    phx-value-file-index={index}
+                    class="text-red-500 hover:text-red-700"
+                    title="删除文件"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+      
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+    </div>
+    """
+  end
+  
+  # 辅助函数：格式化文件大小
+  defp format_file_size(size_bytes) when is_integer(size_bytes) do
+    cond do
+      size_bytes < 1024 -> "#{size_bytes} B"
+      size_bytes < 1024 * 1024 -> "#{Float.round(size_bytes / 1024, 1)} KB"
+      size_bytes < 1024 * 1024 * 1024 -> "#{Float.round(size_bytes / 1024 / 1024, 1)} MB"
+      true -> "#{Float.round(size_bytes / 1024 / 1024 / 1024, 1)} GB"
+    end
+  end
+  defp format_file_size(_), do: "未知大小"
+  
+  # 将上传错误转换为可读的消息
+  defp error_to_string(:too_large), do: "文件太大了"
+  defp error_to_string(:too_many_files), do: "文件数量过多"
+  defp error_to_string(:not_accepted), do: "文件类型不允许"
+  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
+  defp error_to_string(error), do: "上传失败: #{inspect(error)}"
 
   @doc """
   渲染文本区域字段组件

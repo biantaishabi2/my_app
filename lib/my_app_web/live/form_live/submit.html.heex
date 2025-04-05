@@ -478,7 +478,7 @@
                             <thead>
                               <tr>
                                 <th class="p-2 border border-gray-300 bg-gray-50"></th>
-                                <%= for {column, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
+                                <%= for {column, _col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
                                   <th class="p-2 border border-gray-300 bg-gray-50 text-center">
                                     <%= column %>
                                   </th>
@@ -489,7 +489,7 @@
                               <%= for {row, row_idx} <- Enum.with_index(item.matrix_rows || []) do %>
                                 <tr>
                                   <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
-                                  <%= for {column, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
+                                  <%= for {_, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
                                     <td class="p-2 border border-gray-300 text-center">
                                       <%= if item.matrix_type == :multiple do %>
                                         <input 
@@ -536,6 +536,24 @@
                         <% end %>
                       </fieldset>
                     </div>
+                    
+                  <% :file_upload -> %>
+                    <!-- 使用新的文件上传组件 -->
+                    <.file_upload_field
+                      field={item}
+                      form_state={@form_state}
+                      error={@errors[item.id]}
+                      uploads={@uploads}
+                    />
+                    
+                  <% :image_choice -> %>
+                    <!-- 使用图片选择组件 -->
+                    <.image_choice_field
+                      field={item}
+                      form_state={@form_state}
+                      error={@errors[item.id]}
+                      options={item.options || []}
+                    />
                 <% end %>
               <% end %>
             </div>

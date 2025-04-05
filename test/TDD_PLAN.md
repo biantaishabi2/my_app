@@ -356,21 +356,22 @@
    - [x] **time_field/1**：测试时间选择控件的渲染
    - [x] **region_field/1**：测试地区选择控件的渲染，包括省市区联动
    - [x] **matrix_field/1**：测试矩阵题控件的渲染，包括行列结构
-   - [ ] **image_choice_field/1**：测试图片选择控件的渲染
-   - [ ] **file_upload_field/1**：测试文件上传控件的渲染
+   - [x] **image_choice_field/1**：测试图片选择控件的渲染，包括单选和多选模式
+   - [x] **file_upload_field/1**：测试文件上传控件的渲染，包括文件限制和多文件上传
 
 2. **特殊属性测试**
    - [x] 测试number_field的min/max/step属性
    - [x] 测试date_field的日期范围属性
    - [x] 测试region_field的级联选择行为
    - [x] 测试matrix_field的行列定义和选择模式
-   - [ ] 测试file_upload_field的文件类型限制
+   - [x] 测试image_choice_field的选择类型和标题位置
+   - [x] 测试file_upload_field的文件类型限制、大小限制和多文件上传
 
 3. **数据处理测试**
    - [x] 测试number_field、email_field、phone_field的数据显示（回填）
    - [x] 测试number_field、email_field、phone_field的错误状态显示
    - [x] 测试number_field的禁用状态行为
-   - [ ] 测试其他控件的数据处理
+   - [x] 测试其他控件的数据处理
 
 ### 页面集成测试（edit_test.exs）
 
@@ -383,7 +384,7 @@
    - [x] 测试添加date_field控件到表单
    - [x] 测试添加time_field控件到表单
    - [x] 测试添加region_field控件到表单
-   - [ ] 测试添加更复杂控件类型到表单
+   - [x] 测试添加更复杂控件类型到表单
 
 2. **控件编辑测试**
    - [x] 测试编辑number_field的范围属性
@@ -406,8 +407,8 @@
    - [x] 测试`:time`类型的表单项创建与验证
    - [x] 测试`:region`类型的表单项创建与验证
    - [x] 测试`:matrix`类型的表单项创建与验证
-   - [ ] 测试`:image_choice`类型的表单项创建与验证
-   - [ ] 测试`:file_upload`类型的表单项创建与验证
+   - [x] 测试`:image_choice`类型的表单项创建与验证
+   - [x] 测试`:file_upload`类型的表单项创建与验证
 
 2. **特殊属性测试**
    - [x] 测试number_field的min/max/step属性保存
@@ -433,7 +434,9 @@
    - [x] 测试提交包含date_field的表单
    - [x] 测试提交包含time_field的表单
    - [x] 测试提交包含region_field的表单
-   - [ ] 测试提交包含复杂控件类型的表单
+   - [x] 测试提交包含matrix_field的表单
+   - [x] 测试提交包含image_choice_field的表单
+   - [x] 测试提交包含file_upload_field的表单
 
 2. **数据验证测试**
    - [x] 测试各种控件类型的数据验证规则
