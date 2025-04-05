@@ -169,16 +169,15 @@ defmodule MyApp.ResponsesTest do
       assert fetched_response.id == response.id
       assert fetched_response.form_id == form.id
 
-      # Verify that answers are loaded (assuming get_response preloads them)
-      # This assertion style depends on whether Answers schema is defined and preloaded
-      # assert %Ecto.Association.NotLoaded{} != fetched_response.answers
-      # assert length(fetched_response.answers) == 2
+      # Verify that answers are loaded
+      assert %Ecto.Association.NotLoaded{} != fetched_response.answers
+      assert length(fetched_response.answers) == 2
 
       # Verify answer details (more robust check)
-      # answer_values = Enum.map(fetched_response.answers, &{&1.form_item_id, &1.value})
-      #                |> Map.new()
-      # assert answer_values[text_item.id] == "fetch_me@test.com"
-      # assert answer_values[radio_item.id] == "5"
+      answer_values = Enum.map(fetched_response.answers, &{&1.form_item_id, &1.value["value"]})
+                     |> Map.new()
+      assert answer_values[text_item.id] == "fetch_me@test.com"
+      assert answer_values[radio_item.id] == "5"
     end
 
     test "returns nil if response id does not exist" do

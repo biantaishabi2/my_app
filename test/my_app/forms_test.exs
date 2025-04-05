@@ -76,11 +76,9 @@ defmodule MyApp.FormsTest do
       assert item.order == 1 # Assuming it's the first item
 
       # Verify it's actually associated by fetching the form again
-      # This requires get_form to preload items, which might be a later step
-      # For now, we trust the returned item's state.
-      # fetched_form = Forms.get_form(form.id) |> Repo.preload(:items)
-      # assert length(fetched_form.items) == 1
-      # assert hd(fetched_form.items).label == "Your Name"
+      fetched_form = Forms.get_form(form.id)
+      assert length(fetched_form.items) == 1
+      assert hd(fetched_form.items).label == "Your Name"
     end
 
     test "returns error changeset if label is missing", %{form: form} do
@@ -138,10 +136,10 @@ defmodule MyApp.FormsTest do
       assert option.form_item_id == radio_item.id
       assert option.order == 1 # First option
 
-      # Verify association (assuming ItemOption schema exists)
-      # loaded_item = Repo.preload(radio_item, :options)
-      # assert length(loaded_item.options) == 1
-      # assert hd(loaded_item.options).value == "a"
+      # Verify association
+      loaded_item = Forms.get_form_item_with_options(radio_item.id)
+      assert length(loaded_item.options) == 1
+      assert hd(loaded_item.options).value == "a"
     end
 
     test "returns error changeset if label is missing", %{radio_item: radio_item} do
@@ -192,8 +190,8 @@ defmodule MyApp.FormsTest do
       assert updated_form.id == form.id
 
       # Verify the change is persisted
-      # fetched_form = Forms.get_form(form.id)
-      # assert fetched_form.status == :published
+      fetched_form = Forms.get_form(form.id)
+      assert fetched_form.status == :published
     end
 
     test "returns error if the form is already published", %{form: form} do
