@@ -467,4 +467,249 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       assert html =~ "预览"
     end
   end
+
+  # 新增控件类型测试
+  describe "number_field/1" do
+    test "渲染数字输入字段" do
+      assigns = %{
+        field: %{
+          id: "number-field-1",
+          label: "年龄",
+          required: true,
+          min: 18,
+          max: 60,
+          step: 1
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.number_field/1, assigns)
+      
+      # 测试行为而非实现细节
+      assert html =~ "年龄"
+      assert html =~ ~r/<input[^>]*type="number"/
+      assert html =~ ~r/min="18"/
+      assert html =~ ~r/max="60"/
+      assert html =~ ~r/step="1"/
+      assert html =~ ~r/required/
+    end
+
+    test "显示填写的值" do
+      assigns = %{
+        field: %{
+          id: "number-field-1",
+          label: "年龄",
+          required: true,
+          min: 18,
+          max: 60
+        },
+        form_state: %{"number-field-1" => "25"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.number_field/1, assigns)
+      
+      # 验证值正确显示
+      assert html =~ ~r/value="25"/
+    end
+
+    test "显示错误信息" do
+      assigns = %{
+        field: %{
+          id: "number-field-1",
+          label: "年龄",
+          required: true,
+          min: 18,
+          max: 60
+        },
+        form_state: %{},
+        error: "请输入有效年龄",
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.number_field/1, assigns)
+      
+      # 验证错误信息显示
+      assert html =~ "请输入有效年龄"
+      assert html =~ ~r/<div[^>]*class="[^"]*text-red-500[^"]*"[^>]*>请输入有效年龄<\/div>/
+    end
+
+    test "禁用状态" do
+      assigns = %{
+        field: %{
+          id: "number-field-1",
+          label: "年龄",
+          required: true,
+          min: 18,
+          max: 60
+        },
+        form_state: %{"number-field-1" => "25"},
+        error: nil,
+        disabled: true
+      }
+
+      html = render_component(&FormComponents.number_field/1, assigns)
+      
+      # 验证禁用状态
+      assert html =~ ~r/disabled/
+    end
+  end
+
+  describe "email_field/1" do
+    test "渲染邮箱输入字段" do
+      assigns = %{
+        field: %{
+          id: "email-field-1",
+          label: "电子邮箱",
+          required: true
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.email_field/1, assigns)
+      
+      # 测试行为而非实现细节
+      assert html =~ "电子邮箱"
+      assert html =~ ~r/<input[^>]*type="email"/
+      assert html =~ ~r/required/
+    end
+
+    test "显示填写的值" do
+      assigns = %{
+        field: %{
+          id: "email-field-1",
+          label: "电子邮箱",
+          required: true
+        },
+        form_state: %{"email-field-1" => "test@example.com"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.email_field/1, assigns)
+      
+      # 验证值正确显示
+      assert html =~ ~r/value="test@example.com"/
+    end
+
+    test "显示错误信息" do
+      assigns = %{
+        field: %{
+          id: "email-field-1",
+          label: "电子邮箱",
+          required: true
+        },
+        form_state: %{},
+        error: "请输入有效的电子邮箱地址",
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.email_field/1, assigns)
+      
+      # 验证错误信息显示
+      assert html =~ "请输入有效的电子邮箱地址"
+    end
+
+    test "包含邮箱格式提示" do
+      assigns = %{
+        field: %{
+          id: "email-field-1",
+          label: "电子邮箱",
+          required: true,
+          show_format_hint: true
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.email_field/1, assigns)
+      
+      # 验证格式提示显示
+      assert html =~ "example@domain.com"
+    end
+  end
+
+  describe "phone_field/1" do
+    test "渲染电话号码输入字段" do
+      assigns = %{
+        field: %{
+          id: "phone-field-1",
+          label: "手机号码",
+          required: true
+        },
+        form_state: %{},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.phone_field/1, assigns)
+      
+      # 测试行为而非实现细节
+      assert html =~ "手机号码"
+      assert html =~ ~r/<input[^>]*type="tel"/
+      assert html =~ ~r/required/
+    end
+
+    test "显示填写的值" do
+      assigns = %{
+        field: %{
+          id: "phone-field-1",
+          label: "手机号码",
+          required: true
+        },
+        form_state: %{"phone-field-1" => "13800138000"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.phone_field/1, assigns)
+      
+      # 验证值正确显示
+      assert html =~ ~r/value="13800138000"/
+    end
+
+    test "显示错误信息" do
+      assigns = %{
+        field: %{
+          id: "phone-field-1",
+          label: "手机号码",
+          required: true
+        },
+        form_state: %{},
+        error: "请输入有效的手机号码",
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.phone_field/1, assigns)
+      
+      # 验证错误信息显示
+      assert html =~ "请输入有效的手机号码"
+    end
+
+    test "支持格式化显示" do
+      assigns = %{
+        field: %{
+          id: "phone-field-1",
+          label: "手机号码",
+          required: true,
+          format_display: true
+        },
+        form_state: %{"phone-field-1" => "13800138000"},
+        error: nil,
+        disabled: false
+      }
+
+      html = render_component(&FormComponents.phone_field/1, assigns)
+      
+      # 验证格式化显示
+      assert html =~ "pattern"
+      assert html =~ "placeholder"
+    end
+  end
 end

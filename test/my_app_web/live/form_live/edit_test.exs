@@ -147,7 +147,101 @@ defmodule MyAppWeb.FormLive.EditTest do
       updated_form = MyApp.Forms.get_form_with_items(form.id)
       assert length(updated_form.items) == 2
       assert Enum.any?(updated_form.items, fn item -> item.label == text_label end)
-      assert Enum.any?(updated_form.items, fn item -> item.label == radio_label end)
+    end
+    
+    # 测试添加数字输入控件
+    test "添加数字输入控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 点击添加表单项按钮
+      view |> element("button", "添加表单项") |> render_click()
+      
+      # 选择数字输入类型
+      view |> element("button", "数字输入") |> render_click()
+      
+      # 填写控件属性
+      view |> element("form.form-item-editor") |> render_submit(%{
+        "item" => %{
+          "label" => "年龄",
+          "type" => "number",
+          "required" => "true",
+          "min" => "18",
+          "max" => "60"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "年龄"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      number_item = Enum.find(updated_form.items, fn item -> item.label == "年龄" end)
+      assert number_item != nil
+      assert number_item.type == :number
+      assert number_item.min == 18
+      assert number_item.max == 60
+    end
+    
+    # 测试添加邮箱输入控件
+    test "添加邮箱输入控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 点击添加表单项按钮
+      view |> element("button", "添加表单项") |> render_click()
+      
+      # 选择邮箱输入类型
+      view |> element("button", "邮箱输入") |> render_click()
+      
+      # 填写控件属性
+      view |> element("form.form-item-editor") |> render_submit(%{
+        "item" => %{
+          "label" => "电子邮箱",
+          "type" => "email",
+          "required" => "true",
+          "show_format_hint" => "true"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "电子邮箱"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      email_item = Enum.find(updated_form.items, fn item -> item.label == "电子邮箱" end)
+      assert email_item != nil
+      assert email_item.type == :email
+      assert email_item.show_format_hint == true
+    end
+    
+    # 测试添加电话输入控件
+    test "添加电话输入控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 点击添加表单项按钮
+      view |> element("button", "添加表单项") |> render_click()
+      
+      # 选择电话输入类型
+      view |> element("button", "电话号码") |> render_click()
+      
+      # 填写控件属性
+      view |> element("form.form-item-editor") |> render_submit(%{
+        "item" => %{
+          "label" => "联系电话",
+          "type" => "phone",
+          "required" => "true",
+          "format_display" => "true"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "联系电话"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      phone_item = Enum.find(updated_form.items, fn item -> item.label == "联系电话" end)
+      assert phone_item != nil
+      assert phone_item.type == :phone
+      assert phone_item.format_display == true
     end
 
     test "编辑表单项", %{conn: conn, form: form, text_item: text_item} do

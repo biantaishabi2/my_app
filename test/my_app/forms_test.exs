@@ -1,9 +1,9 @@
-# test/my_app/forms_test.exs
 defmodule MyApp.FormsTest do
   use MyApp.DataCase, async: false
 
   alias MyApp.Forms
-  alias MyApp.Forms.Form # Assuming Form schema will be inside Forms context
+  alias MyApp.Forms.Form
+  alias MyApp.Forms.FormItem
   import MyApp.AccountsFixtures
 
   @moduletag :capture_log
@@ -113,6 +113,112 @@ defmodule MyApp.FormsTest do
       assert item.label == "Satisfaction Level"
       assert item.type == :radio
     end
+    
+    test "with valid data adds a textarea item to the form", %{form: form} do
+      item_attrs = %{
+        label: "Your Comments",
+        type: :textarea,
+        required: true,
+        description: "Please enter detailed feedback..."
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "Your Comments"
+      assert item.type == :textarea
+      assert item.description == "Please enter detailed feedback..."
+    end
+    
+    test "with valid data adds a dropdown item to the form", %{form: form} do
+      item_attrs = %{
+        label: "Select Country",
+        type: :dropdown,
+        required: true
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "Select Country"
+      assert item.type == :dropdown
+    end
+    
+    test "with valid data adds a rating item to the form", %{form: form} do
+      item_attrs = %{
+        label: "Rate our service",
+        type: :rating,
+        required: true,
+        max_rating: 5
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "Rate our service"
+      assert item.type == :rating
+      assert item.max_rating == 5
+    end
+    
+    # 新控件测试：数字输入字段
+    test "with valid data adds a number item to the form", %{form: form} do
+      item_attrs = %{
+        label: "年龄",
+        type: :number,
+        required: true,
+        min: 18,
+        max: 60,
+        step: 1
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "年龄"
+      assert item.type == :number
+      assert item.min == 18
+      assert item.max == 60
+      assert item.step == 1
+    end
+    
+    test "number field validates min/max values", %{form: form} do
+      # 无效的min/max值（min > max）
+      item_attrs = %{
+        label: "年龄",
+        type: :number,
+        min: 60,
+        max: 18
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{min: ["最小值不能大于最大值"]} = errors_on(changeset)
+    end
+    
+    test "number field step must be positive", %{form: form} do
+      item_attrs = %{
+        label: "年龄",
+        type: :number,
+        step: -1
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{step: ["步长必须大于0"]} = errors_on(changeset)
+    end
+    
+    # 邮箱输入字段
+    test "with valid data adds an email item to the form", %{form: form} do
+      item_attrs = %{
+        label: "电子邮箱",
+        type: :email,
+        required: true,
+        show_format_hint: true
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "电子邮箱"
+      assert item.type == :email
+      assert item.show_format_hint == true
+    end
+    
+    # 电话号码输入字段
+    test "with valid data adds a phone item to the form", %{form: form} do
+      item_attrs = %{
+        label: "联系电话",
+        type: :phone,
+        required: true,
+        format_display: true
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "联系电话"
+      assert item.type == :phone
+      assert item.format_display == true
+    end
+    end
   end
 
   describe "add_item_option/3" do
@@ -163,15 +269,6 @@ defmodule MyApp.FormsTest do
       {:ok, option2} = Forms.add_item_option(radio_item, option2_attrs)
       assert option2.order == 2
     end
-
-    # Optional: Test adding option to a non-option item type (e.g., text_input)
-    # test "returns error when adding option to non-compatible item type" do
-    #   {:ok, form} = Forms.create_form(%{title: "Form with Text"})
-    #   text_item_attrs = %{label: "Name", type: :text_input}
-    #   {:ok, text_item} = Forms.add_form_item(form, text_item_attrs)
-    #   option_attrs = %{label: "Invalid Option", value: "invalid"}
-    #   assert {:error, _reason} = Forms.add_item_option(text_item, option_attrs)
-    # end
   end
 
   describe "publish_form/1" do
@@ -201,14 +298,7 @@ defmodule MyApp.FormsTest do
 
       # Try to publish again
       assert {:error, :already_published} = Forms.publish_form(published_form)
-      # Or {:error, %Ecto.Changeset{}} if using changesets for status validation
     end
-
-    # Optional: Add test for trying to publish an archived form if that state exists
-    # test "returns error if the form is archived" do
-    #   ... setup archived form ...
-    #   assert {:error, :invalid_status} = Forms.publish_form(archived_form)
-    # end
   end
 
   describe "get_form_item/1" do
@@ -288,6 +378,31 @@ defmodule MyApp.FormsTest do
       fetched_item = Forms.get_form_item(item.id)
       assert fetched_item.label == item.label
     end
+    
+    test "updates rating item max_rating", %{form: form} do
+      # First create a rating item
+      {:ok, rating_item} = Forms.add_form_item(form, %{
+        label: "Initial Rating",
+        type: :rating,
+        max_rating: 5
+      })
+      
+      # Now update its max_rating
+      update_attrs = %{
+        max_rating: 10
+      }
+      
+      assert {:ok, updated_item} = Forms.update_form_item(rating_item, update_attrs)
+      assert updated_item.max_rating == 10
+      
+      # Verify with string value too
+      update_attrs = %{
+        max_rating: "7"
+      }
+      
+      assert {:ok, updated_item} = Forms.update_form_item(updated_item, update_attrs)
+      assert updated_item.max_rating == 7
+    end
   end
   
   describe "delete_form_item/1" do
@@ -321,8 +436,6 @@ defmodule MyApp.FormsTest do
       
       # Try to query for previous option's value - should not find any
       {:ok, _all_new_options} = Forms.add_item_option(new_item, %{label: "New Option", value: "new"})
-      # Assume we can't directly test option deletion since we don't have a public API for it
-      # In a full implementation, you might add temporary helper functions for testing
     end
   end
   
