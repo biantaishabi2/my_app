@@ -16,7 +16,9 @@ defmodule MyAppWeb.FormLive.Submit do
       
       form ->
         if form.status != :published do
-          {:error, {:redirect, %{to: "/forms", flash: %{"error" => "表单未发布，无法填写"}}}}
+          # 确保与测试期望完全一致
+          path = "/forms"
+          {:error, {:redirect, %{to: path, flash: %{"error" => "表单未发布，无法填写"}}}}
         else
           items_map = build_items_map(form.items)
           
@@ -108,8 +110,13 @@ defmodule MyAppWeb.FormLive.Submit do
         respondent_info: respondent_info
       }) do
         {:ok, _response} ->
-          # 提交成功后重定向到表单列表页面，符合测试中的重定向期望
-          {:noreply, redirect(socket, to: ~p"/forms")}
+          # 提交成功后改变socket状态，触发重定向（测试会监测到）
+          {:noreply, 
+            socket
+            |> assign(:submitted, true)
+            |> put_flash(:info, "表单提交成功")
+            |> push_redirect(to: ~p"/forms")
+          }
           
         {:error, reason} ->
           {:noreply, 

@@ -38,7 +38,7 @@
               <%= for item <- @form.items do %>
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class={"form-field form-item mb-4 #{if @errors[item.id], do: "field-error", else: ""}"}>
+                    <div class={"form-field form-item mb-4 #{if @errors != nil and Map.get(@errors || %{}, item.id) != nil, do: "field-error", else: ""}"}>
                       <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
                         <%= item.label %>
                         <%= if item.required do %>
@@ -62,13 +62,13 @@
                         value={Map.get(@form_state || %{}, "#{item.id}", "")}
                         phx-change="validate"
                       />
-                      <%= if @errors[item.id] and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
+                      <%= if @errors != nil and Map.get(@errors || %{}, item.id) != nil and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
                         <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
                   
                   <% :radio -> %>
-                    <div class={"form-field form-item mb-4 #{if @errors[item.id], do: "field-error", else: ""}"}>
+                    <div class={"form-field form-item mb-4 #{if @errors != nil and Map.get(@errors || %{}, item.id) != nil, do: "field-error", else: ""}"}>
                       <fieldset>
                         <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
                           <%= item.label %>
@@ -116,7 +116,7 @@
                             phx-change="validate"
                           />
                         </div>
-                        <%= if @errors[item.id] and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
+                        <%= if @errors != nil and Map.get(@errors || %{}, item.id) != nil and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
                           <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
                         <% end %>
                       </fieldset>
