@@ -72,4 +72,86 @@ defmodule MyApp.FormsFixtures do
     {:ok, option} = Forms.add_item_option(form_item, attrs)
     option
   end
+
+  @doc """
+  创建一个带有分页的测试表单.
+  """
+  def paged_form_fixture(user_id, attrs \\ %{}) do
+    # 创建基础表单
+    attrs = Map.merge(%{
+      user_id: user_id, 
+      title: "分页表单测试 #{System.unique_integer()}", 
+      description: "这是一个分页表单测试",
+      status: :draft
+    }, attrs)
+    
+    form = form_fixture(attrs)
+    
+    # 创建默认的三个页面
+    {:ok, page1} = Forms.create_form_page(form, %{title: "第一页", description: "基本信息", order: 1})
+    {:ok, page2} = Forms.create_form_page(form, %{title: "第二页", description: "联系信息", order: 2})
+    {:ok, page3} = Forms.create_form_page(form, %{title: "第三页", description: "其他信息", order: 3})
+    
+    # 为每个页面添加表单项
+    {:ok, name_item} = Forms.add_form_item(form, %{
+      label: "姓名", 
+      type: :text_input,
+      required: true,
+      page_id: page1.id,
+      order: 1
+    })
+    
+    {:ok, gender_item} = Forms.add_form_item(form, %{
+      label: "性别",
+      type: :radio,
+      required: true,
+      page_id: page1.id,
+      order: 2
+    })
+    
+    # 添加性别选项
+    {:ok, _} = Forms.add_item_option(gender_item, %{label: "男", value: "male"})
+    {:ok, _} = Forms.add_item_option(gender_item, %{label: "女", value: "female"})
+    
+    # 第二页表单项
+    {:ok, email_item} = Forms.add_form_item(form, %{
+      label: "邮箱",
+      type: :email,
+      required: true,
+      page_id: page2.id,
+      order: 1
+    })
+    
+    {:ok, phone_item} = Forms.add_form_item(form, %{
+      label: "电话",
+      type: :phone,
+      required: true,
+      page_id: page2.id,
+      order: 2
+    })
+    
+    # 第三页表单项
+    {:ok, comment_item} = Forms.add_form_item(form, %{
+      label: "备注",
+      type: :textarea,
+      required: false,
+      page_id: page3.id,
+      order: 1
+    })
+    
+    # 发布表单
+    {:ok, published_form} = Forms.publish_form(form)
+    
+    %{
+      form: published_form,
+      page1: page1,
+      page2: page2,
+      page3: page3,
+      name_item: name_item,
+      gender_item: gender_item,
+      email_item: email_item,
+      phone_item: phone_item,
+      comment_item: comment_item
+    }
+  end
 end
