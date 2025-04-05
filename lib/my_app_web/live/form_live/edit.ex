@@ -166,12 +166,33 @@ defmodule MyAppWeb.FormLive.Edit do
     # 使用指定的页面ID或默认页面ID
     page_id = page_id || default_page_id
     
+    # 使用当前选择的控件类型而不是固定为text_input
+    item_type = socket.assigns.item_type || "text_input"
+    type_atom = case item_type do
+      "text_input" -> :text_input
+      "textarea" -> :textarea
+      "radio" -> :radio
+      "checkbox" -> :checkbox
+      "dropdown" -> :dropdown
+      "rating" -> :rating
+      "number" -> :number
+      "email" -> :email
+      "phone" -> :phone
+      "date" -> :date
+      "time" -> :time
+      "region" -> :region
+      "matrix" -> :matrix
+      "image_choice" -> :image_choice
+      "file_upload" -> :file_upload
+      _ -> :text_input
+    end
+    
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
     {:noreply, 
       socket
-      |> assign(:current_item, %FormItem{type: :text_input, required: false, page_id: page_id})
+      |> assign(:current_item, %FormItem{type: type_atom, required: false, page_id: page_id})
       |> assign(:item_options, [])
-      |> assign(:item_type, "text_input")
+      |> assign(:item_type, item_type)
       |> assign(:editing_item, true)
       |> assign(:temp_label, "")  # 清除之前可能存在的临时标签
     }
@@ -732,6 +753,7 @@ defmodule MyAppWeb.FormLive.Edit do
         # 如果没有提供标签，使用默认值
         case item_type do
           "radio" -> "新单选问题"
+          "checkbox" -> "新复选问题"
           "matrix" -> "新矩阵题"
           _ -> "新文本问题"  
         end
@@ -744,6 +766,14 @@ defmodule MyAppWeb.FormLive.Edit do
     item_params = params["item"] || %{}
     form = socket.assigns.form
     current_item = socket.assigns.current_item
+    
+    # 检查是否需要选项的控件类型
+    if requires_options?(item_type) && Enum.empty?(socket.assigns.item_options) do
+      {:noreply, 
+        socket
+        |> put_flash(:error, "#{display_selected_type(item_type)}控件需要至少一个选项，请先添加选项")
+      }
+    else
     
     # 处理选项数据
     item_params = process_item_params(item_params)
@@ -763,8 +793,8 @@ defmodule MyAppWeb.FormLive.Edit do
         
       case Forms.update_form_item(current_item, clean_params) do
         {:ok, updated_item} ->
-          # 如果是单选按钮或下拉菜单类型，需要添加选项
-          if updated_item.type == :radio or updated_item.type == :dropdown do
+          # 如果是单选按钮、复选框或下拉菜单类型，需要添加选项
+          if updated_item.type == :radio or updated_item.type == :dropdown or updated_item.type == :checkbox do
             IO.puts("添加选项到#{updated_item.type}类型表单项")
             process_options(updated_item, item_params)
           end
@@ -851,8 +881,8 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, new_item} ->
           IO.puts("成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}")
           
-          # 如果是单选按钮或下拉菜单类型，需要添加选项
-          if new_item.type == :radio or new_item.type == :dropdown do
+          # 如果是单选按钮、复选框或下拉菜单类型，需要添加选项
+          if new_item.type == :radio or new_item.type == :dropdown or new_item.type == :checkbox do
             IO.puts("添加选项到#{new_item.type}类型表单项")
             process_options(new_item, item_params)
           end
@@ -891,6 +921,7 @@ defmodule MyAppWeb.FormLive.Edit do
             |> put_flash(:error, "表单项添加失败: #{error_msg}")
           }
       end
+    end
     end
   end
 
@@ -1091,6 +1122,17 @@ defmodule MyAppWeb.FormLive.Edit do
     # 必填项处理
     normalize_required_field(params)
   end
+  
+  # 检查是否需要选项的表单项类型
+  defp requires_options?(item_type) when is_atom(item_type) do
+    item_type in [:radio, :checkbox, :dropdown]
+  end
+  
+  defp requires_options?(item_type) when is_binary(item_type) do
+    item_type in ["radio", "checkbox", "dropdown"]
+  end
+  
+  defp requires_options?(_), do: false
   
   # 确保所有键都是字符串
   defp normalize_params(params) do
