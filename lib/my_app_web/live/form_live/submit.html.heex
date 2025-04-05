@@ -129,6 +129,40 @@
                       <% end %>
                     </div>
                   
+                  <% :checkbox -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <fieldset>
+                        <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
+                          <%= item.label %>
+                          <%= if item.required do %>
+                            <span class="form-item-required text-red-500 required-mark">*</span>
+                          <% end %>
+                        </label>
+                        <div id={"checkbox-options-container-#{item.id}"} class="space-y-2">
+                          <%= for option <- item.options || [] do %>
+                            <div class="flex items-center form-item-option">
+                              <input 
+                                type="checkbox" 
+                                id={"#{item.id}_#{option.value}"}
+                                name={"form[#{item.id}][]"}
+                                value={option.value}
+                                checked={is_list(Map.get(@form_state || %{}, "#{item.id}")) && 
+                                         option.value in Map.get(@form_state || %{}, "#{item.id}", [])}
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                phx-debounce="blur"
+                              />
+                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
+                                <%= option.label %>
+                              </label>
+                            </div>
+                          <% end %>
+                        </div>
+                        <%= if Map.get(@errors || %{}, item.id) do %>
+                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <% end %>
+                      </fieldset>
+                    </div>
+                  
                   <% :textarea -> %>
                     <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
                       <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>

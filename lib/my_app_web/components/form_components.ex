@@ -248,6 +248,15 @@ defmodule MyAppWeb.FormComponents do
                 >
                   下拉菜单
                 </button>
+                <button
+                  type="button"
+                  id="checkbox-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="checkbox"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "checkbox" || @item.type == :checkbox, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  复选框
+                </button>
                 <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
               </div>
             <% end %>
@@ -291,7 +300,7 @@ defmodule MyAppWeb.FormComponents do
           <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
         </div>
         
-        <%= if @item.type == :radio || @item_type == "radio" || @item.type == :dropdown || @item_type == "dropdown" do %>
+        <%= if @item.type == :radio || @item_type == "radio" || @item.type == :dropdown || @item_type == "dropdown" || @item.type == :checkbox || @item_type == "checkbox" do %>
           <div class="pt-4 border-t border-gray-200">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
@@ -373,6 +382,7 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:radio), do: "单选按钮"
   defp display_item_type(:textarea), do: "文本区域"
   defp display_item_type(:dropdown), do: "下拉菜单"
+  defp display_item_type(:checkbox), do: "复选框"
   defp display_item_type(_), do: "未知类型"
 
   @doc """
@@ -455,6 +465,57 @@ defmodule MyAppWeb.FormComponents do
       <%= if @error do %>
         <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
       <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  渲染复选框字段组件
+  
+  ## 示例
+      <.checkbox_field
+        field={@field}
+        options={@options}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def checkbox_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <fieldset>
+        <legend class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+          <%= @field.label %>
+          <%= if @field.required do %>
+            <span class="form-item-required text-red-500">*</span>
+          <% end %>
+        </legend>
+        <div class="space-y-2">
+          <%= for option <- @options do %>
+            <div class="flex items-center form-item-option">
+              <input 
+                type="checkbox" 
+                id={"#{@field.id}_#{option.id}"}
+                name={"#{@field.id}[]"}
+                value={option.value}
+                checked={is_list(Map.get(@form_state, @field.id)) && option.value in Map.get(@form_state, @field.id, [])}
+                disabled={@disabled}
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                phx-debounce="blur"
+              />
+              <label for={"#{@field.id}_#{option.id}"} class="ml-2 text-sm text-gray-700">
+                <%= option.label %>
+              </label>
+            </div>
+          <% end %>
+        </div>
+        <%= if @error do %>
+          <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+        <% end %>
+      </fieldset>
     </div>
     """
   end

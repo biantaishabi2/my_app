@@ -101,7 +101,9 @@ defmodule MyApp.Responses do
   # Validate that all required items have answers and all answers are valid
   defp validate_answers(form, answers_map) do
     with :ok <- validate_required_items(form.items, answers_map),
-         :ok <- validate_radio_values(form.items, answers_map) do
+         :ok <- validate_radio_values(form.items, answers_map),
+         :ok <- validate_dropdown_values(form.items, answers_map),
+         :ok <- validate_checkbox_values(form.items, answers_map) do
       :ok
     end
   end
@@ -109,7 +111,11 @@ defmodule MyApp.Responses do
   # Validate all required items have answers
   defp validate_required_items(items, answers_map) do
     missing_required = Enum.filter(items, fn item -> 
-      item.required && !Map.has_key?(answers_map, item.id)
+      item.required && (
+        !Map.has_key?(answers_map, item.id) || 
+        (item.type == :checkbox && 
+         (answers_map[item.id] == [] || is_nil(answers_map[item.id])))
+      )
     end)
 
     if length(missing_required) > 0 do
@@ -132,6 +138,50 @@ defmodule MyApp.Responses do
     end)
 
     if invalid_radio do
+      {:error, :validation_failed}
+    else
+      :ok
+    end
+  end
+  
+  # Validate dropdown answers have valid option values
+  defp validate_dropdown_values(items, answers_map) do
+    invalid_dropdown = Enum.find(items, fn item ->
+      if item.type == :dropdown && Map.has_key?(answers_map, item.id) do
+        answer_value = answers_map[item.id]
+        valid_values = Enum.map(item.options, & &1.value)
+        answer_value not in valid_values
+      else
+        false
+      end
+    end)
+    
+    if invalid_dropdown do
+      {:error, :validation_failed}
+    else
+      :ok
+    end
+  end
+  
+  # Validate checkbox answers have valid option values
+  defp validate_checkbox_values(items, answers_map) do
+    invalid_checkbox = Enum.find(items, fn item ->
+      if item.type == :checkbox && Map.has_key?(answers_map, item.id) do
+        answer_values = 
+          case answers_map[item.id] do
+            values when is_list(values) -> values
+            single_value -> [single_value]
+          end
+        
+        valid_values = Enum.map(item.options, & &1.value)
+        
+        Enum.any?(answer_values, fn value -> value not in valid_values end)
+      else
+        false
+      end
+    end)
+
+    if invalid_checkbox do
       {:error, :validation_failed}
     else
       :ok

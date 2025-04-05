@@ -52,6 +52,9 @@
                   <% :text_input -> %>
                     <div class="text-gray-800"><%= answer.value %></div>
                   
+                  <% :textarea -> %>
+                    <div class="text-gray-800 whitespace-pre-wrap"><%= answer.value %></div>
+                  
                   <% :radio -> %>
                     <% selected_option = Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
                     <%= if selected_option do %>
@@ -64,6 +67,41 @@
                     <% else %>
                       <div class="text-gray-800"><%= answer.value %></div>
                     <% end %>
+                  
+                  <% :dropdown -> %>
+                    <% selected_option = Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                    <%= if selected_option do %>
+                      <div class="text-gray-800">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <%= selected_option.label %>
+                        </span>
+                        <span class="text-gray-500 text-xs ml-2">(值: <%= answer.value %>)</span>
+                      </div>
+                    <% else %>
+                      <div class="text-gray-800"><%= answer.value %></div>
+                    <% end %>
+                  
+                  <% :checkbox -> %>
+                    <% 
+                      values = if is_list(answer.value), do: answer.value, else: [answer.value]
+                      selected_options = Enum.filter(item.options || [], fn opt -> opt.value in values end)
+                    %>
+                    <div class="text-gray-800">
+                      <%= if selected_options != [] do %>
+                        <div class="flex flex-wrap gap-2">
+                          <%= for option <- selected_options do %>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <%= option.label %>
+                            </span>
+                          <% end %>
+                        </div>
+                        <div class="text-gray-500 text-xs mt-1">
+                          (值: <%= Enum.map(selected_options, & &1.value) |> Enum.join(", ") %>)
+                        </div>
+                      <% else %>
+                        <div class="text-gray-500 italic">未选择任何选项</div>
+                      <% end %>
+                    </div>
                 <% end %>
               </div>
             </div>

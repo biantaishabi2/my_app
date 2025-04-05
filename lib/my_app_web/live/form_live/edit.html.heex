@@ -321,6 +321,7 @@
                         <% :textarea -> %>文本区域
                         <% :radio -> %>单选
                         <% :dropdown -> %>下拉菜单
+                        <% :checkbox -> %>复选框
                         <% _ -> %>未知类型
                       <% end %>
                     </span>
@@ -370,6 +371,19 @@
                           </ul>
                         </div>
                       <% end %>
+                    
+                    <% :checkbox -> %>
+                      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <%= for option <- item.options || [] do %>
+                          <div style="display: flex; align-items: center;">
+                            <input type="checkbox" id={"option-#{option.id}"} name={"item-#{item.id}[]"} style="margin-right: 0.5rem;" disabled />
+                            <label><%= option.label %> (<%= option.value %>)</label>
+                          </div>
+                        <% end %>
+                        <%= if Enum.empty?(item.options || []) do %>
+                          <div style="color: #6b7280; font-size: 0.875rem; font-style: italic;">此复选框没有选项</div>
+                        <% end %>
+                      </div>
                     
                     <% :radio -> %>
                       <div style="display: flex; flex-direction: column; gap: 0.5rem;">
