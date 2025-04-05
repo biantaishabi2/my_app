@@ -307,6 +307,235 @@
                         <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
+                    
+                  <% :date -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="date"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        min={item.min_date}
+                        max={item.max_date}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <%= if item.min_date && item.max_date do %>
+                        <div class="text-gray-500 text-xs mt-1">可选日期: <%= item.min_date %> 至 <%= item.max_date %></div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :time -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="time"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        min={item.min_time}
+                        max={item.max_time}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <%= if item.min_time && item.max_time do %>
+                        <div class="text-gray-500 text-xs mt-1">可选时间: <%= item.min_time %> 至 <%= item.max_time %></div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :region -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      
+                      <div class={"grid grid-cols-#{item.region_level || 3} gap-2"}>
+                        <select 
+                          id={"#{item.id}_province"}
+                          class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
+                          phx-change="region_province_change"
+                          phx-value-field-id={item.id}
+                        >
+                          <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_province")}>省/直辖市</option>
+                          
+                          <%= for province <- MyApp.Regions.get_provinces() do %>
+                            <option 
+                              value={province.name} 
+                              selected={Map.get(@form_state || %{}, "#{item.id}_province") == province.name}
+                            >
+                              <%= province.name %>
+                            </option>
+                          <% end %>
+                        </select>
+                        
+                        <%= if item.region_level == nil || item.region_level >= 2 do %>
+                        <select 
+                          id={"#{item.id}_city"}
+                          class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
+                          phx-change="region_city_change"
+                          phx-value-field-id={item.id}
+                          disabled={!Map.get(@form_state || %{}, "#{item.id}_province")}
+                        >
+                          <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_city")}>市</option>
+                          
+                          <%= if province = Map.get(@form_state || %{}, "#{item.id}_province") do %>
+                            <%= for city <- MyApp.Regions.get_cities(province) do %>
+                              <option 
+                                value={city.name} 
+                                selected={Map.get(@form_state || %{}, "#{item.id}_city") == city.name}
+                              >
+                                <%= city.name %>
+                              </option>
+                            <% end %>
+                          <% end %>
+                        </select>
+                        <% end %>
+                        
+                        <%= if item.region_level == nil || item.region_level >= 3 do %>
+                        <select 
+                          id={"#{item.id}_district"}
+                          class="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
+                          phx-change="region_district_change"
+                          phx-value-field-id={item.id}
+                          disabled={!Map.get(@form_state || %{}, "#{item.id}_city")}
+                        >
+                          <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_district")}>区/县</option>
+                          
+                          <%= if province = Map.get(@form_state || %{}, "#{item.id}_province") do %>
+                            <%= if city = Map.get(@form_state || %{}, "#{item.id}_city") do %>
+                              <%= for district <- MyApp.Regions.get_districts(province, city) do %>
+                                <option 
+                                  value={district.name} 
+                                  selected={Map.get(@form_state || %{}, "#{item.id}_district") == district.name}
+                                >
+                                  <%= district.name %>
+                                </option>
+                              <% end %>
+                            <% end %>
+                          <% end %>
+                        </select>
+                        <% end %>
+                      </div>
+                      
+                      <!-- 隐藏字段用于提交完整地区值 -->
+                      <input 
+                        type="hidden"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={@form_state["#{item.id}"] || MyAppWeb.FormLive.Submit.combine_region_value(
+                          Map.get(@form_state || %{}, "#{item.id}_province"),
+                          Map.get(@form_state || %{}, "#{item.id}_city"),
+                          Map.get(@form_state || %{}, "#{item.id}_district")
+                        )}
+                        required={item.required}
+                      />
+                      
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :matrix -> %>
+                    <div class={"form-field form-item mb-6 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <fieldset>
+                        <legend class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
+                          <%= item.label %>
+                          <%= if item.required do %>
+                            <span class="form-item-required text-red-500">*</span>
+                          <% end %>
+                        </legend>
+                        
+                        <%= if item.description do %>
+                          <div class="text-sm text-gray-500 mb-2"><%= item.description %></div>
+                        <% end %>
+                        
+                        <div class="overflow-x-auto">
+                          <table class="w-full border-collapse rounded-lg overflow-hidden">
+                            <thead>
+                              <tr>
+                                <th class="p-2 border border-gray-300 bg-gray-50"></th>
+                                <%= for {column, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
+                                  <th class="p-2 border border-gray-300 bg-gray-50 text-center">
+                                    <%= column %>
+                                  </th>
+                                <% end %>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <%= for {row, row_idx} <- Enum.with_index(item.matrix_rows || []) do %>
+                                <tr>
+                                  <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                                  <%= for {column, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
+                                    <td class="p-2 border border-gray-300 text-center">
+                                      <%= if item.matrix_type == :multiple do %>
+                                        <input 
+                                          type="checkbox" 
+                                          id={"#{item.id}_#{row_idx}_#{col_idx}"}
+                                          name={"form[#{item.id}][#{row_idx}][#{col_idx}]"}
+                                          value="true"
+                                          checked={get_matrix_value(@form_state, item.id, row_idx, col_idx)}
+                                          phx-change="matrix_change"
+                                          phx-value-field-id={item.id}
+                                          phx-value-row-idx={row_idx}
+                                          phx-value-col-idx={col_idx}
+                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                        />
+                                      <% else %>
+                                        <input 
+                                          type="radio" 
+                                          id={"#{item.id}_#{row_idx}_#{col_idx}"}
+                                          name={"form[#{item.id}][#{row_idx}]"}
+                                          value={col_idx}
+                                          checked={get_matrix_value(@form_state, item.id, row_idx) == "#{col_idx}"}
+                                          phx-change="matrix_change"
+                                          phx-value-field-id={item.id}
+                                          phx-value-row-idx={row_idx}
+                                          phx-value-col-idx={col_idx}
+                                          required={item.required}
+                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                        />
+                                      <% end %>
+                                    </td>
+                                  <% end %>
+                                </tr>
+                              <% end %>
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <!-- 隐藏的输入字段，用于存储矩阵值 -->
+                        <input type="hidden" id={item.id} name={"form[#{item.id}]"} 
+                          value={Jason.encode!(Map.get(@form_state || %{}, item.id) || %{})} />
+                        
+                        <%= if Map.get(@errors || %{}, item.id) do %>
+                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <% end %>
+                      </fieldset>
+                    </div>
                 <% end %>
               <% end %>
             </div>

@@ -241,6 +241,75 @@ defmodule MyAppWeb.FormLive.Edit do
     # 这里只需返回不变的socket
     {:noreply, socket}
   end
+  
+  @impl true
+  def handle_event("add_matrix_row", _params, socket) do
+    current_item = socket.assigns.current_item
+    
+    # 获取当前所有行
+    current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
+    next_idx = length(current_rows) + 1
+    
+    # 添加新行
+    updated_item = Map.put(current_item, :matrix_rows, current_rows ++ ["问题#{next_idx}"])
+    
+    {:noreply, assign(socket, :current_item, updated_item)}
+  end
+  
+  @impl true
+  def handle_event("remove_matrix_row", %{"index" => index}, socket) do
+    current_item = socket.assigns.current_item
+    
+    # 获取当前所有行
+    current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
+    index = String.to_integer(index)
+    
+    # 确保至少保留一行
+    if length(current_rows) > 1 do
+      # 删除指定行
+      updated_rows = List.delete_at(current_rows, index)
+      updated_item = Map.put(current_item, :matrix_rows, updated_rows)
+      
+      {:noreply, assign(socket, :current_item, updated_item)}
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  @impl true
+  def handle_event("add_matrix_column", _params, socket) do
+    current_item = socket.assigns.current_item
+    
+    # 获取当前所有列
+    current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
+    next_idx = length(current_columns)
+    column_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
+    
+    # 添加新列
+    updated_item = Map.put(current_item, :matrix_columns, current_columns ++ ["选项#{column_letter}"])
+    
+    {:noreply, assign(socket, :current_item, updated_item)}
+  end
+  
+  @impl true
+  def handle_event("remove_matrix_column", %{"index" => index}, socket) do
+    current_item = socket.assigns.current_item
+    
+    # 获取当前所有列
+    current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
+    index = String.to_integer(index)
+    
+    # 确保至少保留一列
+    if length(current_columns) > 1 do
+      # 删除指定列
+      updated_columns = List.delete_at(current_columns, index)
+      updated_item = Map.put(current_item, :matrix_columns, updated_columns)
+      
+      {:noreply, assign(socket, :current_item, updated_item)}
+    else
+      {:noreply, socket}
+    end
+  end
 
   @impl true
   def handle_event("add_option", _params, socket) do
@@ -279,6 +348,7 @@ defmodule MyAppWeb.FormLive.Edit do
         # 如果没有提供标签，使用默认值
         case item_type do
           "radio" -> "新单选问题"
+          "matrix" -> "新矩阵题"
           _ -> "新文本问题"  
         end
     end
@@ -363,7 +433,7 @@ defmodule MyAppWeb.FormLive.Edit do
         |> Map.put("required", Map.get(clean_params, "required", true))  # 默认为必填
       
       # 添加类型参数 - 确保类型总是有效值
-      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone] do
+      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone, :date, :time, :region] do
         clean_params
       else
         # 从字符串转换为atom类型
@@ -377,6 +447,9 @@ defmodule MyAppWeb.FormLive.Edit do
           "number" -> :number
           "email" -> :email
           "phone" -> :phone
+          "date" -> :date
+          "time" -> :time
+          "region" -> :region
           _ -> :text_input  # 默认为文本输入
         end
         
@@ -629,6 +702,18 @@ defmodule MyAppWeb.FormLive.Edit do
       "phone" -> 
         IO.puts("转换类型 phone 为 atom")
         Map.put(params, "type", :phone)
+      "date" -> 
+        IO.puts("转换类型 date 为 atom")
+        Map.put(params, "type", :date)
+      "time" -> 
+        IO.puts("转换类型 time 为 atom")
+        Map.put(params, "type", :time)
+      "region" -> 
+        IO.puts("转换类型 region 为 atom")
+        Map.put(params, "type", :region)
+      "matrix" -> 
+        IO.puts("转换类型 matrix 为 atom")
+        Map.put(params, "type", :matrix)
       type when is_binary(type) -> 
         IO.puts("转换其他字符串类型 #{type} 为 atom")
         Map.put(params, "type", String.to_existing_atom(type))
@@ -852,5 +937,9 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type("number"), do: "数字输入"
   defp display_selected_type("email"), do: "邮箱输入"
   defp display_selected_type("phone"), do: "电话号码"
+  defp display_selected_type("date"), do: "日期选择"
+  defp display_selected_type("time"), do: "时间选择"
+  defp display_selected_type("region"), do: "地区选择"
+  defp display_selected_type("matrix"), do: "矩阵题"
   defp display_selected_type(_), do: "未知类型"
 end

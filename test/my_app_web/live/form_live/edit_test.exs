@@ -243,6 +243,109 @@ defmodule MyAppWeb.FormLive.EditTest do
       assert phone_item.type == :phone
       assert phone_item.format_display == true
     end
+    
+    # 测试添加日期选择控件
+    test "添加日期选择控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 直接触发添加表单项事件
+      view |> render_click("add_item")
+      
+      # 设置表单项类型为日期选择
+      view |> render_click("type_changed", %{"type" => "date"})
+      
+      # 直接提交表单数据，不依赖具体的表单元素
+      view |> render_submit("save_item", %{
+        "item" => %{
+          "label" => "出生日期",
+          "type" => "date",
+          "required" => "true",
+          "min_date" => "2000-01-01",
+          "max_date" => "2023-12-31",
+          "date_format" => "yyyy-MM-dd"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "出生日期"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      date_item = Enum.find(updated_form.items, fn item -> item.label == "出生日期" end)
+      assert date_item != nil
+      assert date_item.type == :date
+      assert date_item.min_date == "2000-01-01"
+      assert date_item.max_date == "2023-12-31"
+      assert date_item.date_format == "yyyy-MM-dd"
+    end
+    
+    # 测试添加时间选择控件
+    test "添加时间选择控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 直接触发添加表单项事件
+      view |> render_click("add_item")
+      
+      # 设置表单项类型为时间选择
+      view |> render_click("type_changed", %{"type" => "time"})
+      
+      # 直接提交表单数据，不依赖具体的表单元素
+      view |> render_submit("save_item", %{
+        "item" => %{
+          "label" => "预约时间",
+          "type" => "time",
+          "required" => "true",
+          "min_time" => "09:00",
+          "max_time" => "18:00",
+          "time_format" => "24h"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "预约时间"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      time_item = Enum.find(updated_form.items, fn item -> item.label == "预约时间" end)
+      assert time_item != nil
+      assert time_item.type == :time
+      assert time_item.min_time == "09:00"
+      assert time_item.max_time == "18:00"
+      assert time_item.time_format == "24h"
+    end
+    
+    # 测试添加地区选择控件
+    test "添加地区选择控件到表单", %{conn: conn, form: form} do
+      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")
+      
+      # 直接触发添加表单项事件
+      view |> render_click("add_item")
+      
+      # 设置表单项类型为地区选择
+      view |> render_click("type_changed", %{"type" => "region"})
+      
+      # 直接提交表单数据，不依赖具体的表单元素
+      view |> render_submit("save_item", %{
+        "item" => %{
+          "label" => "所在地区",
+          "type" => "region",
+          "required" => "true",
+          "region_level" => "3",
+          "default_province" => "广东省"
+        }
+      })
+      
+      # 验证控件已添加
+      assert render(view) =~ "所在地区"
+      
+      # 从数据库验证
+      updated_form = MyApp.Forms.get_form_with_items(form.id)
+      region_item = Enum.find(updated_form.items, fn item -> item.label == "所在地区" end)
+      assert region_item != nil
+      assert region_item.type == :region
+      assert region_item.region_level == 3
+      assert region_item.default_province == "广东省"
+    end
 
     test "编辑表单项", %{conn: conn, form: form, text_item: text_item} do
       {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/edit")

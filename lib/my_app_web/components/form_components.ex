@@ -493,6 +493,290 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
         
+        <%= if @item.type == :date || @item_type == "date" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">日期范围设置</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最早可选日期</label>
+                <input 
+                  type="date" 
+                  name="item[min_date]" 
+                  value={@item.min_date} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最晚可选日期</label>
+                <input 
+                  type="date" 
+                  name="item[max_date]" 
+                  value={@item.max_date} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div class="mt-4">
+              <label class="block text-sm text-gray-600 mb-1">日期格式</label>
+              <select
+                name="item[date_format]"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="yyyy-MM-dd" selected={@item.date_format == "yyyy-MM-dd" || is_nil(@item.date_format)}>年-月-日 (yyyy-MM-dd)</option>
+                <option value="dd/MM/yyyy" selected={@item.date_format == "dd/MM/yyyy"}>日/月/年 (dd/MM/yyyy)</option>
+                <option value="MM/dd/yyyy" selected={@item.date_format == "MM/dd/yyyy"}>月/日/年 (MM/dd/yyyy)</option>
+              </select>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">指定日期范围和显示格式</div>
+          </div>
+        <% end %>
+        
+        <%= if @item.type == :time || @item_type == "time" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">时间范围设置</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">开始时间</label>
+                <input 
+                  type="time" 
+                  name="item[min_time]" 
+                  value={@item.min_time || "09:00"} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">结束时间</label>
+                <input 
+                  type="time" 
+                  name="item[max_time]" 
+                  value={@item.max_time || "18:00"} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div class="mt-4">
+              <label class="block text-sm text-gray-600 mb-1">时间格式</label>
+              <select
+                name="item[time_format]"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="24h" selected={@item.time_format == "24h" || is_nil(@item.time_format)}>24小时制 (HH:mm)</option>
+                <option value="12h" selected={@item.time_format == "12h"}>12小时制 (hh:mm AM/PM)</option>
+              </select>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">指定可选时间范围和显示格式</div>
+          </div>
+        <% end %>
+        
+        <%= if @item.type == :region || @item_type == "region" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">地区选择设置</label>
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">地区级别</label>
+              <select
+                name="item[region_level]"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="1" selected={@item.region_level == 1}>仅省级</option>
+                <option value="2" selected={@item.region_level == 2}>省市两级</option>
+                <option value="3" selected={@item.region_level == 3 || is_nil(@item.region_level)}>省市区三级</option>
+              </select>
+            </div>
+            <div class="mt-4">
+              <label class="block text-sm text-gray-600 mb-1">默认省份</label>
+              <select
+                name="item[default_province]"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="" selected={is_nil(@item.default_province)}>无默认值</option>
+                <%= for province <- MyApp.Regions.get_provinces() do %>
+                  <option 
+                    value={province.name}
+                    selected={@item.default_province == province.name}
+                  >
+                    <%= province.name %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">配置地区选择的级别和默认值</div>
+            
+            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+              <div class="text-sm text-gray-700 mb-2">预览:</div>
+              <div class="flex gap-2">
+                <select 
+                  disabled 
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
+                >
+                  <option><%= @item.default_province || "请选择省份" %></option>
+                </select>
+                
+                <%= if @item.region_level == nil || @item.region_level >= 2 do %>
+                  <select 
+                    disabled 
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
+                  >
+                    <option>请选择城市</option>
+                  </select>
+                <% end %>
+                
+                <%= if @item.region_level == nil || @item.region_level >= 3 do %>
+                  <select 
+                    disabled 
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
+                  >
+                    <option>请选择区县</option>
+                  </select>
+                <% end %>
+              </div>
+              <div class="text-xs text-gray-500 mt-2">注意: 表单提交时会加载真实省市区数据</div>
+            </div>
+          </div>
+        <% end %>
+        
+        <%= if @item.type == :matrix || @item_type == "matrix" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">矩阵题设置</label>
+            
+            <!-- 矩阵类型选择 -->
+            <div class="mb-4">
+              <label class="block text-sm text-gray-600 mb-1">选择类型</label>
+              <div class="flex space-x-4">
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[matrix_type]" 
+                    value="single" 
+                    checked={@item.matrix_type == :single || @item.matrix_type == nil}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">单选 (每行只能选择一个)</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input 
+                    type="radio" 
+                    name="item[matrix_type]" 
+                    value="multiple" 
+                    checked={@item.matrix_type == :multiple}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span class="ml-2 text-sm text-gray-700">多选 (每行可选择多个)</span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- 矩阵行设置 -->
+            <div class="mb-4">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-medium text-gray-700">行标题 (问题)</label>
+                <button type="button" phx-click="add_matrix_row" class="text-sm text-indigo-600 hover:text-indigo-800">
+                  + 添加行
+                </button>
+              </div>
+              
+              <div class="space-y-2">
+                <%= for {row, index} <- Enum.with_index(@item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
+                  <div class="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      name={"item[matrix_rows][#{index}]"} 
+                      value={row}
+                      placeholder="行标题"
+                      class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button 
+                      type="button" 
+                      phx-click="remove_matrix_row" 
+                      phx-value-index={index}
+                      class="text-red-500 hover:text-red-700"
+                      title="删除行"
+                      disabled={length(@item.matrix_rows || ["问题1", "问题2", "问题3"]) <= 1}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+            
+            <!-- 矩阵列设置 -->
+            <div class="mb-4">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-medium text-gray-700">列标题 (选项)</label>
+                <button type="button" phx-click="add_matrix_column" class="text-sm text-indigo-600 hover:text-indigo-800">
+                  + 添加列
+                </button>
+              </div>
+              
+              <div class="space-y-2">
+                <%= for {column, index} <- Enum.with_index(@item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                  <div class="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      name={"item[matrix_columns][#{index}]"} 
+                      value={column}
+                      placeholder="列标题"
+                      class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button 
+                      type="button" 
+                      phx-click="remove_matrix_column" 
+                      phx-value-index={index}
+                      class="text-red-500 hover:text-red-700"
+                      title="删除列"
+                      disabled={length(@item.matrix_columns || ["选项A", "选项B", "选项C"]) <= 1}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+            
+            <!-- 矩阵预览 -->
+            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+              <div class="text-sm text-gray-700 mb-2">预览:</div>
+              <div class="overflow-x-auto">
+                <table class="w-full border-collapse rounded-lg overflow-hidden">
+                  <thead>
+                    <tr>
+                      <th class="p-2 border border-gray-300 bg-gray-100"></th>
+                      <%= for column <- (@item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                        <th class="p-2 border border-gray-300 bg-gray-100 text-center">
+                          <%= column %>
+                        </th>
+                      <% end %>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for row <- (@item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
+                      <tr>
+                        <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                        <%= for _column <- (@item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                          <td class="p-2 border border-gray-300 text-center">
+                            <%= if @item.matrix_type == :multiple do %>
+                              <input type="checkbox" disabled class="h-4 w-4 text-indigo-600" />
+                            <% else %>
+                              <input type="radio" disabled class="h-4 w-4 text-indigo-600" />
+                            <% end %>
+                          </td>
+                        <% end %>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+              <div class="text-xs text-gray-500 mt-2">
+                矩阵类型: <%= if @item.matrix_type == :multiple, do: "多选 (复选框)", else: "单选 (单选按钮)" %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
@@ -524,7 +808,126 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:number), do: "数字输入"
   defp display_item_type(:email), do: "邮箱输入"
   defp display_item_type(:phone), do: "电话号码"
+  defp display_item_type(:date), do: "日期选择"
+  defp display_item_type(:time), do: "时间选择" 
+  defp display_item_type(:region), do: "地区选择"
+  defp display_item_type(:matrix), do: "矩阵题"
   defp display_item_type(_), do: "未知类型"
+  
+  @doc """
+  渲染矩阵题字段组件
+  
+  ## 示例
+      <.matrix_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def matrix_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-6">
+      <fieldset>
+        <legend class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+          <%= @field.label %>
+          <%= if @field.required do %>
+            <span class="form-item-required text-red-500">*</span>
+          <% end %>
+        </legend>
+        
+        <%= if @field.description do %>
+          <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+        <% end %>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse rounded-lg overflow-hidden">
+            <thead>
+              <tr>
+                <th class="p-2 border border-gray-300 bg-gray-50"></th>
+                <%= for column <- (@field.matrix_columns || []) do %>
+                  <th class="p-2 border border-gray-300 bg-gray-50 text-center">
+                    <%= column %>
+                  </th>
+                <% end %>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for {row, row_idx} <- Enum.with_index(@field.matrix_rows || []) do %>
+                <tr>
+                  <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                  <%= for {column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
+                    <td class="p-2 border border-gray-300 text-center">
+                      <%= if @field.matrix_type == :multiple do %>
+                        <input 
+                          type="checkbox" 
+                          id={"#{@field.id}_#{row_idx}_#{col_idx}"}
+                          name={"#{@field.id}[#{row_idx}][#{col_idx}]"}
+                          value="true"
+                          checked={get_matrix_value(@form_state, @field.id, row_idx, col_idx)}
+                          phx-change="matrix_change"
+                          phx-value-field-id={@field.id}
+                          phx-value-row-idx={row_idx}
+                          phx-value-col-idx={col_idx}
+                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                          disabled={@disabled}
+                        />
+                      <% else %>
+                        <input 
+                          type="radio" 
+                          id={"#{@field.id}_#{row_idx}_#{col_idx}"}
+                          name={"#{@field.id}[#{row_idx}]"}
+                          value={col_idx}
+                          checked={get_matrix_value(@form_state, @field.id, row_idx) == col_idx}
+                          phx-change="matrix_change"
+                          phx-value-field-id={@field.id}
+                          phx-value-row-idx={row_idx}
+                          phx-value-col-idx={col_idx}
+                          required={@field.required}
+                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                          disabled={@disabled}
+                        />
+                      <% end %>
+                    </td>
+                  <% end %>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- 隐藏的输入字段，用于存储矩阵值 -->
+        <input type="hidden" id={@field.id} name={@field.id} 
+          value={Jason.encode!(Map.get(@form_state || %{}, @field.id) || %{})} />
+        
+        <%= if @error do %>
+          <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+        <% end %>
+      </fieldset>
+    </div>
+    """
+  end
+  
+  # 辅助函数：获取矩阵单选题的值
+  defp get_matrix_value(form_state, field_id, row_idx) do
+    case form_state do
+      %{^field_id => matrix_data} when is_map(matrix_data) ->
+        Map.get(matrix_data, to_string(row_idx))
+      _ -> nil
+    end
+  end
+  
+  # 辅助函数：获取矩阵多选题的值
+  defp get_matrix_value(form_state, field_id, row_idx, col_idx) do
+    case form_state do
+      %{^field_id => matrix_data} when is_map(matrix_data) ->
+        row_data = Map.get(matrix_data, to_string(row_idx), %{})
+        Map.get(row_data, to_string(col_idx), false)
+      _ -> false
+    end
+  end
 
   @doc """
   渲染文本区域字段组件

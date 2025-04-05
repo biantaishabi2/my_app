@@ -19,10 +19,44 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       _option1 = item_option_fixture(radio_item, %{label: "选项1", value: "option1"})
       _option2 = item_option_fixture(radio_item, %{label: "选项2", value: "option2"})
       
+      # 添加日期、时间和地区选择控件
+      date_item = form_item_fixture(form, %{
+        label: "出生日期", 
+        type: :date, 
+        required: true,
+        min_date: "2000-01-01",
+        max_date: "2023-12-31",
+        date_format: "yyyy-MM-dd"
+      })
+      
+      time_item = form_item_fixture(form, %{
+        label: "预约时间", 
+        type: :time, 
+        required: true,
+        min_time: "09:00",
+        max_time: "18:00",
+        time_format: "24h"
+      })
+      
+      region_item = form_item_fixture(form, %{
+        label: "所在地区", 
+        type: :region, 
+        required: true,
+        region_level: 3,
+        default_province: "广东省"
+      })
+      
       # 发布表单
       {:ok, published_form} = Forms.publish_form(form)
       
-      %{form: published_form, text_item: text_item, radio_item: radio_item}
+      %{
+        form: published_form, 
+        text_item: text_item, 
+        radio_item: radio_item,
+        date_item: date_item,
+        time_item: time_item,
+        region_item: region_item
+      }
     end
 
     test "表单提交页面加载", %{conn: conn, form: form} do
@@ -35,8 +69,9 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       assert has_element?(view, "p", form.description)
     end
 
-    test "表单字段正确显示", %{conn: conn, form: form, text_item: text_item, radio_item: radio_item} do
-      {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/submit")
+    test "表单字段正确显示", %{conn: conn, form: form, text_item: text_item, radio_item: radio_item,
+                                date_item: date_item, time_item: time_item, region_item: region_item} do
+      {:ok, view, html} = live(conn, ~p"/forms/#{form.id}/submit")
       
       # 验证文本输入表单项显示
       assert has_element?(view, "label", text_item.label)
@@ -48,6 +83,18 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       assert has_element?(view, "input[type='radio']")
       assert has_element?(view, "label", "选项1")
       assert has_element?(view, "label", "选项2")
+      
+      # 验证日期选择控件显示
+      assert html =~ date_item.label
+      assert html =~ "date"
+      
+      # 验证时间选择控件显示
+      assert html =~ time_item.label
+      assert html =~ "time"
+      
+      # 验证地区选择控件显示
+      assert html =~ region_item.label
+      assert html =~ "region" || html =~ "地区"
     end
 
     test "表单验证 - 空表单提交显示错误提示", %{conn: conn, form: form} do
@@ -88,15 +135,32 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       refute html =~ "id=\"error_#{radio_item.id}\""
     end
 
-    test "成功提交表单 - 创建表单响应", %{conn: conn, form: form, text_item: text_item, radio_item: radio_item} do
+    test "成功提交表单 - 创建表单响应", %{conn: conn, form: form, text_item: text_item, radio_item: radio_item,
+                                   date_item: date_item, time_item: time_item, region_item: region_item} do
       {:ok, view, _html} = live(conn, ~p"/forms/#{form.id}/submit")
+      
+      # 设置地区选择的状态
+      {:ok, view, _} = live(conn, ~p"/forms/#{form.id}/submit")
+      
+      # 分步设置地区选择的状态，模拟用户选择过程
+      view
+      |> render_hook("region_province_change", %{"field-id" => "#{region_item.id}", "value" => "广东省"})
+      
+      view
+      |> render_hook("region_city_change", %{"field-id" => "#{region_item.id}", "value" => "深圳市"})
+      
+      view
+      |> render_hook("region_district_change", %{"field-id" => "#{region_item.id}", "value" => "南山区"})
       
       # 填写表单并提交
       view
       |> form("#form-submission", %{
            "form" => %{
              "#{text_item.id}" => "我的文本回答",
-             "#{radio_item.id}" => "option1"
+             "#{radio_item.id}" => "option1",
+             "#{date_item.id}" => "2022-01-01",
+             "#{time_item.id}" => "14:30",
+             "#{region_item.id}" => "广东省-深圳市-南山区"
            }
          })
       |> render_submit()
@@ -111,7 +175,7 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       # 验证基本的响应数据结构
       response = List.first(responses)
       assert Map.has_key?(response, :answers)
-      assert length(response.answers) == 2
+      assert length(response.answers) == 5
       
       # 验证文本答案 - 使用Map.get获取值，不关注内部存储格式
       text_answer = Enum.find(response.answers, fn a -> a.form_item_id == text_item.id end)
@@ -120,6 +184,18 @@ defmodule MyAppWeb.FormLive.SubmitTest do
       # 验证单选答案 - 使用Map.get获取值，不关注内部存储格式
       radio_answer = Enum.find(response.answers, fn a -> a.form_item_id == radio_item.id end)
       assert Map.get(radio_answer.value, "value") == "option1"
+      
+      # 验证日期答案
+      date_answer = Enum.find(response.answers, fn a -> a.form_item_id == date_item.id end)
+      assert Map.get(date_answer.value, "value") == "2022-01-01"
+      
+      # 验证时间答案
+      time_answer = Enum.find(response.answers, fn a -> a.form_item_id == time_item.id end)
+      assert Map.get(time_answer.value, "value") == "14:30"
+      
+      # 验证地区答案
+      region_answer = Enum.find(response.answers, fn a -> a.form_item_id == region_item.id end)
+      assert Map.get(region_answer.value, "value") == "广东省-深圳市-南山区"
     end
 
     test "草稿表单不能提交", %{conn: conn, user: user} do

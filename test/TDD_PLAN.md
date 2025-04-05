@@ -355,7 +355,7 @@
    - [x] **date_field/1**：测试日期选择控件的渲染，包括日期选择器
    - [x] **time_field/1**：测试时间选择控件的渲染
    - [x] **region_field/1**：测试地区选择控件的渲染，包括省市区联动
-   - [ ] **matrix_field/1**：测试矩阵题控件的渲染，包括行列结构
+   - [x] **matrix_field/1**：测试矩阵题控件的渲染，包括行列结构
    - [ ] **image_choice_field/1**：测试图片选择控件的渲染
    - [ ] **file_upload_field/1**：测试文件上传控件的渲染
 
@@ -363,7 +363,7 @@
    - [x] 测试number_field的min/max/step属性
    - [x] 测试date_field的日期范围属性
    - [x] 测试region_field的级联选择行为
-   - [ ] 测试matrix_field的行列定义和选择模式
+   - [x] 测试matrix_field的行列定义和选择模式
    - [ ] 测试file_upload_field的文件类型限制
 
 3. **数据处理测试**
@@ -389,7 +389,7 @@
    - [x] 测试编辑number_field的范围属性
    - [x] 测试编辑date_field的日期范围
    - [x] 测试编辑region_field的默认值
-   - [ ] 测试编辑matrix_field的行列定义
+   - [x] 测试编辑matrix_field的行列定义
 
 3. **控件管理测试**
    - [ ] 测试表单中控件的保存和加载
@@ -405,7 +405,7 @@
    - [x] 测试`:date`类型的表单项创建与验证
    - [x] 测试`:time`类型的表单项创建与验证
    - [x] 测试`:region`类型的表单项创建与验证
-   - [ ] 测试`:matrix`类型的表单项创建与验证
+   - [x] 测试`:matrix`类型的表单项创建与验证
    - [ ] 测试`:image_choice`类型的表单项创建与验证
    - [ ] 测试`:file_upload`类型的表单项创建与验证
 
@@ -414,7 +414,7 @@
    - [x] 测试date_field的日期范围属性保存
    - [x] 测试time_field的时间范围属性保存
    - [x] 测试region_field的地区数据结构
-   - [ ] 测试matrix_field的行列数据结构
+   - [x] 测试matrix_field的行列数据结构
 
 3. **数据验证测试**
    - [x] 测试number_field的范围验证

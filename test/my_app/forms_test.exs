@@ -218,6 +218,159 @@ defmodule MyApp.FormsTest do
       assert item.type == :phone
       assert item.format_display == true
     end
+    
+    # 日期选择字段
+    test "with valid data adds a date item to the form", %{form: form} do
+      item_attrs = %{
+        label: "出生日期",
+        type: :date,
+        required: true,
+        min_date: "2000-01-01",
+        max_date: "2023-12-31",
+        date_format: "yyyy-MM-dd"
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "出生日期"
+      assert item.type == :date
+      assert item.min_date == "2000-01-01"
+      assert item.max_date == "2023-12-31"
+      assert item.date_format == "yyyy-MM-dd"
+    end
+    
+    # 时间选择字段
+    test "with valid data adds a time item to the form", %{form: form} do
+      item_attrs = %{
+        label: "预约时间",
+        type: :time,
+        required: true,
+        min_time: "09:00",
+        max_time: "18:00",
+        time_format: "24h"
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "预约时间"
+      assert item.type == :time
+      assert item.min_time == "09:00"
+      assert item.max_time == "18:00"
+      assert item.time_format == "24h"
+    end
+    
+    # 地区选择字段
+    test "with valid data adds a region item to the form", %{form: form} do
+      item_attrs = %{
+        label: "所在地区",
+        type: :region,
+        required: true,
+        region_level: 3,
+        default_province: "广东省"
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "所在地区"
+      assert item.type == :region
+      assert item.region_level == 3
+      assert item.default_province == "广东省"
+    end
+    
+    # 矩阵题字段
+    test "with valid data adds a matrix item to the form", %{form: form} do
+      item_attrs = %{
+        label: "满意度评价",
+        type: :matrix,
+        required: true,
+        matrix_rows: ["服务态度", "响应速度", "专业程度"],
+        matrix_columns: ["非常满意", "满意", "一般", "不满意", "非常不满意"],
+        matrix_type: :single
+      }
+      assert {:ok, item} = Forms.add_form_item(form, item_attrs)
+      assert item.label == "满意度评价"
+      assert item.type == :matrix
+      assert item.matrix_rows == ["服务态度", "响应速度", "专业程度"]
+      assert item.matrix_columns == ["非常满意", "满意", "一般", "不满意", "非常不满意"]
+      assert item.matrix_type == :single
+    end
+    
+    # 日期格式验证
+    test "date field validates format", %{form: form} do
+      # 无效的日期格式
+      item_attrs = %{
+        label: "出生日期",
+        type: :date,
+        date_format: "invalid-format"
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{date_format: ["日期格式无效"]} = errors_on(changeset)
+    end
+    
+    # 时间格式验证
+    test "time field validates min/max times", %{form: form} do
+      # 无效的时间值（min > max）
+      item_attrs = %{
+        label: "预约时间",
+        type: :time,
+        min_time: "18:00",
+        max_time: "09:00"
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{min_time: ["开始时间不能晚于结束时间"]} = errors_on(changeset)
+    end
+    
+    # 地区级别验证
+    test "region field validates region level", %{form: form} do
+      # 无效的地区级别
+      item_attrs = %{
+        label: "所在地区",
+        type: :region,
+        region_level: 5
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{region_level: ["地区级别必须是1-3之间的值"]} = errors_on(changeset)
+    end
+    
+    # 矩阵题行列验证
+    test "matrix field validates rows and columns", %{form: form} do
+      # 无效的矩阵题（无行）
+      item_attrs = %{
+        label: "满意度评价",
+        type: :matrix,
+        matrix_rows: [],
+        matrix_columns: ["满意", "不满意"]
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{matrix_rows: ["矩阵行不能为空"]} = errors_on(changeset)
+      
+      # 无效的矩阵题（无列）
+      item_attrs = %{
+        label: "满意度评价",
+        type: :matrix,
+        matrix_rows: ["项目1", "项目2"],
+        matrix_columns: []
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{matrix_columns: ["矩阵列不能为空"]} = errors_on(changeset)
+    end
+    
+    # 矩阵题唯一性验证
+    test "matrix field validates uniqueness of rows and columns", %{form: form} do
+      # 无效的矩阵题（重复行）
+      item_attrs = %{
+        label: "满意度评价",
+        type: :matrix,
+        matrix_rows: ["项目1", "项目1"],
+        matrix_columns: ["满意", "不满意"]
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{matrix_rows: ["矩阵行标题必须唯一"]} = errors_on(changeset)
+      
+      # 无效的矩阵题（重复列）
+      item_attrs = %{
+        label: "满意度评价",
+        type: :matrix,
+        matrix_rows: ["项目1", "项目2"],
+        matrix_columns: ["满意", "满意"]
+      }
+      assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
+      assert %{matrix_columns: ["矩阵列标题必须唯一"]} = errors_on(changeset)
+    end
   end
 
   describe "add_item_option/3" do

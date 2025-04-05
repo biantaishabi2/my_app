@@ -234,11 +234,33 @@
             </svg>
             电话号码
           </div>
-          <div class="control-item" style="opacity: 0.5; cursor: not-allowed">
+          <div class={["control-item", @item_type == "date" && "selected"]} 
+               phx-click="type_changed" phx-value-type="date">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            日期选择（即将推出）
+            日期选择
+          </div>
+          <div class={["control-item", @item_type == "time" && "selected"]} 
+               phx-click="type_changed" phx-value-type="time">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            时间选择
+          </div>
+          <div class={["control-item", @item_type == "region" && "selected"]} 
+               phx-click="type_changed" phx-value-type="region">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            地区选择
+          </div>
+          <div class={["control-item", @item_type == "matrix" && "selected"]} 
+               phx-click="type_changed" phx-value-type="matrix">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            矩阵题
           </div>
         </div>
       </div>
@@ -334,6 +356,10 @@
                         <% :number -> %>数字输入
                         <% :email -> %>邮箱输入
                         <% :phone -> %>电话号码
+                        <% :date -> %>日期选择
+                        <% :time -> %>时间选择
+                        <% :region -> %>地区选择
+                        <% :matrix -> %>矩阵题
                         <% _ -> %>未知类型
                       <% end %>
                     </span>
@@ -427,6 +453,67 @@
                       <%= if item.format_display do %>
                         <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">请输入11位手机号码</div>
                       <% end %>
+                    
+                    <% :date -> %>
+                      <input type="date" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="日期选择" />
+                      <%= if item.min_date && item.max_date do %>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选日期范围: <%= item.min_date %> 至 <%= item.max_date %></div>
+                      <% end %>
+                    
+                    <% :time -> %>
+                      <input type="time" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="时间选择" />
+                      <%= if item.min_time && item.max_time do %>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选时间范围: <%= item.min_time %> 至 <%= item.max_time %></div>
+                      <% end %>
+                    
+                    <% :region -> %>
+                      <div style="width: 100%;">
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                          <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                            <option><%= item.default_province || "省/直辖市" %></option>
+                          </select>
+                          <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                            <option>市</option>
+                          </select>
+                          <%= if item.region_level == 3 do %>
+                            <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                              <option>区/县</option>
+                            </select>
+                          <% end %>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #6b7280;">地区级别: <%= item.region_level || 3 %></div>
+                      </div>
+                      
+                    <% :matrix -> %>
+                      <div style="width: 100%;">
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #d1d5db;">
+                          <thead>
+                            <tr>
+                              <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;"></th>
+                              <%= for column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                                <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;">
+                                  <%= column %>
+                                </th>
+                              <% end %>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <%= for row <- (item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
+                              <tr>
+                                <td style="border: 1px solid #d1d5db; padding: 0.5rem; font-weight: 500;"><%= row %></td>
+                                <%= for _column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                                  <td style="border: 1px solid #d1d5db; padding: 0.5rem; text-align: center;">
+                                    <input type="radio" disabled />
+                                  </td>
+                                <% end %>
+                              </tr>
+                            <% end %>
+                          </tbody>
+                        </table>
+                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                          矩阵类型: <%= if item.matrix_type == :multiple, do: "多选", else: "单选" %>
+                        </div>
+                      </div>
                   <% end %>
                 </div>
               </div>

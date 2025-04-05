@@ -56,6 +56,17 @@
    - 可以直接使用`render_click/2`触发命名事件而非依赖特定UI元素
    - 这种方法使测试更稳定，在UI变更时不易失败
 
+## 测试运行策略
+
+1. **选择性测试运行**：
+   - 运行所有表单系统测试时，不要包括chat相关的测试
+   - 表单系统的测试命令: `mix test test/my_app/forms_test.exs test/my_app/responses_test.exs test/my_app_web/live/form_live/`
+   - 避免运行不相关模块的测试以节省时间并减少不必要的错误干扰
+
+2. **聚焦失败测试**：
+   - 当发现特定测试失败时，优先单独运行该测试进行调试
+   - 使用`mix test <specific_test_file:line_number>`来运行单个测试案例
+
 ## 其他注意事项
 
 - 业务代码应该遵循代码库中的风格和约定
