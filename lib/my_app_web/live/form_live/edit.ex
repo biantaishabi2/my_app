@@ -774,6 +774,11 @@ defmodule MyAppWeb.FormLive.Edit do
         |> put_flash(:error, "#{display_selected_type(item_type)}控件需要至少一个选项，请先添加选项")
       }
     else
+      # 检查矩阵控件是否有行和列
+      case validate_matrix(socket, item_type) do
+        {:error, error_message} ->
+          {:noreply, socket |> put_flash(:error, error_message)}
+        :ok ->
     
     # 处理选项数据
     item_params = process_item_params(item_params)
@@ -847,7 +852,7 @@ defmodule MyAppWeb.FormLive.Edit do
         |> Map.put("required", Map.get(clean_params, "required", true))  # 默认为必填
       
       # 添加类型参数 - 确保类型总是有效值
-      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone, :date, :time, :region] do
+      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone, :date, :time, :region, :matrix, :image_choice, :file_upload] do
         clean_params
       else
         # 从字符串转换为atom类型
@@ -864,6 +869,9 @@ defmodule MyAppWeb.FormLive.Edit do
           "date" -> :date
           "time" -> :time
           "region" -> :region
+          "matrix" -> :matrix
+          "image_choice" -> :image_choice
+          "file_upload" -> :file_upload
           _ -> :text_input  # 默认为文本输入
         end
         
@@ -922,6 +930,7 @@ defmodule MyAppWeb.FormLive.Edit do
           }
       end
     end
+      end
     end
   end
 
@@ -1133,6 +1142,27 @@ defmodule MyAppWeb.FormLive.Edit do
   end
   
   defp requires_options?(_), do: false
+  
+  # 检查矩阵类型控件是否有行和列
+  defp validate_matrix(socket, item_type) do
+    current_item = socket.assigns.current_item
+    
+    if (item_type == :matrix or item_type == "matrix") do
+      matrix_rows = current_item.matrix_rows || []
+      matrix_columns = current_item.matrix_columns || []
+      
+      cond do
+        Enum.empty?(matrix_rows) ->
+          {:error, "矩阵控件至少需要一行，请添加行"}
+        Enum.empty?(matrix_columns) ->
+          {:error, "矩阵控件至少需要一列，请添加列"}
+        true ->
+          :ok
+      end
+    else
+      :ok
+    end
+  end
   
   # 确保所有键都是字符串
   defp normalize_params(params) do
