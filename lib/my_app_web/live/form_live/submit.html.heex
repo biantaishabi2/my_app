@@ -32,13 +32,12 @@
             id="form-submission"
             phx-change="validate"
             phx-submit="submit_form"
-            phx-hook="FormSubmit"
           >
             <div class="space-y-6">
               <%= for item <- @form.items do %>
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class={"form-field form-item mb-4 #{if @errors != nil and Map.get(@errors || %{}, item.id) != nil, do: "field-error", else: ""}"}>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
                       <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
                         <%= item.label %>
                         <%= if item.required do %>
@@ -55,20 +54,14 @@
                         phx-debounce="blur"
                         phx-change="validate"
                       />
-                      <input 
-                        type="hidden"
-                        id={"answer_#{item.id}"}
-                        name={"answer[#{item.id}]"}
-                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
-                        phx-change="validate"
-                      />
-                      <%= if @errors != nil and Map.get(@errors || %{}, item.id) != nil and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
+                      <%# 移除为测试添加的隐藏字段，直接使用表单字段 %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
                   
                   <% :radio -> %>
-                    <div class={"form-field form-item mb-4 #{if @errors != nil and Map.get(@errors || %{}, item.id) != nil, do: "field-error", else: ""}"}>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
                       <fieldset>
                         <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
                           <%= item.label %>
@@ -84,40 +77,20 @@
                                 id={"#{item.id}_#{option.value}"}
                                 name={"form[#{item.id}]"}
                                 value={option.value}
-                                checked={Map.get(@form_state || %{}, "#{item.id}") == option.value}
+                                checked={option.value == Map.get(@form_state || %{}, "#{item.id}")}
                                 required={item.required}
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
                                 phx-debounce="blur"
-                                phx-change="radio_change"
-                                phx-value-name={"answer[#{item.id}]"}
-                                phx-value-value={option.value}
-                                phx-value-id={"#{item.id}"}
                               />
                               <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
                                 <%= option.label %>
                               </label>
                             </div>
                           <% end %>
-                          <%# 隐藏字段：用于测试 %>
-                          <input
-                            type="hidden"
-                            id={"answer_#{item.id}"}
-                            name={"answer[#{item.id}]"}
-                            value={Map.get(@form_state || %{}, "#{item.id}", "")}
-                            phx-change="validate"
-                          />
-                          
-                          <%# 为测试添加的专用隐藏字段 %>
-                          <input
-                            type="hidden"
-                            id={"answer_#{item.id}_option1"}
-                            name={"answer[#{item.id}]_option1"}
-                            value={"option1"}
-                            phx-change="validate"
-                          />
+                          <%# 移除之前为测试添加的隐藏字段，使用更直接的方式 %>
                         </div>
-                        <%= if @errors != nil and Map.get(@errors || %{}, item.id) != nil and Map.get(@form_state || %{}, "#{item.id}", "") == "" do %>
-                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message"><%= @errors[item.id] %></div>
+                        <%= if Map.get(@errors || %{}, item.id) do %>
+                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
                         <% end %>
                       </fieldset>
                     </div>
@@ -128,7 +101,7 @@
             <div class="mt-8 flex justify-end">
               <button
                 type="submit"
-                phx-click="submit_form"
+                id="form-submit-button"
                 class="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
               >
                 提交
