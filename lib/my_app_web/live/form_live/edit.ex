@@ -34,13 +34,38 @@ defmodule MyAppWeb.FormLive.Edit do
           # 重新加载表单以获取页面信息
           form_with_pages = Forms.get_form(id)
           
+          # 获取所有表单项，确保它们有正确的页面关联
+          all_form_items = 
+            Enum.flat_map(form_with_pages.pages, fn page -> 
+              # 提取每个页面的表单项
+              page.items || []
+            end)
+          
+          # 确保添加任何未关联的表单项到默认页面，以便它们能被显示
+          if length(form_with_pages.items) > length(all_form_items) do
+            # 首先迁移未关联页面的表单项到默认页面
+            {:ok, migrated_items} = Forms.migrate_items_to_default_page(form_with_pages)
+            IO.puts("迁移了#{length(migrated_items)}个未关联页面的表单项到默认页面")
+            
+            # 重新加载表单以获取更新后的关联
+            form_with_pages = Forms.get_form(id)
+            
+            # 重新收集所有表单项
+            all_form_items = 
+              Enum.flat_map(form_with_pages.pages, fn page -> 
+                page.items || []
+              end)
+          end
+            
+          IO.puts("加载表单项: 发现#{length(all_form_items)}个项目")
+          
           {:ok, 
             socket
             |> assign(:page_title, "编辑表单")
             |> assign(:form, form_with_pages)
             |> assign(:form_changeset, Forms.change_form(form_with_pages))
             |> assign(:editing_form_info, true)
-            |> assign(:form_items, form_with_pages.items)
+            |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
             |> assign(:item_options, [])
@@ -1018,8 +1043,17 @@ defmodule MyAppWeb.FormLive.Edit do
     updated_form = Forms.get_form(socket.assigns.form.id)
     IO.puts("异步更新表单项，确保渲染: #{length(updated_form.items)}项")
     
+    # 收集所有页面的表单项
+    all_form_items = 
+      Enum.flat_map(updated_form.pages, fn page -> 
+        # 提取每个页面的表单项
+        page.items || []
+      end)
+    
+    IO.puts("从页面收集到 #{length(all_form_items)} 个表单项")
+    
     # 输出所有表单项，用于调试
-    items_debug = Enum.map(updated_form.items, &"#{&1.id}: #{&1.label}") |> Enum.join(", ")
+    items_debug = Enum.map(all_form_items, &"#{&1.id}: #{&1.label}") |> Enum.join(", ")
     IO.puts("表单项详情: #{items_debug}")
     
     # 在测试环境中，也手动查询所有表单项以验证
@@ -1039,7 +1073,7 @@ defmodule MyAppWeb.FormLive.Edit do
     {:noreply, 
       socket
       |> assign(:form, updated_form)
-      |> assign(:form_items, updated_form.items)
+      |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
     }
   end
 
@@ -1304,9 +1338,18 @@ defmodule MyAppWeb.FormLive.Edit do
     
     IO.puts("更新后的表单: title=#{updated_form.title}, description=#{updated_form.description}")
     
+    # 收集所有页面的表单项
+    all_form_items = 
+      Enum.flat_map(updated_form.pages, fn page -> 
+        # 提取每个页面的表单项
+        page.items || []
+      end)
+    
+    IO.puts("重新加载表单项: 从页面收集到#{length(all_form_items)}个项目")
+    
     socket
     |> assign(:form, updated_form)
-    |> assign(:form_items, updated_form.items)
+    |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
     |> assign(:editing_form_info, false)
     |> put_flash(:info, info_message)
   end

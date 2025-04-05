@@ -574,8 +574,16 @@
                   
                   <!-- 页面的表单项 -->
                   <div style="padding: 1rem;">
-                    <!-- 获取该页面的表单项 -->
-                    <% page_items = Enum.filter(@form_items, fn item -> item.page_id == page.id end) %>
+                    <!-- 获取该页面的表单项(同时兼容没有page_id的旧表单项) -->
+                    <% page_items = 
+                      if page.id == @form.default_page_id do
+                        # 对于默认页面，同时显示显式关联的和未关联页面的表单项
+                        Enum.filter(@form_items, fn item -> item.page_id == page.id || is_nil(item.page_id) end)
+                      else
+                        # 对于非默认页面，只显示明确关联的表单项
+                        Enum.filter(@form_items, fn item -> item.page_id == page.id end)
+                      end
+                    %>
                     
                     <%= if Enum.empty?(page_items) do %>
                       <div style="text-align: center; padding: 1.5rem 0; color: #6b7280;">
