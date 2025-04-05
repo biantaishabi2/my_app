@@ -1,5 +1,85 @@
 // 表单构建器功能模块
 
+// 条件逻辑编辑器钩子
+const ConditionLogicEditor = {
+  mounted() {
+    console.log("ConditionLogicEditor hook mounted");
+    this.setupEventListeners();
+  },
+
+  updated() {
+    console.log("ConditionLogicEditor hook updated");
+  },
+
+  setupEventListeners() {
+    // 添加条件按钮
+    this.el.querySelector('.add-condition-btn')?.addEventListener('click', e => {
+      this.pushEvent("add_simple_condition", {});
+    });
+
+    // 添加条件组按钮
+    this.el.querySelector('.add-condition-group-btn')?.addEventListener('click', e => {
+      this.pushEvent("add_condition_group", {});
+    });
+
+    // 删除条件按钮
+    this.el.querySelectorAll('.delete-condition-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const conditionId = e.currentTarget.dataset.conditionId;
+        this.pushEvent("delete_condition", { condition_id: conditionId });
+      });
+    });
+
+    // 条件类型切换
+    this.el.querySelectorAll('.condition-operator-select').forEach(select => {
+      select.addEventListener('change', e => {
+        const conditionId = e.currentTarget.dataset.conditionId;
+        const operator = e.currentTarget.value;
+        this.pushEvent("update_condition_operator", { 
+          condition_id: conditionId,
+          operator: operator
+        });
+      });
+    });
+
+    // 条件源选择
+    this.el.querySelectorAll('.condition-source-select').forEach(select => {
+      select.addEventListener('change', e => {
+        const conditionId = e.currentTarget.dataset.conditionId;
+        const sourceId = e.currentTarget.value;
+        this.pushEvent("update_condition_source", { 
+          condition_id: conditionId,
+          source_id: sourceId
+        });
+      });
+    });
+
+    // 条件值输入
+    this.el.querySelectorAll('.condition-value-input').forEach(input => {
+      input.addEventListener('change', e => {
+        const conditionId = e.currentTarget.dataset.conditionId;
+        const value = e.currentTarget.value;
+        this.pushEvent("update_condition_value", { 
+          condition_id: conditionId,
+          value: value
+        });
+      });
+    });
+
+    // 组合条件类型切换
+    this.el.querySelectorAll('.condition-group-type-select').forEach(select => {
+      select.addEventListener('change', e => {
+        const groupId = e.currentTarget.dataset.groupId;
+        const groupType = e.currentTarget.value;
+        this.pushEvent("update_condition_group_type", { 
+          group_id: groupId,
+          group_type: groupType
+        });
+      });
+    });
+  }
+};
+
 // 表单构建器钩子
 const FormBuilder = {
   mounted() {
@@ -273,10 +353,92 @@ const FormBuilderHooks = {
   }
 };
 
+// 表单页面列表排序钩子
+const FormPagesList = {
+  mounted() {
+    console.log("FormPagesList 钩子已挂载");
+    this.initPagesSortable();
+  },
+  
+  updated() {
+    console.log("FormPagesList 钩子已更新");
+    this.initPagesSortable();
+  },
+  
+  // 初始化页面拖拽排序功能
+  initPagesSortable() {
+    const container = this.el;
+    const pages = container.querySelectorAll('[data-page-id]');
+    
+    if (!pages.length) return;
+    
+    // 为每个页面添加拖拽事件
+    pages.forEach(page => {
+      page.setAttribute('draggable', 'true');
+      
+      // 清除之前可能存在的事件监听器
+      page.removeEventListener('dragstart', this.handleDragStart);
+      page.removeEventListener('dragover', this.handleDragOver);
+      page.removeEventListener('drop', this.handleDrop);
+      page.removeEventListener('dragend', this.handleDragEnd);
+      
+      // 添加新的事件监听器
+      page.addEventListener('dragstart', this.handleDragStart.bind(this));
+      page.addEventListener('dragover', this.handleDragOver.bind(this));
+      page.addEventListener('drop', this.handleDrop.bind(this));
+      page.addEventListener('dragend', this.handleDragEnd.bind(this));
+    });
+  },
+  
+  handleDragStart(e) {
+    const pageId = e.target.dataset.pageId;
+    e.dataTransfer.setData('text/plain', pageId);
+    e.target.classList.add('dragging');
+  },
+  
+  handleDragOver(e) {
+    e.preventDefault();
+    const draggingElement = document.querySelector('.dragging');
+    if (!draggingElement) return;
+    
+    const container = this.el;
+    const allPages = [...container.querySelectorAll('[data-page-id]:not(.dragging)')];
+    
+    const pageAfter = allPages.find(page => {
+      const rect = page.getBoundingClientRect();
+      return e.clientY < rect.top + rect.height / 2;
+    });
+    
+    if (pageAfter) {
+      container.insertBefore(draggingElement, pageAfter);
+    } else if (allPages.length > 0) {
+      container.appendChild(draggingElement);
+    }
+  },
+  
+  handleDrop(e) {
+    e.preventDefault();
+    const draggedPageId = e.dataTransfer.getData('text/plain');
+    
+    // 获取所有页面的新顺序
+    const pageIds = [...this.el.querySelectorAll('[data-page-id]')]
+      .map(page => page.dataset.pageId);
+    
+    // 发送事件到服务器
+    this.pushEvent('pages_reordered', { pageIds });
+  },
+  
+  handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+  }
+};
+
 // 导出所有钩子
 export default {
   FormBuilder,
   FormSubmit,
   FormBuilderSidebar: FormBuilderHooks.FormBuilderSidebar,
-  FormItemEditor: FormBuilderHooks.FormItemEditor
+  FormItemEditor: FormBuilderHooks.FormItemEditor,
+  FormPagesList,
+  ConditionLogicEditor
 };

@@ -286,18 +286,88 @@
     
     <!-- 右侧主内容区 -->
     <div class="form-builder-main">
-      <%= if @editing_item do %>
-        <.form_item_editor
-          item={@current_item}
-          options={@item_options}
-          item_type={@item_type}
-          id="form-item-editor"
-          on_save="save_item"
-          on_cancel="cancel_edit_item"
-          on_add_option="add_option"
-          on_remove_option="remove_option"
-        />
-      <% else %>
+      <%= cond do %>
+        <% @editing_conditions -> %>
+          <!-- 条件逻辑编辑面板 -->
+          <div class="p-4 bg-white rounded-lg shadow mb-4">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-lg font-semibold">
+                <%= if @condition_type == :visibility do %>
+                  设置显示条件
+                <% else %>
+                  设置必填条件
+                <% end %>
+                - <%= @current_item.label %>
+              </h2>
+              
+              <!-- 切换条件类型按钮 -->
+              <div class="flex space-x-2">
+                <button 
+                  class={"px-3 py-1.5 text-sm font-medium rounded-md #{if @condition_type == :visibility, do: "bg-indigo-600 text-white", else: "bg-gray-200 text-gray-800"}"} 
+                  phx-click="edit_conditions" 
+                  phx-value-id={@current_item.id} 
+                  phx-value-type="visibility"
+                >
+                  可见性条件
+                </button>
+                <button 
+                  class={"px-3 py-1.5 text-sm font-medium rounded-md #{if @condition_type == :required, do: "bg-indigo-600 text-white", else: "bg-gray-200 text-gray-800"}"} 
+                  phx-click="edit_conditions" 
+                  phx-value-id={@current_item.id} 
+                  phx-value-type="required"
+                >
+                  必填条件
+                </button>
+              </div>
+            </div>
+            
+            <p class="mb-4 text-sm text-gray-600">
+              <%= if @condition_type == :visibility do %>
+                设置此字段何时显示给用户。如果不设置条件，字段将始终显示。
+              <% else %>
+                设置此字段何时为必填项。如果不设置条件，字段的必填属性将由基本设置决定。
+              <% end %>
+            </p>
+            
+            <!-- 条件编辑器组件 -->
+            <.condition_editor
+              id="condition-editor"
+              condition={@current_condition}
+              available_items={@available_items}
+              target={@myself}
+            />
+            
+            <div class="flex justify-end space-x-3 mt-4">
+              <button
+                type="button"
+                phx-click="cancel_edit_conditions"
+                class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                phx-click="save_conditions"
+                class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                保存条件
+              </button>
+            </div>
+          </div>
+          
+        <% @editing_item -> %>
+          <.form_item_editor
+            item={@current_item}
+            options={@item_options}
+            item_type={@item_type}
+            form={@form}
+            id="form-item-editor"
+            on_save="save_item"
+            on_cancel="cancel_edit_item"
+            on_add_option="add_option"
+            on_remove_option="remove_option"
+          />
+        <% true -> %>
         <div class="p-4 bg-white rounded-lg shadow mb-4">
           <h2 class="text-lg font-semibold mb-2">添加表单项</h2>
           <p class="text-gray-600 mb-4">从左侧选择一个控件类型，然后点击下方按钮添加到表单中。</p>
@@ -315,295 +385,497 @@
         </div>
       <% end %>
     
-      <div class="form-card" style="margin-top: 1.5rem;">
-        <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单项</h2>
-        
-        <%= if Enum.empty?(@form_items) do %>
-          <div style="text-align: center; padding: 3rem 0;">
-            <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+      <!-- 如果在编辑页面模式 -->
+      <%= if @editing_page do %>
+        <div class="form-card" style="margin-top: 1.5rem;">
+          <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">
+            <%= if @current_page, do: "编辑页面", else: "添加新页面" %>
+          </h2>
+          
+          <form
+            id="page-form"
+            phx-submit="save_page"
+            style="display: flex; flex-direction: column; gap: 1rem;"
+            data-test-id="page-form"
+          >
+            <div>
+              <label for="page_title" style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">页面标题 *</label>
+              <input
+                type="text"
+                id="page_title"
+                name="page[title]"
+                value={@current_page && @current_page.title}
+                required
+                placeholder="例如：个人信息"
+                style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);"
+              />
             </div>
-            <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">表单还没有表单项</h3>
-            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮添加新的表单项</p>
+            
+            <div>
+              <label for="page_description" style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">页面描述（可选）</label>
+              <textarea
+                id="page_description"
+                name="page[description]"
+                rows="3"
+                placeholder="例如：请填写您的基本信息"
+                style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);"
+              ><%= @current_page && @current_page.description %></textarea>
+            </div>
+            
+            <!-- 如果是编辑现有页面，加入隐藏字段保存页面ID -->
+            <%= if @current_page do %>
+              <input type="hidden" name="page[id]" value={@current_page.id} />
+            <% end %>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem;">
+              <button
+                type="button"
+                phx-click="cancel_edit_page"
+                style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: white; color: #374151; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border: none; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+              >
+                保存
+              </button>
+            </div>
+          </form>
+        </div>
+      <% else %>
+        <!-- 表单页面管理面板 -->
+        <div class="form-card" style="margin-top: 1.5rem;" data-test-id="form-pages-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="font-size: 1.125rem; font-weight: 500;">表单页面</h2>
+            <button
+              phx-click="add_page"
+              style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
+              data-test-id="add-page-button"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+              </svg>
+              添加页面
+            </button>
           </div>
-        <% else %>
-          <div style="display: flex; flex-direction: column; gap: 1rem;" id="form-items-container">
-            <%= for {item, index} <- Enum.with_index(@form_items) do %>
-              <div class="form-card" style="border: 1px solid #e5e7eb;" id={"item-#{item.id}"} data-item-id={item.id} data-order={index + 1}>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                  <div style="font-weight: 500; display: flex; align-items: center;">
-                    <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.5rem;">
-                      <%= index + 1 %>
+          
+          <!-- 显示页面列表 -->
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;" data-test-id="form-pages-list" id="form-pages-list" phx-hook="FormPagesList">
+            <%= if Enum.empty?(@form.pages || []) do %>
+              <div style="text-align: center; padding: 1.5rem 0; color: #6b7280; background-color: #f9fafb; border-radius: 0.375rem;">
+                <p>表单还没有任何页面。点击"添加页面"按钮创建第一个页面。</p>
+              </div>
+            <% else %>
+              <%= for page <- @form.pages do %>
+                <div 
+                  style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: white;"
+                  data-test-id="page-item"
+                  data-page-id={page.id}
+                >
+                  <div style="display: flex; align-items: center;">
+                    <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.75rem; flex-shrink: 0;">
+                      <%= page.order %>
                     </span>
-                    <span><%= item.label %></span>
-                    <%= if item.required do %>
-                      <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
-                    <% end %>
-                    <span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem;">
-                      <%= case item.type do %>
-                        <% :text_input -> %>文本输入
-                        <% :textarea -> %>文本区域
-                        <% :radio -> %>单选
-                        <% :dropdown -> %>下拉菜单
-                        <% :checkbox -> %>复选框
-                        <% :number -> %>数字输入
-                        <% :email -> %>邮箱输入
-                        <% :phone -> %>电话号码
-                        <% :date -> %>日期选择
-                        <% :time -> %>时间选择
-                        <% :region -> %>地区选择
-                        <% :matrix -> %>矩阵题
-                        <% :image_choice -> %>图片选择
-                        <% :file_upload -> %>文件上传
-                        <% _ -> %>未知类型
+                    <div>
+                      <div style="font-weight: 500; color: #1f2937;"><%= page.title %></div>
+                      <%= if page.description do %>
+                        <div style="font-size: 0.875rem; color: #6b7280;"><%= page.description %></div>
                       <% end %>
-                    </span>
+                      <!-- 显示是否为默认页面 -->
+                      <%= if @form.default_page_id == page.id do %>
+                        <div style="font-size: 0.75rem; color: #059669; margin-top: 0.25rem;">默认页面</div>
+                      <% end %>
+                    </div>
                   </div>
-                  <div style="display: flex; gap: 0.5rem;">
-                    <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
+                  
+                  <div style="display: flex; gap: 0.75rem;">
+                    <button
+                      phx-click="edit_page"
+                      phx-value-id={page.id}
+                      style="color: #4f46e5; background: none; border: none; cursor: pointer;"
+                      data-test-id={"edit-page-#{page.id}"}
+                    >
                       编辑
                     </button>
-                    <button type="button" phx-click="delete_item" phx-value-id={item.id} style="color: #ef4444; background: none; border: none; cursor: pointer;"
-                            id={"delete-item-#{item.id}"}>
-                      删除
-                    </button>
+                    <!-- 不能删除默认页面 -->
+                    <%= if @form.default_page_id != page.id do %>
+                      <button
+                        phx-click="delete_page"
+                        phx-value-id={page.id}
+                        style="color: #ef4444; background: none; border: none; cursor: pointer;"
+                        data-test-id={"delete-page-#{page.id}"}
+                      >
+                        删除
+                      </button>
+                    <% end %>
                   </div>
                 </div>
-                
-                <%= if item.description do %>
-                  <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
-                <% end %>
-                
-                <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
-                  <%= case item.type do %>
-                    <% :text_input -> %>
-                      <input type="text" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="文本输入示例" />
-                    
-                    <% :textarea -> %>
-                      <textarea style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; min-height: 80px;" disabled placeholder="文本区域示例"></textarea>
-                    
-                    <% :dropdown -> %>
-                      <div style="margin-bottom: 0.5rem;">
-                        <select style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
-                          <option value="" disabled selected>请选择...</option>
-                          <%= for option <- item.options || [] do %>
-                            <option value={option.value}><%= option.label %></option>
-                          <% end %>
-                          <%= if Enum.empty?(item.options || []) do %>
-                            <option value="" disabled>无选项</option>
-                          <% end %>
-                        </select>
-                      </div>
-                      <%= if !Enum.empty?(item.options || []) do %>
-                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 0.5rem;">
-                          <div style="margin-bottom: 0.25rem;">选项列表:</div>
-                          <ul style="list-style-type: disc; padding-left: 1.25rem;">
-                            <%= for option <- item.options || [] do %>
-                              <li><span style="font-weight: 500;"><%= option.label %></span> (<%= option.value %>)</li>
-                            <% end %>
-                          </ul>
-                        </div>
-                      <% end %>
-                    
-                    <% :checkbox -> %>
-                      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <%= for option <- item.options || [] do %>
-                          <div style="display: flex; align-items: center;">
-                            <input type="checkbox" id={"option-#{option.id}"} name={"item-#{item.id}[]"} style="margin-right: 0.5rem;" disabled />
-                            <label><%= option.label %> (<%= option.value %>)</label>
-                          </div>
-                        <% end %>
-                        <%= if Enum.empty?(item.options || []) do %>
-                          <div style="color: #6b7280; font-size: 0.875rem; font-style: italic;">此复选框没有选项</div>
-                        <% end %>
-                      </div>
-                    
-                    <% :radio -> %>
-                      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <%= for option <- item.options || [] do %>
-                          <div style="display: flex; align-items: center;">
-                            <input type="radio" id={"option-#{option.id}"} name={"item-#{item.id}"} style="margin-right: 0.5rem;" disabled />
-                            <label><%= option.label %> (<%= option.value %>)</label>
-                          </div>
-                        <% end %>
-                        <%= if Enum.empty?(item.options || []) do %>
-                          <div style="color: #6b7280; font-size: 0.875rem; font-style: italic;">此单选题没有选项</div>
-                        <% end %>
-                      </div>
-                      
-                    <% :number -> %>
-                      <input type="number" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="数字输入示例" />
-                      <%= if item.min && item.max do %>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">有效范围: <%= item.min %> - <%= item.max %></div>
-                      <% end %>
-                    
-                    <% :email -> %>
-                      <input type="email" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="example@example.com" />
-                      <%= if item.show_format_hint do %>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">示例格式: example@domain.com</div>
-                      <% end %>
-                    
-                    <% :phone -> %>
-                      <input type="tel" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="13800138000" />
-                      <%= if item.format_display do %>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">请输入11位手机号码</div>
-                      <% end %>
-                    
-                    <% :date -> %>
-                      <input type="date" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="日期选择" />
-                      <%= if item.min_date && item.max_date do %>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选日期范围: <%= item.min_date %> 至 <%= item.max_date %></div>
-                      <% end %>
-                    
-                    <% :time -> %>
-                      <input type="time" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="时间选择" />
-                      <%= if item.min_time && item.max_time do %>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选时间范围: <%= item.min_time %> 至 <%= item.max_time %></div>
-                      <% end %>
-                    
-                    <% :region -> %>
-                      <div style="width: 100%;">
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                          <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
-                            <option><%= item.default_province || "省/直辖市" %></option>
-                          </select>
-                          <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
-                            <option>市</option>
-                          </select>
-                          <%= if item.region_level == 3 do %>
-                            <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
-                              <option>区/县</option>
-                            </select>
-                          <% end %>
-                        </div>
-                        <div style="font-size: 0.75rem; color: #6b7280;">地区级别: <%= item.region_level || 3 %></div>
-                      </div>
-                      
-                    <% :matrix -> %>
-                      <div style="width: 100%;">
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #d1d5db;">
-                          <thead>
-                            <tr>
-                              <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;"></th>
-                              <%= for column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
-                                <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;">
-                                  <%= column %>
-                                </th>
-                              <% end %>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <%= for row <- (item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
-                              <tr>
-                                <td style="border: 1px solid #d1d5db; padding: 0.5rem; font-weight: 500;"><%= row %></td>
-                                <%= for _column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
-                                  <td style="border: 1px solid #d1d5db; padding: 0.5rem; text-align: center;">
-                                    <input type="radio" disabled />
-                                  </td>
-                                <% end %>
-                              </tr>
-                            <% end %>
-                          </tbody>
-                        </table>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
-                          矩阵类型: <%= if item.matrix_type == :multiple, do: "多选", else: "单选" %>
-                        </div>
-                      </div>
-                      
-                    <% :image_choice -> %>
-                      <div style="width: 100%;">
-                        <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem;">
-                          <div style="width: 150px; border: 1px solid #d1d5db; border-radius: 0.25rem; overflow: hidden;">
-                            <div style="height: 100px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            <%= if item.image_caption_position == :bottom || item.image_caption_position == nil do %>
-                              <div style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">示例图片选项</div>
-                            <% end %>
-                            <div style="padding: 0.25rem; text-align: center;">
-                              <%= if item.selection_type == :multiple do %>
-                                <input type="checkbox" disabled />
-                              <% else %>
-                                <input type="radio" disabled />
-                              <% end %>
-                            </div>
-                          </div>
-                          <div style="width: 150px; border: 1px solid #d1d5db; border-radius: 0.25rem; overflow: hidden;">
-                            <div style="height: 100px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                            <%= if item.image_caption_position == :bottom || item.image_caption_position == nil do %>
-                              <div style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">示例图片选项</div>
-                            <% end %>
-                            <div style="padding: 0.25rem; text-align: center;">
-                              <%= if item.selection_type == :multiple do %>
-                                <input type="checkbox" disabled />
-                              <% else %>
-                                <input type="radio" disabled />
-                              <% end %>
-                            </div>
-                          </div>
-                        </div>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
-                          选择类型: <%= if item.selection_type == :multiple, do: "多选", else: "单选" %>,
-                          标题位置: <%= case item.image_caption_position do %>
-                            <% :top -> %>图片上方
-                            <% :bottom -> %>图片下方
-                            <% :none -> %>无标题
-                            <% _ -> %>图片下方
-                          <% end %>
-                        </div>
-                      </div>
-                      
-                    <% :file_upload -> %>
-                      <div style="width: 100%;">
-                        <div style="border: 2px dashed #d1d5db; border-radius: 0.25rem; padding: 1.5rem; margin-top: 0.5rem; text-align: center;">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af; margin: 0 auto;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                          <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
-                            点击或拖拽文件到此区域上传
-                          </div>
-                          <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #9ca3af;">
-                            <%= if item.allowed_extensions && length(item.allowed_extensions) > 0 do %>
-                              支持格式: <%= Enum.join(item.allowed_extensions, ", ") %>
-                            <% else %>
-                              支持所有文件格式
-                            <% end %>
-                          </div>
-                          <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #9ca3af;">
-                            <%= if item.multiple_files do %>
-                              可以上传多个文件
-                              <%= if item.max_files do %>
-                                (最多 <%= item.max_files %> 个)
-                              <% end %>
-                            <% else %>
-                              只能上传单个文件
-                            <% end %>
-                          </div>
-                          <div style="margin-top: 0.5rem;">
-                            <button type="button" disabled style="padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.25rem; font-size: 0.875rem;">
-                              选择文件
-                            </button>
-                          </div>
-                        </div>
-                        <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
-                          最大文件大小: <%= item.max_file_size || 5 %> MB
-                        </div>
-                      </div>
-                  <% end %>
-                </div>
-              </div>
+              <% end %>
             <% end %>
           </div>
+        </div>
+      
+        <!-- 确认删除页面对话框 -->
+        <%= if @delete_page_id do %>
+          <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+              <h3 class="text-lg font-medium mb-4">确认删除页面</h3>
+              <p class="text-gray-600 mb-6">您确定要删除这个页面吗？页面中的所有表单项将被移动到默认页面。此操作无法撤销。</p>
+              <div class="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  phx-click="cancel_delete_page"
+                  class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  phx-click="confirm_delete_page"
+                  data-test-id="confirm-delete-page"
+                  class="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  确认删除
+                </button>
+              </div>
+            </div>
+          </div>
         <% end %>
-      </div>
+        
+        <!-- 表单项区域 -->
+        <div class="form-card" style="margin-top: 1.5rem;">
+          <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单项</h2>
+          
+          <%= if Enum.empty?(@form_items) do %>
+            <div style="text-align: center; padding: 3rem 0;">
+              <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">表单还没有表单项</h3>
+              <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮添加新的表单项</p>
+            </div>
+          <% else %>
+            <!-- 按页面分组显示表单项 -->
+            <div style="display: flex; flex-direction: column; gap: 2rem;" id="form-items-container" data-test-id="page-items-container">
+              <!-- 对每个页面显示其表单项 -->
+              <%= for page <- @form.pages do %>
+                <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden;" data-test-id={"page-#{page.id}-items"}>
+                  <!-- 页面标题区 -->
+                  <div style="padding: 0.75rem 1rem; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 1rem; font-weight: 500; color: #1f2937;"><%= page.title %></h3>
+                    <%= if page.description do %>
+                      <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;"><%= page.description %></p>
+                    <% end %>
+                  </div>
+                  
+                  <!-- 页面的表单项 -->
+                  <div style="padding: 1rem;">
+                    <!-- 获取该页面的表单项 -->
+                    <% page_items = Enum.filter(@form_items, fn item -> item.page_id == page.id end) %>
+                    
+                    <%= if Enum.empty?(page_items) do %>
+                      <div style="text-align: center; padding: 1.5rem 0; color: #6b7280;">
+                        <p>此页面还没有表单项</p>
+                        <button
+                          phx-click="add_item"
+                          phx-value-page_id={page.id}
+                          style="display: inline-flex; margin-top: 0.75rem; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                          </svg>
+                          添加表单项到此页面
+                        </button>
+                      </div>
+                    <% else %>
+                      <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <%= for {item, index} <- Enum.with_index(page_items) do %>
+                          <div class="form-card" style="border: 1px solid #e5e7eb;" id={"item-#{item.id}"} data-item-id={item.id} data-order={index + 1} data-page-id={page.id}>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                              <div style="font-weight: 500; display: flex; align-items: center;">
+                                <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.5rem;">
+                                  <%= index + 1 %>
+                                </span>
+                                <span><%= item.label %></span>
+                                <%= if item.required do %>
+                                  <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
+                                <% end %>
+                                <span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem;">
+                                  <%= case item.type do %>
+                                    <% :text_input -> %>文本输入
+                                    <% :textarea -> %>文本区域
+                                    <% :radio -> %>单选
+                                    <% :dropdown -> %>下拉菜单
+                                    <% :checkbox -> %>复选框
+                                    <% :number -> %>数字输入
+                                    <% :email -> %>邮箱输入
+                                    <% :phone -> %>电话号码
+                                    <% :date -> %>日期选择
+                                    <% :time -> %>时间选择
+                                    <% :region -> %>地区选择
+                                    <% :matrix -> %>矩阵题
+                                    <% :image_choice -> %>图片选择
+                                    <% :file_upload -> %>文件上传
+                                    <% _ -> %>未知类型
+                                  <% end %>
+                                </span>
+                              </div>
+                              <div style="display: flex; gap: 0.5rem;">
+                                <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
+                                  编辑
+                                </button>
+                                <button type="button" phx-click="edit_conditions" phx-value-id={item.id} phx-value-type="visibility" style="color: #8b5cf6; background: none; border: none; cursor: pointer;" id={"edit-conditions-#{item.id}"}>
+                                  条件
+                                </button>
+                                <button type="button" phx-click="delete_item" phx-value-id={item.id} style="color: #ef4444; background: none; border: none; cursor: pointer;"
+                                        id={"delete-item-#{item.id}"}>
+                                  删除
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <%= if item.description do %>
+                              <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
+                            <% end %>
+                            
+                            <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
+                              <%= case item.type do %>
+                                <% :text_input -> %>
+                                  <input type="text" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="文本输入示例" />
+                                
+                                <% :textarea -> %>
+                                  <textarea style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; min-height: 80px;" disabled placeholder="文本区域示例"></textarea>
+                                
+                                <% :dropdown -> %>
+                                  <div style="margin-bottom: 0.5rem;">
+                                    <select style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                                      <option value="" disabled selected>请选择...</option>
+                                      <%= for option <- item.options || [] do %>
+                                        <option value={option.value}><%= option.label %></option>
+                                      <% end %>
+                                      <%= if Enum.empty?(item.options || []) do %>
+                                        <option value="" disabled>无选项</option>
+                                      <% end %>
+                                    </select>
+                                  </div>
+                                  <%= if !Enum.empty?(item.options || []) do %>
+                                    <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 0.5rem;">
+                                      <div style="margin-bottom: 0.25rem;">选项列表:</div>
+                                      <ul style="list-style-type: disc; padding-left: 1.25rem;">
+                                        <%= for option <- item.options || [] do %>
+                                          <li><span style="font-weight: 500;"><%= option.label %></span> (<%= option.value %>)</li>
+                                        <% end %>
+                                      </ul>
+                                    </div>
+                                  <% end %>
+                                
+                                <% :checkbox -> %>
+                                  <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <%= for option <- item.options || [] do %>
+                                      <div style="display: flex; align-items: center;">
+                                        <input type="checkbox" id={"option-#{option.id}"} name={"item-#{item.id}[]"} style="margin-right: 0.5rem;" disabled />
+                                        <label><%= option.label %> (<%= option.value %>)</label>
+                                      </div>
+                                    <% end %>
+                                    <%= if Enum.empty?(item.options || []) do %>
+                                      <div style="color: #6b7280; font-size: 0.875rem; font-style: italic;">此复选框没有选项</div>
+                                    <% end %>
+                                  </div>
+                                
+                                <% :radio -> %>
+                                  <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                    <%= for option <- item.options || [] do %>
+                                      <div style="display: flex; align-items: center;">
+                                        <input type="radio" id={"option-#{option.id}"} name={"item-#{item.id}"} style="margin-right: 0.5rem;" disabled />
+                                        <label><%= option.label %> (<%= option.value %>)</label>
+                                      </div>
+                                    <% end %>
+                                    <%= if Enum.empty?(item.options || []) do %>
+                                      <div style="color: #6b7280; font-size: 0.875rem; font-style: italic;">此单选题没有选项</div>
+                                    <% end %>
+                                  </div>
+                                  
+                                <% :number -> %>
+                                  <input type="number" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="数字输入示例" />
+                                  <%= if item.min && item.max do %>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">有效范围: <%= item.min %> - <%= item.max %></div>
+                                  <% end %>
+                                
+                                <% :email -> %>
+                                  <input type="email" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="example@example.com" />
+                                  <%= if item.show_format_hint do %>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">示例格式: example@domain.com</div>
+                                  <% end %>
+                                
+                                <% :phone -> %>
+                                  <input type="tel" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="13800138000" />
+                                  <%= if item.format_display do %>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">请输入11位手机号码</div>
+                                  <% end %>
+                                
+                                <% :date -> %>
+                                  <input type="date" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="日期选择" />
+                                  <%= if item.min_date && item.max_date do %>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选日期范围: <%= item.min_date %> 至 <%= item.max_date %></div>
+                                  <% end %>
+                                
+                                <% :time -> %>
+                                  <input type="time" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="时间选择" />
+                                  <%= if item.min_time && item.max_time do %>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">可选时间范围: <%= item.min_time %> 至 <%= item.max_time %></div>
+                                  <% end %>
+                                
+                                <% :region -> %>
+                                  <div style="width: 100%;">
+                                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                      <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                                        <option><%= item.default_province || "省/直辖市" %></option>
+                                      </select>
+                                      <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                                        <option>市</option>
+                                      </select>
+                                      <%= if item.region_level == 3 do %>
+                                        <select style="flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled>
+                                          <option>区/县</option>
+                                        </select>
+                                      <% end %>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #6b7280;">地区级别: <%= item.region_level || 3 %></div>
+                                  </div>
+                                  
+                                <% :matrix -> %>
+                                  <div style="width: 100%;">
+                                    <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #d1d5db;">
+                                      <thead>
+                                        <tr>
+                                          <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;"></th>
+                                          <%= for column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                                            <th style="border: 1px solid #d1d5db; padding: 0.5rem; background-color: #f3f4f6;">
+                                              <%= column %>
+                                            </th>
+                                          <% end %>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <%= for row <- (item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
+                                          <tr>
+                                            <td style="border: 1px solid #d1d5db; padding: 0.5rem; font-weight: 500;"><%= row %></td>
+                                            <%= for _column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                                              <td style="border: 1px solid #d1d5db; padding: 0.5rem; text-align: center;">
+                                                <input type="radio" disabled />
+                                              </td>
+                                            <% end %>
+                                          </tr>
+                                        <% end %>
+                                      </tbody>
+                                    </table>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                                      矩阵类型: <%= if item.matrix_type == :multiple, do: "多选", else: "单选" %>
+                                    </div>
+                                  </div>
+                                  
+                                <% :image_choice -> %>
+                                  <div style="width: 100%;">
+                                    <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem;">
+                                      <div style="width: 150px; border: 1px solid #d1d5db; border-radius: 0.25rem; overflow: hidden;">
+                                        <div style="height: 100px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">
+                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                        </div>
+                                        <%= if item.image_caption_position == :bottom || item.image_caption_position == nil do %>
+                                          <div style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">示例图片选项</div>
+                                        <% end %>
+                                        <div style="padding: 0.25rem; text-align: center;">
+                                          <%= if item.selection_type == :multiple do %>
+                                            <input type="checkbox" disabled />
+                                          <% else %>
+                                            <input type="radio" disabled />
+                                          <% end %>
+                                        </div>
+                                      </div>
+                                      <div style="width: 150px; border: 1px solid #d1d5db; border-radius: 0.25rem; overflow: hidden;">
+                                        <div style="height: 100px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center;">
+                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                        </div>
+                                        <%= if item.image_caption_position == :bottom || item.image_caption_position == nil do %>
+                                          <div style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">示例图片选项</div>
+                                        <% end %>
+                                        <div style="padding: 0.25rem; text-align: center;">
+                                          <%= if item.selection_type == :multiple do %>
+                                            <input type="checkbox" disabled />
+                                          <% else %>
+                                            <input type="radio" disabled />
+                                          <% end %>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                                      选择类型: <%= if item.selection_type == :multiple, do: "多选", else: "单选" %>,
+                                      标题位置: <%= case item.image_caption_position do %>
+                                        <% :top -> %>图片上方
+                                        <% :bottom -> %>图片下方
+                                        <% :none -> %>无标题
+                                        <% _ -> %>图片下方
+                                      <% end %>
+                                    </div>
+                                  </div>
+                                  
+                                <% :file_upload -> %>
+                                  <div style="width: 100%;">
+                                    <div style="border: 2px dashed #d1d5db; border-radius: 0.25rem; padding: 1.5rem; margin-top: 0.5rem; text-align: center;">
+                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 40px; height: 40px; color: #9ca3af; margin: 0 auto;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                      </svg>
+                                      <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                                        点击或拖拽文件到此区域上传
+                                      </div>
+                                      <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #9ca3af;">
+                                        <%= if item.allowed_extensions && length(item.allowed_extensions) > 0 do %>
+                                          支持格式: <%= Enum.join(item.allowed_extensions, ", ") %>
+                                        <% else %>
+                                          支持所有文件格式
+                                        <% end %>
+                                      </div>
+                                      <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #9ca3af;">
+                                        <%= if item.multiple_files do %>
+                                          可以上传多个文件
+                                          <%= if item.max_files do %>
+                                            (最多 <%= item.max_files %> 个)
+                                          <% end %>
+                                        <% else %>
+                                          只能上传单个文件
+                                        <% end %>
+                                      </div>
+                                      <div style="margin-top: 0.5rem;">
+                                        <button type="button" disabled style="padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.25rem; font-size: 0.875rem;">
+                                          选择文件
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">
+                                      最大文件大小: <%= item.max_file_size || 5 %> MB
+                                    </div>
+                                  </div>
+                              <% end %>
+                            </div>
+                          </div>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
   </div>
 </div>

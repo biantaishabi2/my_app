@@ -10,7 +10,167 @@ defmodule MyAppWeb.FormComponents do
   # import Phoenix.HTML.Form
   
   # LiveView辅助函数 - 用于事件处理和DOM操作
-  import Phoenix.LiveView.Helpers
+  # import Phoenix.LiveView.Helpers  # 未使用
+  
+  # 条件逻辑编辑器组件
+  attr :id, :string, required: true
+  attr :condition, :map, default: nil
+  attr :available_items, :list, default: []
+  attr :show_delete_button, :boolean, default: true
+  attr :target, :string, default: nil
+  
+  def condition_editor(assigns) do
+    ~H"""
+    <div class="condition-editor" id={@id} phx-hook="ConditionLogicEditor">
+      <%= if @condition do %>
+        <%= if @condition.type == :simple do %>
+          <!-- 简单条件编辑器 -->
+          <div class="simple-condition p-3 border rounded bg-gray-50 mb-2">
+            <div class="flex items-center space-x-2">
+              <!-- 条件源选择 -->
+              <select
+                class="condition-source-select form-select"
+                data-condition-id={@id}
+                name="source_item_id"
+              >
+                <option value="" disabled selected={@condition.source_item_id == nil}>选择字段</option>
+                <%= for item <- @available_items do %>
+                  <option value={item.id} selected={@condition.source_item_id == item.id}>
+                    <%= item.label %>
+                  </option>
+                <% end %>
+              </select>
+              
+              <!-- 条件操作符选择 -->
+              <select
+                class="condition-operator-select form-select"
+                data-condition-id={@id}
+                name="operator"
+              >
+                <option value="equals" selected={@condition.operator == "equals"}>等于</option>
+                <option value="not_equals" selected={@condition.operator == "not_equals"}>不等于</option>
+                <option value="contains" selected={@condition.operator == "contains"}>包含</option>
+                <option value="greater_than" selected={@condition.operator == "greater_than"}>大于</option>
+                <option value="greater_than_or_equal" selected={@condition.operator == "greater_than_or_equal"}>大于等于</option>
+                <option value="less_than" selected={@condition.operator == "less_than"}>小于</option>
+                <option value="less_than_or_equal" selected={@condition.operator == "less_than_or_equal"}>小于等于</option>
+              </select>
+              
+              <!-- 条件值输入 -->
+              <input
+                type="text"
+                class="condition-value-input form-input"
+                data-condition-id={@id}
+                name="value"
+                value={@condition.value}
+                placeholder="输入值"
+              />
+              
+              <!-- 删除条件按钮 -->
+              <%= if @show_delete_button do %>
+                <button
+                  type="button"
+                  class="delete-condition-btn btn btn-icon btn-sm text-red-500"
+                  data-condition-id={@id}
+                  phx-click="delete_condition"
+                  phx-value-condition-id={@id}
+                  phx-target={@target}
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        <% else %>
+          <!-- 复合条件编辑器 -->
+          <div class="compound-condition p-3 border rounded bg-gray-100 mb-2">
+            <div class="flex items-center mb-2 justify-between">
+              <select
+                class="condition-group-type-select form-select w-32"
+                data-group-id={@id}
+                name="group_type"
+              >
+                <option value="and" selected={@condition.operator == "and"}>全部满足</option>
+                <option value="or" selected={@condition.operator == "or"}>任一满足</option>
+              </select>
+              
+              <%= if @show_delete_button do %>
+                <button
+                  type="button"
+                  class="delete-condition-btn btn btn-icon btn-sm text-red-500"
+                  data-condition-id={@id}
+                  phx-click="delete_condition"
+                  phx-value-condition-id={@id}
+                  phx-target={@target}
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              <% end %>
+            </div>
+            
+            <div class="pl-4 border-l-2 border-indigo-300">
+              <!-- 显示子条件 -->
+              <%= for {child, index} <- Enum.with_index(@condition.conditions) do %>
+                <%= condition_editor(%{
+                  id: "#{@id}_#{index}",
+                  condition: child,
+                  available_items: @available_items,
+                  show_delete_button: true,
+                  target: @target
+                }) %>
+              <% end %>
+              
+              <!-- 添加子条件按钮 -->
+              <div class="flex space-x-2 mt-2">
+                <button
+                  type="button"
+                  class="add-condition-btn btn btn-sm btn-outline"
+                  phx-click="add_simple_condition"
+                  phx-value-parent-id={@id}
+                  phx-target={@target}
+                >
+                  <i class="fas fa-plus mr-1"></i> 添加条件
+                </button>
+                <button
+                  type="button"
+                  class="add-condition-group-btn btn btn-sm btn-outline"
+                  phx-click="add_condition_group"
+                  phx-value-parent-id={@id}
+                  phx-target={@target}
+                >
+                  <i class="fas fa-object-group mr-1"></i> 添加条件组
+                </button>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      <% else %>
+        <!-- 空条件状态 -->
+        <div class="empty-condition p-4 border rounded text-center text-gray-500">
+          <p>未设置条件</p>
+          <div class="flex space-x-2 justify-center mt-2">
+            <button
+              type="button"
+              class="add-condition-btn btn btn-sm btn-outline"
+              phx-click="add_simple_condition"
+              phx-target={@target}
+            >
+              <i class="fas fa-plus mr-1"></i> 添加条件
+            </button>
+            <button
+              type="button"
+              class="add-condition-group-btn btn btn-sm btn-outline"
+              phx-click="add_condition_group"
+              phx-target={@target}
+            >
+              <i class="fas fa-object-group mr-1"></i> 添加条件组
+            </button>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
   
   # 辅助函数：获取控件类型图标
   def get_type_icon(type) do

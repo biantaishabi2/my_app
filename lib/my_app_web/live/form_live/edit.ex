@@ -28,13 +28,19 @@ defmodule MyAppWeb.FormLive.Edit do
         
       form ->
         if form.user_id == current_user.id do
+          # 确保表单有默认页面
+          Forms.assign_default_page(form)
+          
+          # 重新加载表单以获取页面信息
+          form_with_pages = Forms.get_form(id)
+          
           {:ok, 
             socket
             |> assign(:page_title, "编辑表单")
-            |> assign(:form, form)
-            |> assign(:form_changeset, Forms.change_form(form))
+            |> assign(:form, form_with_pages)
+            |> assign(:form_changeset, Forms.change_form(form_with_pages))
             |> assign(:editing_form_info, true)
-            |> assign(:form_items, form.items)
+            |> assign(:form_items, form_with_pages.items)
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
             |> assign(:item_options, [])
@@ -46,8 +52,18 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:active_category, :basic) # 当前激活的类别
             |> assign(:search_term, nil) # 搜索关键词
             # 初始化临时值，用于表单编辑
-            |> assign(:temp_title, form.title)
-            |> assign(:temp_description, form.description)
+            |> assign(:temp_title, form_with_pages.title)
+            |> assign(:temp_description, form_with_pages.description)
+            # 页面管理相关状态
+            |> assign(:editing_page, false)
+            |> assign(:current_page, nil)
+            |> assign(:delete_page_id, nil)
+            |> assign(:form_preview_mode, false)
+            |> assign(:preview_current_page_idx, 0)
+            # 条件逻辑相关状态
+            |> assign(:editing_conditions, false)  # 是否正在编辑条件
+            |> assign(:condition_type, :visibility)  # 当前编辑的条件类型：visibility 或 required
+            |> assign(:current_condition, nil)  # 当前正在编辑的条件
           }
         else
           {:ok,
@@ -114,11 +130,21 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
-  def handle_event("add_item", _params, socket) do
+  def handle_event("add_item", params, socket) do
+    # 检查是否指定了页面ID
+    page_id = Map.get(params, "page_id")
+    form = socket.assigns.form
+    
+    # 获取默认页面ID
+    default_page_id = form.default_page_id || (if length(form.pages) > 0, do: List.first(form.pages).id, else: nil)
+    
+    # 使用指定的页面ID或默认页面ID
+    page_id = page_id || default_page_id
+    
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
     {:noreply, 
       socket
-      |> assign(:current_item, %FormItem{type: :text_input, required: false})
+      |> assign(:current_item, %FormItem{type: :text_input, required: false, page_id: page_id})
       |> assign(:item_options, [])
       |> assign(:item_type, "text_input")
       |> assign(:editing_item, true)
@@ -157,7 +183,333 @@ defmodule MyAppWeb.FormLive.Edit do
       |> assign(:current_item, nil)
       |> assign(:editing_item, false)
       |> assign(:item_options, [])
+      |> assign(:editing_conditions, false)
+      |> assign(:current_condition, nil)
     }
+  end
+  
+  # 条件逻辑事件处理
+  
+  def handle_event("edit_conditions", %{"id" => item_id, "type" => condition_type}, socket) do
+    # 获取表单项
+    form_item = Enum.find(socket.assigns.form_items, &(&1.id == item_id))
+    
+    # 确定条件类型（可见性或必填）
+    condition_type = String.to_existing_atom(condition_type)
+    
+    # 获取现有条件（如果有）
+    current_condition = case condition_type do
+      :visibility -> 
+        if form_item.visibility_condition do
+          Jason.decode!(form_item.visibility_condition)
+        else
+          nil
+        end
+      :required ->
+        if form_item.required_condition do
+          Jason.decode!(form_item.required_condition)
+        else
+          nil
+        end
+    end
+    
+    # 获取可以作为条件源的表单项（不包括当前表单项）
+    available_items = Enum.filter(socket.assigns.form_items, fn item ->
+      item.id != item_id
+    end)
+    
+    {:noreply, 
+      socket
+      |> assign(:editing_conditions, true)
+      |> assign(:current_item, form_item)
+      |> assign(:condition_type, condition_type)
+      |> assign(:current_condition, current_condition)
+      |> assign(:available_items, available_items)
+    }
+  end
+  
+  def handle_event("cancel_edit_conditions", _params, socket) do
+    {:noreply, 
+      socket
+      |> assign(:editing_conditions, false)
+      |> assign(:current_item, nil)
+      |> assign(:current_condition, nil)
+    }
+  end
+  
+  def handle_event("add_simple_condition", params, socket) do
+    parent_id = Map.get(params, "parent-id")
+    
+    # 创建一个新的简单条件
+    new_condition = %{
+      "type" => "simple",
+      "source_item_id" => nil,
+      "operator" => "equals",
+      "value" => ""
+    }
+    
+    # 处理不同情况
+    updated_condition = cond do
+      # 如果是顶级条件且当前没有条件
+      is_nil(parent_id) && is_nil(socket.assigns.current_condition) ->
+        new_condition
+        
+      # 如果是顶级条件但已有一个简单条件，则创建一个 AND 组合条件
+      is_nil(parent_id) && socket.assigns.current_condition["type"] == "simple" ->
+        %{
+          "type" => "compound",
+          "operator" => "and",
+          "conditions" => [socket.assigns.current_condition, new_condition]
+        }
+        
+      # 如果是顶级条件且已有一个复合条件，则向该复合条件添加子条件
+      is_nil(parent_id) && socket.assigns.current_condition["type"] == "compound" ->
+        updated_conditions = socket.assigns.current_condition["conditions"] ++ [new_condition]
+        Map.put(socket.assigns.current_condition, "conditions", updated_conditions)
+        
+      # 如果是子条件，则找到父条件并添加新的子条件
+      !is_nil(parent_id) ->
+        # 递归函数，在嵌套条件中查找并更新父条件
+        add_to_parent = fn condition, parent_id, recurse ->
+          case condition do
+            %{"type" => "compound", "conditions" => conditions} = compound ->
+              if condition["id"] == parent_id do
+                # 找到了父条件，添加新的子条件
+                Map.put(compound, "conditions", conditions ++ [new_condition])
+              else
+                # 递归查找子条件
+                updated_conditions = Enum.map(conditions, &recurse.(&1, parent_id, recurse))
+                Map.put(compound, "conditions", updated_conditions)
+              end
+              
+            _ -> condition  # 不是复合条件，返回原条件
+          end
+        end
+        
+        add_to_parent.(socket.assigns.current_condition, parent_id, add_to_parent)
+    end
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("add_condition_group", params, socket) do
+    parent_id = Map.get(params, "parent-id")
+    
+    # 创建一个新的复合条件组
+    new_group = %{
+      "type" => "compound",
+      "operator" => "and",
+      "conditions" => []
+    }
+    
+    # 处理不同情况（与add_simple_condition类似）
+    updated_condition = cond do
+      # 如果是顶级条件且当前没有条件
+      is_nil(parent_id) && is_nil(socket.assigns.current_condition) ->
+        new_group
+        
+      # 如果是顶级条件但已有一个简单条件，则创建一个 AND 组合条件
+      is_nil(parent_id) && socket.assigns.current_condition["type"] == "simple" ->
+        %{
+          "type" => "compound",
+          "operator" => "and",
+          "conditions" => [socket.assigns.current_condition, new_group]
+        }
+        
+      # 如果是顶级条件且已有一个复合条件，则向该复合条件添加子条件组
+      is_nil(parent_id) && socket.assigns.current_condition["type"] == "compound" ->
+        updated_conditions = socket.assigns.current_condition["conditions"] ++ [new_group]
+        Map.put(socket.assigns.current_condition, "conditions", updated_conditions)
+        
+      # 如果是子条件，则找到父条件并添加新的子条件组
+      !is_nil(parent_id) ->
+        # 递归函数，在嵌套条件中查找并更新父条件
+        add_to_parent = fn condition, parent_id, recurse ->
+          case condition do
+            %{"type" => "compound", "conditions" => conditions} = compound ->
+              if condition["id"] == parent_id do
+                # 找到了父条件，添加新的子条件组
+                Map.put(compound, "conditions", conditions ++ [new_group])
+              else
+                # 递归查找子条件
+                updated_conditions = Enum.map(conditions, &recurse.(&1, parent_id, recurse))
+                Map.put(compound, "conditions", updated_conditions)
+              end
+              
+            _ -> condition  # 不是复合条件，返回原条件
+          end
+        end
+        
+        add_to_parent.(socket.assigns.current_condition, parent_id, add_to_parent)
+    end
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("delete_condition", %{"condition_id" => condition_id}, socket) do
+    # 递归函数，在嵌套条件中查找并删除条件
+    delete_condition = fn condition, condition_id, recurse ->
+      case condition do
+        %{"type" => "compound", "conditions" => conditions} = compound ->
+          # 筛选出不等于condition_id的子条件
+          filtered_conditions = Enum.reject(conditions, &(&1["id"] == condition_id))
+          
+          if length(filtered_conditions) == length(conditions) do
+            # 如果没有找到要删除的条件，则递归查找子条件
+            updated_conditions = Enum.map(filtered_conditions, &recurse.(&1, condition_id, recurse))
+            Map.put(compound, "conditions", updated_conditions)
+          else
+            # 找到并删除了条件
+            Map.put(compound, "conditions", filtered_conditions)
+          end
+          
+        _ -> condition  # 不是复合条件，返回原条件
+      end
+    end
+    
+    updated_condition = 
+      if socket.assigns.current_condition["id"] == condition_id do
+        # 如果是顶级条件，则整个条件都被删除
+        nil
+      else
+        # 否则递归查找并删除子条件
+        delete_condition.(socket.assigns.current_condition, condition_id, delete_condition)
+      end
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("update_condition_operator", %{"condition_id" => condition_id, "operator" => operator}, socket) do
+    # 递归函数，在嵌套条件中查找并更新条件的操作符
+    update_operator = fn condition, condition_id, operator, recurse ->
+      cond do
+        condition["id"] == condition_id ->
+          # 找到目标条件，更新操作符
+          Map.put(condition, "operator", operator)
+          
+        condition["type"] == "compound" ->
+          # 递归查找子条件
+          updated_conditions = Enum.map(condition["conditions"], &recurse.(&1, condition_id, operator, recurse))
+          Map.put(condition, "conditions", updated_conditions)
+          
+        true ->
+          # 其他情况，保持不变
+          condition
+      end
+    end
+    
+    updated_condition = update_operator.(socket.assigns.current_condition, condition_id, operator, update_operator)
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("update_condition_source", %{"condition_id" => condition_id, "source_id" => source_id}, socket) do
+    # 递归函数，在嵌套条件中查找并更新条件的源表单项
+    update_source = fn condition, condition_id, source_id, recurse ->
+      cond do
+        condition["id"] == condition_id ->
+          # 找到目标条件，更新源表单项
+          Map.put(condition, "source_item_id", source_id)
+          
+        condition["type"] == "compound" ->
+          # 递归查找子条件
+          updated_conditions = Enum.map(condition["conditions"], &recurse.(&1, condition_id, source_id, recurse))
+          Map.put(condition, "conditions", updated_conditions)
+          
+        true ->
+          # 其他情况，保持不变
+          condition
+      end
+    end
+    
+    updated_condition = update_source.(socket.assigns.current_condition, condition_id, source_id, update_source)
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("update_condition_value", %{"condition_id" => condition_id, "value" => value}, socket) do
+    # 递归函数，在嵌套条件中查找并更新条件的值
+    update_value = fn condition, condition_id, value, recurse ->
+      cond do
+        condition["id"] == condition_id ->
+          # 找到目标条件，更新值
+          Map.put(condition, "value", value)
+          
+        condition["type"] == "compound" ->
+          # 递归查找子条件
+          updated_conditions = Enum.map(condition["conditions"], &recurse.(&1, condition_id, value, recurse))
+          Map.put(condition, "conditions", updated_conditions)
+          
+        true ->
+          # 其他情况，保持不变
+          condition
+      end
+    end
+    
+    updated_condition = update_value.(socket.assigns.current_condition, condition_id, value, update_value)
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("update_condition_group_type", %{"group_id" => group_id, "group_type" => group_type}, socket) do
+    # 递归函数，在嵌套条件中查找并更新条件组的类型
+    update_group_type = fn condition, group_id, group_type, recurse ->
+      cond do
+        condition["id"] == group_id && condition["type"] == "compound" ->
+          # 找到目标条件组，更新类型
+          Map.put(condition, "operator", group_type)
+          
+        condition["type"] == "compound" ->
+          # 递归查找子条件
+          updated_conditions = Enum.map(condition["conditions"], &recurse.(&1, group_id, group_type, recurse))
+          Map.put(condition, "conditions", updated_conditions)
+          
+        true ->
+          # 其他情况，保持不变
+          condition
+      end
+    end
+    
+    updated_condition = update_group_type.(socket.assigns.current_condition, group_id, group_type, update_group_type)
+    
+    {:noreply, assign(socket, :current_condition, updated_condition)}
+  end
+  
+  def handle_event("save_conditions", _params, socket) do
+    form_item = socket.assigns.current_item
+    condition_type = socket.assigns.condition_type
+    condition = socket.assigns.current_condition
+    
+    # 如果条件为空，则传递nil，否则将条件转换为JSON
+    condition_json = if is_nil(condition), do: nil, else: Jason.encode!(condition)
+    
+    # 根据条件类型更新表单项
+    result = case condition_type do
+      :visibility ->
+        Forms.add_condition_to_form_item(form_item, condition, :visibility)
+        
+      :required ->
+        Forms.add_condition_to_form_item(form_item, condition, :required)
+    end
+    
+    case result do
+      {:ok, updated_item} ->
+        # 更新成功，重新加载表单和表单项
+        updated_form = Forms.get_form_with_items(socket.assigns.form.id)
+        
+        {:noreply, 
+          socket
+          |> assign(:form, updated_form)
+          |> assign(:form_items, updated_form.items)
+          |> assign(:editing_conditions, false)
+          |> assign(:current_item, nil)
+          |> assign(:current_condition, nil)
+          |> put_flash(:info, "条件规则已保存")
+        }
+        
+      {:error, changeset} ->
+        {:noreply, put_flash(socket, :error, "条件规则保存失败: #{inspect(changeset.errors)}")}
+    end
   end
 
   @impl true
@@ -957,6 +1309,222 @@ defmodule MyAppWeb.FormLive.Edit do
     |> assign(:form_items, updated_form.items)
     |> assign(:editing_form_info, false)
     |> put_flash(:info, info_message)
+  end
+
+  #
+  # 页面管理相关事件处理
+  #
+  
+  @impl true
+  def handle_event("add_page", _params, socket) do
+    {:noreply, 
+      socket
+      |> assign(:editing_page, true)
+      |> assign(:current_page, nil)
+    }
+  end
+  
+  @impl true
+  def handle_event("edit_page", %{"id" => id}, socket) do
+    page = Enum.find(socket.assigns.form.pages, fn p -> p.id == id end)
+    
+    if page do
+      {:noreply, 
+        socket
+        |> assign(:editing_page, true)
+        |> assign(:current_page, page)
+      }
+    else
+      {:noreply, put_flash(socket, :error, "页面不存在")}
+    end
+  end
+  
+  @impl true
+  def handle_event("cancel_edit_page", _params, socket) do
+    {:noreply, 
+      socket
+      |> assign(:editing_page, false)
+      |> assign(:current_page, nil)
+    }
+  end
+  
+  @impl true
+  def handle_event("save_page", %{"page" => page_params}, socket) do
+    form = socket.assigns.form
+    current_page = socket.assigns.current_page
+    
+    if current_page do
+      # 更新现有页面
+      case Forms.update_form_page(current_page, page_params) do
+        {:ok, _updated_page} ->
+          # 重新加载表单以获取更新后的页面数据
+          updated_form = Forms.get_form(form.id)
+          
+          {:noreply, 
+            socket
+            |> assign(:form, updated_form)
+            |> assign(:editing_page, false)
+            |> assign(:current_page, nil)
+            |> put_flash(:info, "页面已更新")
+          }
+          
+        {:error, changeset} ->
+          {:noreply, put_flash(socket, :error, "页面更新失败: #{inspect(changeset.errors)}")}
+      end
+    else
+      # 创建新页面
+      case Forms.create_form_page(form, page_params) do
+        {:ok, _new_page} ->
+          # 重新加载表单以获取新页面数据
+          updated_form = Forms.get_form(form.id)
+          
+          {:noreply, 
+            socket
+            |> assign(:form, updated_form)
+            |> assign(:editing_page, false)
+            |> assign(:current_page, nil)
+            |> put_flash(:info, "页面已添加")
+          }
+          
+        {:error, changeset} ->
+          {:noreply, put_flash(socket, :error, "页面添加失败: #{inspect(changeset.errors)}")}
+      end
+    end
+  end
+  
+  @impl true
+  def handle_event("delete_page", %{"id" => id}, socket) do
+    # 设置要删除的页面ID，以便确认
+    {:noreply, assign(socket, :delete_page_id, id)}
+  end
+  
+  @impl true
+  def handle_event("confirm_delete_page", _params, socket) do
+    id = socket.assigns.delete_page_id
+    form = socket.assigns.form
+    
+    # 查找页面
+    page = Enum.find(form.pages, fn p -> p.id == id end)
+    
+    if page do
+      case Forms.delete_form_page(page) do
+        {:ok, _} ->
+          # 重新加载表单
+          updated_form = Forms.get_form(form.id)
+          
+          {:noreply, 
+            socket
+            |> assign(:form, updated_form)
+            |> assign(:delete_page_id, nil)
+            |> put_flash(:info, "页面已删除")
+          }
+          
+        {:error, _} ->
+          {:noreply, 
+            socket
+            |> assign(:delete_page_id, nil)
+            |> put_flash(:error, "页面删除失败")
+          }
+      end
+    else
+      {:noreply, 
+        socket
+        |> assign(:delete_page_id, nil)
+        |> put_flash(:error, "页面不存在")
+      }
+    end
+  end
+  
+  @impl true
+  def handle_event("cancel_delete_page", _params, socket) do
+    {:noreply, assign(socket, :delete_page_id, nil)}
+  end
+  
+  @impl true
+  def handle_event("pages_reordered", %{"pageIds" => page_ids}, socket) do
+    form = socket.assigns.form
+    
+    case Forms.reorder_form_pages(form.id, page_ids) do
+      {:ok, _} ->
+        # 重新加载表单
+        updated_form = Forms.get_form(form.id)
+        
+        {:noreply, 
+          socket
+          |> assign(:form, updated_form)
+        }
+        
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "页面排序失败: #{inspect(reason)}")}
+    end
+  end
+  
+  @impl true
+  def handle_event("item_moved_to_page", %{"itemId" => item_id, "targetPageId" => page_id}, socket) do
+    case Forms.move_item_to_page(item_id, page_id) do
+      {:ok, _} ->
+        # 重新加载表单
+        updated_form = Forms.get_form(socket.assigns.form.id)
+        
+        {:noreply, 
+          socket
+          |> assign(:form, updated_form)
+          |> assign(:form_items, updated_form.items)
+        }
+        
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "移动表单项失败: #{inspect(reason)}")}
+    end
+  end
+  
+  @impl true
+  def handle_event("toggle_preview", _params, socket) do
+    # 切换预览模式
+    form_preview_mode = not socket.assigns.form_preview_mode
+    
+    # 如果进入预览模式，设置当前页面为第一页
+    preview_current_page_idx = if form_preview_mode, do: 0, else: socket.assigns.preview_current_page_idx
+    
+    {:noreply, 
+      socket
+      |> assign(:form_preview_mode, form_preview_mode)
+      |> assign(:preview_current_page_idx, preview_current_page_idx)
+    }
+  end
+  
+  @impl true
+  def handle_event("preview_next_page", _params, socket) do
+    # 切换到下一页
+    pages = socket.assigns.form.pages
+    current_idx = socket.assigns.preview_current_page_idx
+    
+    # 确保不超出页面范围
+    new_idx = if current_idx < length(pages) - 1, do: current_idx + 1, else: current_idx
+    
+    {:noreply, assign(socket, :preview_current_page_idx, new_idx)}
+  end
+  
+  @impl true
+  def handle_event("preview_prev_page", _params, socket) do
+    # 切换到上一页
+    current_idx = socket.assigns.preview_current_page_idx
+    
+    # 确保不小于0
+    new_idx = if current_idx > 0, do: current_idx - 1, else: 0
+    
+    {:noreply, assign(socket, :preview_current_page_idx, new_idx)}
+  end
+  
+  @impl true
+  def handle_event("preview_jump_to_page", %{"index" => index}, socket) do
+    # 直接跳转到指定页面
+    index = String.to_integer(index)
+    pages = socket.assigns.form.pages
+    
+    # 确保索引在有效范围内
+    valid_index = max(0, min(index, length(pages) - 1))
+    
+    {:noreply, assign(socket, :preview_current_page_idx, valid_index)}
   end
 
   # 辅助函数：显示选中的控件类型名称
