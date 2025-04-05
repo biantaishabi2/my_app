@@ -313,6 +313,33 @@
 
 ---
 
+## 测试文件结构与职责分工
+
+本项目采用分层测试设计，明确划分各测试文件的职责范围：
+
+1. **组件级测试** - `/test/my_app_web/components/form_components_test.exs`
+   * 只测试组件的渲染行为和交互功能
+   * 不涉及页面级集成或业务流程
+   * 关注点：组件渲染、基础交互、组件输入和输出
+   * 所有表单控件（text_field, textarea_field, radio_field, dropdown_field, rating_field等）的测试都应放在这里
+
+2. **页面级测试** - `/test/my_app_web/live/form_live/edit_test.exs`等
+   * 测试整个页面的行为和工作流
+   * 关注点：页面操作、状态转换、导航、集成功能
+   * 不过度依赖组件实现细节（如HTML类名或具体结构）
+   * 这些测试文件（如edit_test.exs）仍然需要保留，但其职责仅限于页面级功能测试
+
+3. **业务逻辑测试** - `/test/my_app/forms_test.exs`和`/test/my_app/responses_test.exs`等
+   * 测试核心业务逻辑功能，不涉及UI
+   * 关注点：数据验证、业务规则、错误处理
+   * 控件的后端逻辑测试（新控件类型添加、验证）应放在这里
+
+4. **集成测试** - 混合层级的功能测试
+   * 测试跨多个组件和页面的端到端功能
+   * 例如：创建表单 -> 添加项目 -> 提交表单 -> 查看响应
+
+**重要说明**: 这种分层测试设计使我们能在重构UI时不影响业务测试，并在更改业务逻辑时不破坏UI测试。特别注意，表单组件测试已从edit_test.exs移至form_components_test.exs，但edit_test.exs仍保留用于测试编辑页面行为。
+
 ## 待办事项和注意
 
 *   **已完成的测试覆盖**:
@@ -320,6 +347,7 @@
     *   [✓] 表单项重新排序 (`reorder_form_items/2`)。
     *   [✓] `Response` 的 `delete` 操作。
     *   [✓] 表单提交功能 - 所有测试已通过。
+    *   [✓] 组件测试已从edit_test.exs移至专用的form_components_test.exs
 
 *   **后续测试覆盖**: 当前测试已覆盖阶段一、二的核心流程，但以下功能尚未编写测试 (对应阶段三及后续扩展)：
     *   `Form`, `ItemOption` 的 `update` 和 `delete` 操作。
