@@ -91,18 +91,8 @@ defmodule MyAppWeb.FormLive.Edit do
     
     case Forms.update_form(form, form_params) do
       {:ok, updated_form} ->
-        # 强制重新加载，确保所有字段都已更新
-        updated_form = Forms.get_form_with_items(updated_form.id)
-        
-        IO.puts("更新后的表单: title=#{updated_form.title}, description=#{updated_form.description}")
-        
-        {:noreply, 
-          socket
-          |> assign(:form, updated_form)
-          |> assign(:form_items, updated_form.items)
-          |> assign(:editing_form_info, false)
-          |> put_flash(:info, "表单信息已更新")
-        }
+        # 使用公共函数重新加载表单和更新socket
+        {:noreply, reload_form_and_update_socket(socket, updated_form.id, "表单信息已更新")}
         
       {:error, %Ecto.Changeset{} = changeset} ->
         IO.puts("表单更新失败: #{inspect(changeset)}")
@@ -415,16 +405,12 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, _} ->
           # 获取完整的表单包括关联项
           form_id = socket.assigns.form.id
-          updated_form = Forms.get_form_with_items(form_id)
           
-          # 避免schema关联的懒加载问题，直接从表单中获取完整项目列表
-          {:noreply, 
-            socket
-            |> assign(:form, updated_form)
-            |> assign(:form_items, updated_form.items)
-            |> assign(:delete_item_id, nil)
-            |> put_flash(:info, "表单项已删除")
-          }
+          # 使用公共函数重新加载表单
+          socket = reload_form_and_update_socket(socket, form_id, "表单项已删除")
+          
+          # 清除删除项ID
+          {:noreply, assign(socket, :delete_item_id, nil)}
           
         {:error, _} ->
           {:noreply, 
@@ -550,13 +536,25 @@ defmodule MyAppWeb.FormLive.Edit do
   # 处理表单项参数
   defp process_item_params(params) do
     # 确保所有键都是字符串
-    params = 
-      params
-      |> Enum.map(fn {k, v} -> {to_string(k), v} end)
-      |> Map.new()
-      
+    params = normalize_params(params)
+    
     # 类型转换
-    params = case params["type"] do
+    params = convert_type_to_atom(params)
+    
+    # 必填项处理
+    normalize_required_field(params)
+  end
+  
+  # 确保所有键都是字符串
+  defp normalize_params(params) do
+    params
+    |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+    |> Map.new()
+  end
+  
+  # 将类型字符串转换为atom
+  defp convert_type_to_atom(params) do
+    case params["type"] do
       "text_input" -> 
         IO.puts("转换类型 text_input 为 atom")
         Map.put(params, "type", :text_input)
@@ -574,11 +572,13 @@ defmodule MyAppWeb.FormLive.Edit do
         IO.puts("无法转换类型: #{inspect(params["type"])}")
         params
     end
-    
+  end
+  
+  # 处理required字段的值
+  defp normalize_required_field(params) do
     IO.puts("转换后的类型: #{inspect(params["type"])}, 类型: #{if is_atom(params["type"]), do: "atom", else: "非atom"}")
     
-    # 必填项处理
-    params = case params["required"] do
+    case params["required"] do
       "true" -> Map.put(params, "required", true)
       true -> Map.put(params, "required", true)
       "on" -> Map.put(params, "required", true)
@@ -587,8 +587,6 @@ defmodule MyAppWeb.FormLive.Edit do
       "false" -> Map.put(params, "required", false)
       _ -> params
     end
-    
-    params
   end
 
   # 处理选项
@@ -644,5 +642,19 @@ defmodule MyAppWeb.FormLive.Edit do
   
   defp get_options_from_params(_) do
     []
+  end
+  
+  # 公共函数：重新加载表单并更新socket
+  defp reload_form_and_update_socket(socket, form_id, info_message) do
+    # 强制重新加载，确保所有字段都已更新
+    updated_form = Forms.get_form_with_items(form_id)
+    
+    IO.puts("更新后的表单: title=#{updated_form.title}, description=#{updated_form.description}")
+    
+    socket
+    |> assign(:form, updated_form)
+    |> assign(:form_items, updated_form.items)
+    |> assign(:editing_form_info, false)
+    |> put_flash(:info, info_message)
   end
 end

@@ -43,13 +43,8 @@ defmodule MyApp.Forms do
 
   """
   def get_form(id) do
-    form = Repo.get(Form, id)
-    if form do
-      # 强制加载所有关联的项目和选项，确保测试可以正确访问
-      Repo.preload(form, items: {from(i in FormItem, order_by: i.order), [options: from(o in ItemOption, order_by: o.order)]})
-    else
-      nil
-    end
+    Repo.get(Form, id)
+    |> preload_form_items_and_options()
   end
 
   @doc """
@@ -66,20 +61,13 @@ defmodule MyApp.Forms do
   """
   def add_form_item(form, item_attrs) do
     # 计算新item的order
-    query = from i in FormItem,
-            where: i.form_id == ^form.id,
-            select: count(i.id)
-    new_order = Repo.one(query) + 1
+    new_order = get_next_item_order(form.id)
 
-    # 确保attributes全部是字符串键，防止混合键导致错误
-    string_attrs = 
-      for {key, val} <- item_attrs, into: %{} do
-        {to_string(key), val}
-      end
+    # 规范化属性确保都是字符串键
+    normalized_attrs = normalize_attrs(item_attrs)
 
     # 构造完整的item属性
-    # 确保使用字符串键
-    attrs = Map.merge(string_attrs, %{
+    attrs = Map.merge(normalized_attrs, %{
       "form_id" => form.id,
       "order" => new_order
     })
@@ -88,15 +76,8 @@ defmodule MyApp.Forms do
     IO.puts("准备创建表单项，attrs: #{inspect(attrs)}")
     IO.puts("type值: #{inspect(attrs["type"])}, 类型: #{inspect(typeof(attrs["type"]))}")
 
-    # 创建changeset
-    changeset = FormItem.changeset(%FormItem{}, attrs)
-    
-    # 打印changeset信息
-    IO.puts("Changeset验证: #{inspect(changeset.valid?)}")
-    IO.puts("Changeset错误: #{inspect(changeset.errors)}")
-    
-    # 插入数据库
-    result = Repo.insert(changeset)
+    # 创建changeset和插入
+    result = create_form_item(attrs)
     
     # 打印结果
     case result do
@@ -105,6 +86,31 @@ defmodule MyApp.Forms do
     end
     
     result
+  end
+  
+  @doc """
+  Gets the next order value for a new form item.
+  """
+  def get_next_item_order(form_id) do
+    query = from i in FormItem,
+            where: i.form_id == ^form_id,
+            select: count(i.id)
+    Repo.one(query) + 1
+  end
+  
+  @doc """
+  Creates a form item with the given attributes.
+  """
+  def create_form_item(attrs) do
+    # 创建changeset
+    changeset = FormItem.changeset(%FormItem{}, attrs)
+    
+    # 打印changeset信息
+    IO.puts("Changeset验证: #{inspect(changeset.valid?)}")
+    IO.puts("Changeset错误: #{inspect(changeset.errors)}")
+    
+    # 插入数据库
+    Repo.insert(changeset)
   end
   
   # 辅助函数，用于打印变量类型
@@ -119,6 +125,21 @@ defmodule MyApp.Forms do
       is_list(x) -> "列表"
       is_tuple(x) -> "元组"
       true -> "未知类型"
+    end
+  end
+  
+  @doc """
+  Normalizes attributes to ensure all keys are strings.
+  Useful to prevent mixing atom and string keys in maps passed to changesets.
+  
+  ## Examples
+  
+      iex> normalize_attrs(%{label: "Text", type: :text_input})
+      %{"label" => "Text", "type" => :text_input}
+  """
+  def normalize_attrs(attrs) do
+    for {key, val} <- attrs, into: %{} do
+      {to_string(key), val}
     end
   end
 
@@ -136,23 +157,35 @@ defmodule MyApp.Forms do
   """
   def add_item_option(form_item, option_attrs) do
     # 计算新option的order
-    query = from o in ItemOption,
-            where: o.form_item_id == ^form_item.id,
-            select: count(o.id)
-    new_order = Repo.one(query) + 1
+    new_order = get_next_option_order(form_item.id)
 
-    # 确保所有键都是字符串 - 这是防止混合键错误的关键
-    string_attrs = 
-      for {key, val} <- option_attrs, into: %{} do
-        {to_string(key), val}
-      end
+    # 规范化属性确保都是字符串键
+    normalized_attrs = normalize_attrs(option_attrs)
 
-    # 构造完整的option属性 - 使用字符串键
-    attrs = Map.merge(string_attrs, %{
+    # 构造完整的option属性
+    attrs = Map.merge(normalized_attrs, %{
       "form_item_id" => form_item.id,
       "order" => new_order
     })
 
+    # 创建并插入选项
+    create_item_option(attrs)
+  end
+  
+  @doc """
+  Gets the next order value for a new item option.
+  """
+  def get_next_option_order(form_item_id) do
+    query = from o in ItemOption,
+            where: o.form_item_id == ^form_item_id,
+            select: count(o.id)
+    Repo.one(query) + 1
+  end
+  
+  @doc """
+  Creates an item option with the given attributes.
+  """
+  def create_item_option(attrs) do
     %ItemOption{}
     |> ItemOption.changeset(attrs)
     |> Repo.insert()
@@ -256,7 +289,22 @@ defmodule MyApp.Forms do
   def get_form_with_items(id) do
     Form
     |> Repo.get(id)
-    |> Repo.preload(items: {from(i in FormItem, order_by: i.order), [options: from(o in ItemOption, order_by: o.order)]})
+    |> preload_form_items_and_options()
+  end
+  
+  @doc """
+  Preloads form items and their options for a form.
+  This is a utility function to standardize preloading across different functions.
+  
+  ## Examples
+  
+      iex> preload_form_items_and_options(form)
+      %Form{items: [%FormItem{options: [%ItemOption{}, ...]}, ...]}
+      
+  """
+  def preload_form_items_and_options(nil), do: nil
+  def preload_form_items_and_options(form) do
+    Repo.preload(form, items: {from(i in FormItem, order_by: i.order), [options: from(o in ItemOption, order_by: o.order)]})
   end
 
   @doc """

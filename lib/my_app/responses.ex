@@ -100,30 +100,41 @@ defmodule MyApp.Responses do
 
   # Validate that all required items have answers and all answers are valid
   defp validate_answers(form, answers_map) do
-    # Check if all required items have answers
-    missing_required = Enum.filter(form.items, fn item -> 
+    with :ok <- validate_required_items(form.items, answers_map),
+         :ok <- validate_radio_values(form.items, answers_map) do
+      :ok
+    end
+  end
+  
+  # Validate all required items have answers
+  defp validate_required_items(items, answers_map) do
+    missing_required = Enum.filter(items, fn item -> 
       item.required && !Map.has_key?(answers_map, item.id)
     end)
 
     if length(missing_required) > 0 do
       {:error, :validation_failed}
     else
-      # Validate radio answers
-      invalid_radio = Enum.find(form.items, fn item ->
-        if item.type == :radio && Map.has_key?(answers_map, item.id) do
-          answer_value = answers_map[item.id]
-          valid_values = Enum.map(item.options, & &1.value)
-          answer_value not in valid_values
-        else
-          false
-        end
-      end)
-
-      if invalid_radio do
-        {:error, :validation_failed}
+      :ok
+    end
+  end
+  
+  # Validate radio answers have valid option values
+  defp validate_radio_values(items, answers_map) do
+    invalid_radio = Enum.find(items, fn item ->
+      if item.type == :radio && Map.has_key?(answers_map, item.id) do
+        answer_value = answers_map[item.id]
+        valid_values = Enum.map(item.options, & &1.value)
+        answer_value not in valid_values
       else
-        :ok
+        false
       end
+    end)
+
+    if invalid_radio do
+      {:error, :validation_failed}
+    else
+      :ok
     end
   end
 
@@ -145,7 +156,25 @@ defmodule MyApp.Responses do
   def get_response(id) do
     Response
     |> Repo.get(id)
-    |> Repo.preload(:answers)
+    |> preload_response_answers()
+  end
+  
+  @doc """
+  Preloads answers for a response.
+  This is a utility function to standardize preloading across different functions.
+  Returns nil if the response is nil.
+  
+  ## Examples
+  
+      iex> preload_response_answers(response)
+      %Response{answers: [...]}
+      
+  """
+  def preload_response_answers(nil), do: nil
+  def preload_response_answers(response) do
+    Repo.preload(response, [
+      answers: from(a in Answer, order_by: a.inserted_at)
+    ])
   end
 
   @doc """
@@ -161,10 +190,15 @@ defmodule MyApp.Responses do
 
   """
   def list_responses_for_form(form_id) do
-    Response
+    responses = Response
     |> where([r], r.form_id == ^form_id)
+    |> order_by([r], desc: r.submitted_at)
     |> Repo.all()
-    |> Repo.preload(:answers)
+    
+    # 使用批量预加载而不是单独加载每个响应
+    Repo.preload(responses, [
+      answers: from(a in Answer, order_by: a.inserted_at)
+    ])
   end
 
   @doc """
