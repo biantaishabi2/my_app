@@ -76,11 +76,16 @@ defmodule MyApp.Forms.FormItem do
     # 控件分类属性
     field :category, Ecto.Enum, values: [:basic, :personal, :advanced], default: :basic
     
+    # 条件逻辑相关字段
+    field :visibility_condition, :string # 存储JSON格式的显示条件
+    field :required_condition, :string # 存储JSON格式的必填条件
+    
     field :order, :integer
     field :required, :boolean, default: false
     field :validation_rules, :map, default: %{} # Store rules as JSONB or Map
 
     belongs_to :form, Form
+    belongs_to :page, MyApp.Forms.FormPage
     has_many :options, ItemOption, on_delete: :delete_all
 
     timestamps(type: :utc_datetime)
@@ -90,15 +95,16 @@ defmodule MyApp.Forms.FormItem do
   def changeset(item, attrs) do
     item
     |> cast(attrs, [
-      :label, :description, :type, :order, :required, :validation_rules, :form_id, 
+      :label, :description, :type, :order, :required, :validation_rules, :form_id, :page_id,
       :max_rating, :min, :max, :step, :show_format_hint, :format_display,
       :min_date, :max_date, :date_format, :min_time, :max_time, :time_format,
       :region_level, :default_province, :matrix_rows, :matrix_columns, :matrix_type,
       :selection_type, :image_caption_position, :allowed_extensions, :max_file_size,
-      :multiple_files, :max_files, :category
+      :multiple_files, :max_files, :category, :visibility_condition, :required_condition
     ])
     |> validate_required([:label, :type, :order, :required, :form_id])
     |> foreign_key_constraint(:form_id)
+    |> foreign_key_constraint(:page_id)
     |> validate_number_field_attributes()
     |> validate_date_field_attributes()
     |> validate_time_field_attributes()

@@ -174,14 +174,39 @@
           ← 返回表单列表
         </a>
         
-        <%= if @form.user_id == @current_user.id && @form.status == :published do %>
-          <a
-            href={~p"/forms/#{@form.id}/responses"}
-            class="px-4 py-2 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700 transition"
-          >
-            查看回复
-          </a>
-        <% end %>
+        <div class="flex space-x-2">
+          <%= if @form.user_id == @current_user.id && @form.status == :published do %>
+            <div class="public-share-link">
+              <div x-data="{ showCopied: false }" class="flex items-center">
+                <div class="relative flex items-center">
+                  <input 
+                    id="public-link" 
+                    type="text" 
+                    readonly 
+                    value={url(~p"/public/forms/#{@form.id}")}
+                    class="pr-16 pl-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                  <button 
+                    type="button"
+                    class="absolute right-0 h-full px-2 text-sm text-blue-600 hover:text-blue-800"
+                    onclick="navigator.clipboard.writeText(document.getElementById('public-link').value);
+                            this.innerHTML = '已复制!';
+                            setTimeout(() => this.innerHTML = '复制链接', 2000);"
+                  >
+                    复制链接
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <a
+              href={~p"/forms/#{@form.id}/responses"}
+              class="px-4 py-2 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700 transition"
+            >
+              查看回复
+            </a>
+          <% end %>
+        </div>
       </div>
     </div>
   </div>

@@ -1,0 +1,90 @@
+<div class="public-form-container">
+  <div class="public-form-header">
+    <h1 class="text-2xl font-bold mb-2"><%= @form.title %></h1>
+    <%= if @form.description do %>
+      <p class="text-gray-600 mb-6"><%= @form.description %></p>
+    <% end %>
+  </div>
+
+  <div class="public-form-content">
+    <%= if Enum.empty?(@form.items) do %>
+      <div class="empty-form">
+        <p class="text-gray-500 italic">此表单还没有添加任何内容</p>
+      </div>
+    <% else %>
+      <div class="public-form-items">
+        <%= for item <- @form.items do %>
+          <div class="form-item mb-4">
+            <div class="form-item-header">
+              <h3 class="text-lg font-medium">
+                <%= item.label %>
+                <%= if item.required do %>
+                  <span class="form-item-required text-red-500">*</span>
+                <% end %>
+              </h3>
+              <%= if item.description do %>
+                <p class="text-sm text-gray-500"><%= item.description %></p>
+              <% end %>
+            </div>
+
+            <div class="form-item-content">
+              <%= case item.type do %>
+                <% :text_input -> %>
+                  <input type="text" class="form-control w-full p-2 border rounded" disabled />
+                
+                <% :textarea -> %>
+                  <textarea class="form-control w-full p-2 border rounded" rows="3" disabled></textarea>
+                
+                <% :radio -> %>
+                  <div class="form-radio-group">
+                    <%= for option <- item.options do %>
+                      <div class="form-radio-option flex items-center mb-2">
+                        <input type="radio" id={"preview-#{option.id}"} name={"preview-#{item.id}"} value={option.value} disabled />
+                        <label for={"preview-#{option.id}"} class="ml-2"><%= option.label %></label>
+                      </div>
+                    <% end %>
+                  </div>
+                
+                <% :checkbox -> %>
+                  <div class="form-checkbox-group">
+                    <%= for option <- item.options do %>
+                      <div class="form-checkbox-option flex items-center mb-2">
+                        <input type="checkbox" id={"preview-#{option.id}"} name={"preview-#{item.id}"} value={option.value} disabled />
+                        <label for={"preview-#{option.id}"} class="ml-2"><%= option.label %></label>
+                      </div>
+                    <% end %>
+                  </div>
+                
+                <% :dropdown -> %>
+                  <select class="form-control w-full p-2 border rounded" disabled>
+                    <option value="">请选择...</option>
+                    <%= for option <- item.options do %>
+                      <option value={option.value}><%= option.label %></option>
+                    <% end %>
+                  </select>
+                
+                <% :rating -> %>
+                  <div class="form-rating flex items-center">
+                    <%= for i <- 1..5 do %>
+                      <span class="rating-star text-2xl text-gray-300">★</span>
+                    <% end %>
+                  </div>
+                
+                <% _ -> %>
+                  <div class="unsupported-field text-gray-500">
+                    <p>预览不支持此类型的表单项</p>
+                  </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="public-form-actions mt-6">
+    <.link navigate={~p"/public/forms/#{@form.id}/submit"} class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded">
+      填写此表单
+    </.link>
+  </div>
+</div>

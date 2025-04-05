@@ -109,7 +109,7 @@ defmodule MyAppWeb.Router do
     end
   end
   
-  # 表单填写路由
+  # 表单填写路由 (已登录用户)
   scope "/", MyAppWeb do
     pipe_through [:form_browser, :require_authenticated_user]
     
@@ -117,6 +117,18 @@ defmodule MyAppWeb.Router do
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms/:id/submit", FormLive.Submit, :new
     end
+  end
+  
+  # 公开表单路由 (无需登录)
+  scope "/", MyAppWeb do
+    pipe_through [:form_browser]
+    
+    live_session :public_form_submission do
+      live "/public/forms/:id", PublicFormLive.Show, :show
+      live "/public/forms/:id/submit", PublicFormLive.Submit, :new
+    end
+    
+    get "/public/forms/:id/success", PublicFormController, :success
   end
 
   # 为用户设置页面单独使用account_browser布局

@@ -11,7 +11,12 @@ defmodule MyApp.Forms.Form do
     field :status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
     
     belongs_to :user, MyApp.Accounts.User, foreign_key: :user_id, type: :id
+    
+    # 添加默认页面关联
+    belongs_to :default_page, MyApp.Forms.FormPage
 
+    # 添加页面关联
+    has_many :pages, MyApp.Forms.FormPage, on_delete: :delete_all
     has_many :items, MyApp.Forms.FormItem, on_delete: :delete_all
     # has_many :logic_rules, MyApp.Forms.LogicRule, on_delete: :delete_all # Add later if needed
 
@@ -21,8 +26,9 @@ defmodule MyApp.Forms.Form do
   @doc false
   def changeset(form, attrs) do
     form
-    |> cast(attrs, [:title, :description, :status, :user_id])
+    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id])
     |> validate_required([:title, :status, :user_id])
+    |> foreign_key_constraint(:default_page_id)
     # Add other validations as needed
   end
 end 

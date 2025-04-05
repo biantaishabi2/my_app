@@ -49,12 +49,11 @@
               <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
                 <button 
                   type="button"
-                  class={"form-pagination-indicator #{if idx == @current_page_idx, do: "active", else: 
-                            case Map.get(@pages_status, idx) do
-                              :complete -> "complete"
-                              _ -> "incomplete"
-                            end
-                          }"}
+                  class={"form-pagination-indicator #{cond do
+                            idx == @current_page_idx -> "active"
+                            Map.get(@pages_status, idx) == :complete -> "complete"
+                            true -> "incomplete"
+                          end}"}
                   phx-click="jump_to_page"
                   phx-value-index={idx}
                   aria-label={"跳转到第#{idx + 1}页#{if page.title, do: ": #{page.title}", else: ""}"}

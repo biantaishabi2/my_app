@@ -15,10 +15,14 @@ defmodule MyApp.Responses do
   ## Parameters
     - form_id: ID of the form being responded to
     - answers_map: Map of form_item_id => answer value
+    - respondent_info: Map with information about the respondent (optional)
 
   ## Examples
 
       iex> create_response(form_id, %{item1_id => "answer1", item2_id => "answer2"})
+      {:ok, %Response{}}
+
+      iex> create_response(form_id, %{}, %{"name" => "John Doe", "email" => "john@example.com"})
       {:ok, %Response{}}
 
       iex> create_response(form_id, %{})
@@ -28,7 +32,7 @@ defmodule MyApp.Responses do
       {:error, :form_not_found}
 
   """
-  def create_response(form_id, answers_map) do
+  def create_response(form_id, answers_map, respondent_info \\ %{}) do
     # Get the form and verify it exists
     case Forms.get_form(form_id) do
       nil ->
@@ -40,7 +44,7 @@ defmodule MyApp.Responses do
 
         # Check if form is published
         if form.status != :published do
-          {:error, :form_not_published}
+          {:error, :not_published}
         else
           # Validate answers against form items
           validation_result = validate_answers(form, answers_map)
@@ -54,6 +58,7 @@ defmodule MyApp.Responses do
                 response_attrs = %{
                   form_id: form_id,
                   submitted_at: now,
+                  respondent_info: respondent_info,
                   inserted_at: now,
                   updated_at: now
                 }
