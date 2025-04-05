@@ -338,8 +338,7 @@ defmodule MyAppWeb.FormComponents do
             取消
           </button>
           <button
-            type="button"
-            phx-click={@on_save}
+            type="submit"
             id="submit-form-item-btn"
             class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 submit-form-item-btn"
           >

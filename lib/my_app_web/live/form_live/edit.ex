@@ -73,14 +73,15 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
-  def handle_event("save_form_info", _params, socket) do
+  def handle_event("save_form_info", params, socket) do
     form = socket.assigns.form
     
-    # 直接使用测试提供的update值
-    title = "更新后的标题"
-    description = "更新后的描述"
+    # 优先使用表单提交的参数，如果没有则使用临时存储的值
+    form_params = params["form"] || %{}
+    title = form_params["title"] || socket.assigns[:temp_title] || form.title
+    description = form_params["description"] || socket.assigns[:temp_description] || form.description
     
-    IO.puts("强制使用固定值，针对测试使用: title=#{title}, description=#{description}")
+    IO.puts("使用用户输入的值：title=#{title}, description=#{description}")
     
     form_params = %{
       "title" => title,
@@ -159,7 +160,40 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("type_changed", %{"type" => type}, socket) do
-    {:noreply, assign(socket, :item_type, type)}
+    # 清除高亮状态，重置current_item，确保切换类型时不保留之前输入框的高亮状态
+    {:noreply, 
+      socket 
+      |> assign(:item_type, type)
+      |> assign(:current_item, %FormItem{})
+      |> assign(:temp_label, nil)}
+  end
+
+  @impl true
+  def handle_event("form_change", %{"form" => form_params} = params, socket) do
+    # 处理表单整体的变化
+    target = params["_target"]
+    
+    IO.puts("表单变更: target=#{inspect(target)}, 值=#{inspect(form_params)}")
+    
+    socket = 
+      cond do
+        target == ["form", "title"] || List.last(target) == "title" ->
+          # 存储表单标题，并写入日志
+          title = form_params["title"]
+          IO.puts("保存临时标题: #{title}")
+          socket |> assign(:temp_title, title)
+          
+        target == ["form", "description"] || List.last(target) == "description" ->
+          # 存储表单描述，并写入日志
+          description = form_params["description"]
+          IO.puts("保存临时描述: #{description}")
+          socket |> assign(:temp_description, description)
+          
+        true -> 
+          socket
+      end
+      
+    {:noreply, socket}
   end
 
   @impl true
@@ -168,7 +202,7 @@ defmodule MyAppWeb.FormLive.Edit do
     element_id = params["id"] || ""
     
     # 添加直接调试信息
-    IO.puts("表单变更: id=#{element_id}, value=#{value}")
+    IO.puts("表单元素变更: id=#{element_id}, value=#{value}")
     
     socket = 
       cond do
@@ -203,7 +237,10 @@ defmodule MyAppWeb.FormLive.Edit do
   @impl true
   def handle_event("add_option", _params, socket) do
     current_options = socket.assigns.item_options
-    new_option = %{id: Ecto.UUID.generate(), label: "", value: ""}
+    # 使用字母A/B/C/D等作为选项标签
+    next_idx = length(current_options)
+    option_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
+    new_option = %{id: Ecto.UUID.generate(), label: "选项#{option_letter}", value: "option_#{String.downcase(option_letter)}"}
     
     {:noreply, assign(socket, :item_options, current_options ++ [new_option])}
   end
@@ -219,7 +256,11 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("save_item", params, socket) do
-    IO.puts("保存表单项，参数: #{inspect(params)}")
+    IO.puts("\n==== 表单项保存调试信息 ====")
+    IO.puts("参数结构: #{inspect(params)}")
+    
+    # 测试选项提取逻辑
+    debug_options_extraction(params)
     
     # 处理表单项标签和类型
     item_type = socket.assigns.item_type
@@ -254,11 +295,9 @@ defmodule MyAppWeb.FormLive.Edit do
           # 保留字符串键
           {k, v} -> {k, v} 
         end)
-        
-      # 强制使用测试期望的修改后标签值
-      clean_params = Map.put(clean_params, "label", "修改后的文本问题")
       
-      IO.puts("强制使用固定标签值，针对测试使用: label=#{clean_params["label"]}")
+      # 删除强制使用固定标签值的测试代码，使用用户输入的实际标签  
+      IO.puts("使用用户输入标签值: label=#{clean_params["label"]}")
         
       case Forms.update_form_item(current_item, clean_params) do
         {:ok, updated_item} ->
@@ -294,22 +333,25 @@ defmodule MyAppWeb.FormLive.Edit do
           {k, v} -> {k, v} 
         end)
       
-      # 根据测试中的文本框输入使用对应的标签
-      new_label = case socket.assigns.item_type do
-        "radio" -> "新单选问题"
-        _ -> "新文本问题"  
+      # 使用用户输入的标签或生成默认标签
+      label = if Map.has_key?(clean_params, "label") && clean_params["label"] != "" do
+        # 如果参数中有标签，使用参数中的标签
+        clean_params["label"]
+      else
+        # 否则使用临时标签或默认值
+        socket.assigns[:temp_label] || case socket.assigns.item_type do
+          "radio" -> "新单选问题"
+          _ -> "新文本问题"  
+        end
       end
       
-      # 直接使用测试中定义的标签名称，确保与测试期望匹配
-      label = socket.assigns[:temp_label] || new_label
-      
       # 打印标签信息
-      IO.puts("使用标签: #{label}, temp_label=#{socket.assigns[:temp_label] || "无"}")
+      IO.puts("使用标签: #{label}, 来源: #{if Map.has_key?(clean_params, "label"), do: "表单参数", else: "临时存储或默认值"}")
       
-      # 确保设置必填属性以匹配测试期望
+      # 确保设置标签和必填属性
       clean_params = clean_params
         |> Map.put("label", label)
-        |> Map.put("required", true)  # 测试中设置为必填
+        |> Map.put("required", Map.get(clean_params, "required", true))  # 默认为必填
       
       # 添加类型参数 - 确保类型总是有效值
       clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating] do
@@ -592,26 +634,70 @@ defmodule MyAppWeb.FormLive.Edit do
   # 处理选项
   defp process_options(item, params) do
     # 处理表单项选项
-    IO.puts("处理表单项选项")
+    IO.puts("\n==== 处理表单项选项 ====")
+    IO.puts("表单项: #{inspect(item)}")
+    
+    # 先获取当前选项以备参考
+    current_options = if item.options, do: item.options, else: []
+    IO.puts("当前选项数量: #{length(current_options)}")
+    
+    # 从表单中获取选项 - 直接检查表单参数中的选项数据
+    item_options = Map.get(params, "options", %{})
+    
+    # 处理表单中提交的选项数据
+    extracted_options = 
+      if is_map(item_options) do
+        item_options
+        |> Enum.sort_by(fn {key, _} -> key end)  # 确保选项按顺序处理
+        |> Enum.map(fn {_, opt} -> 
+          label = Map.get(opt, "label", "")
+          value = Map.get(opt, "value", "")
+          %{"label" => label, "value" => value}
+        end)
+        |> Enum.filter(fn opt -> 
+          opt["label"] != "" && opt["value"] != ""
+        end)
+      else
+        []
+      end
+      
+    IO.puts("从表单提取到选项数量: #{length(extracted_options)}")
+    IO.puts("选项内容: #{inspect(extracted_options)}")
+    
+    # 如果表单中没有选项但当前有选项，保留现有选项
+    options = 
+      cond do
+        # 如果有提取到表单中的选项，使用表单数据
+        length(extracted_options) > 0 ->
+          IO.puts("使用从表单中提取的选项")
+          extracted_options
+          
+        # 如果当前已有选项，保留现有选项
+        length(current_options) > 0 ->
+          IO.puts("使用现有选项")
+          Enum.map(current_options, fn opt -> 
+            %{"label" => opt.label, "value" => opt.value}
+          end)
+          
+        # 两者都没有，使用默认选项
+        true ->
+          IO.puts("使用默认选项")
+          [
+            %{"label" => "选项A", "value" => "option_a"},
+            %{"label" => "选项B", "value" => "option_b"}
+          ]
+      end
+    
+    IO.puts("最终使用选项数量: #{length(options)}")
+    IO.puts("最终选项内容: #{inspect(options)}")
     
     # 先删除现有选项（如果更新现有表单项）
     if item.options && is_list(item.options) && !Enum.empty?(item.options) do
+      IO.puts("删除现有选项")
       Enum.each(item.options, fn option ->
         Forms.delete_item_option(option)
       end)
     end
-    
-    # 对于测试环境，使用特定选项名称
-    options = 
-      case get_options_from_params(params) do
-        [] -> 
-          # 如果没有选项，添加两个默认选项，但测试环境使用特殊的选项名称
-          [
-            %{"label" => "选项A", "value" => "a"},
-            %{"label" => "选项B", "value" => "b"}
-          ]
-        options -> options
-      end
     
     # 添加所有选项  
     Enum.each(options, fn option_params ->
@@ -622,28 +708,88 @@ defmodule MyAppWeb.FormLive.Edit do
     
     # 重新加载并返回更新后的项目
     updated_item = Forms.get_form_item_with_options(item.id)
-    IO.puts("更新后的表单项: #{inspect(updated_item)}，选项数量: #{length(updated_item.options || [])}")
+    IO.puts("更新后的表单项: #{inspect(updated_item.id)}")
+    IO.puts("选项数量: #{length(updated_item.options || [])}")
     updated_item
   end
   
-  # 从参数中提取选项
+  # 调试函数 - 测试选项提取逻辑
+  defp debug_options_extraction(params) do
+    IO.puts("\n--- 选项提取调试 ---")
+    
+    # 1. 检查params是否包含item键
+    IO.puts("1. params包含item键: #{Map.has_key?(params, "item")}")
+    
+    # 2. 检查item是否包含options键
+    item = Map.get(params, "item", %{})
+    IO.puts("2. item包含options键: #{Map.has_key?(item, "options")}")
+    
+    # 3. 输出options的结构
+    options = Map.get(item, "options", nil)
+    IO.puts("3. options类型: #{inspect(options && typeof(options) || "nil")}")
+    IO.puts("   options值: #{inspect(options)}")
+    
+    # 4. 使用get_options_from_params测试提取逻辑
+    extracted_options = get_options_from_params(item)
+    IO.puts("4. 提取的选项数量: #{length(extracted_options)}")
+    IO.puts("   提取的选项: #{inspect(extracted_options)}")
+    
+    # 5. 测试函数的各个分支
+    IO.puts("\n5. 测试get_options_from_params函数各分支:")
+    
+    test_map1 = %{"options" => [%{"label" => "测试1", "value" => "test1"}]}
+    test_map2 = %{"options" => %{"0" => %{"label" => "测试2", "value" => "test2"}}}
+    test_map3 = %{"no_options" => true}
+    
+    IO.puts("   测试列表选项: #{length(get_options_from_params(test_map1))}")
+    IO.puts("   测试映射选项: #{length(get_options_from_params(test_map2))}")
+    IO.puts("   测试无选项: #{length(get_options_from_params(test_map3))}")
+    
+    IO.puts("--- 选项提取调试结束 ---\n")
+  end
+  
+  # 类型检查辅助函数
+  defp typeof(x) do
+    cond do
+      is_binary(x) -> "字符串"
+      is_boolean(x) -> "布尔值"
+      is_atom(x) -> "原子"
+      is_integer(x) -> "整数"
+      is_float(x) -> "浮点数"
+      is_map(x) -> "映射"
+      is_list(x) -> "列表"
+      is_tuple(x) -> "元组"
+      true -> "未知类型"
+    end
+  end
+
+  # 从参数中提取选项 - 需要为调试函数保留
   defp get_options_from_params(%{"options" => options}) when is_list(options) do
+    IO.puts("使用分支1: options是列表")
     options
   end
   
   defp get_options_from_params(%{"options" => options}) when is_map(options) do
-    # 将Map格式的选项转为列表
+    IO.puts("使用分支2: options是映射")
+    # 将Map格式的选项转为列表，确保排序正确
     options 
-    |> Map.values()
+    |> Enum.sort_by(fn {key, _} -> key end)  # 确保选项按顺序处理
+    |> Enum.map(fn {_, opt} -> opt end)
     |> Enum.filter(fn opt -> 
       is_map(opt) && Map.has_key?(opt, "label") && Map.has_key?(opt, "value")
     end)
   end
   
-  defp get_options_from_params(_) do
-    []
+  defp get_options_from_params(%{"item" => %{"options" => options}}) do
+    IO.puts("使用分支3: 嵌套在item下的options")
+    get_options_from_params(%{"options" => options})
   end
   
+  defp get_options_from_params(_) do
+    IO.puts("使用分支4: 无法提取选项")
+    []
+  end
+
   # 公共函数：重新加载表单并更新socket
   defp reload_form_and_update_socket(socket, form_id, info_message) do
     # 强制重新加载，确保所有字段都已更新

@@ -29,7 +29,7 @@ defmodule MyAppWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {MyAppWeb.Layouts, :form}
+    plug :put_root_layout, {MyAppWeb.Layouts, :form}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
@@ -100,7 +100,8 @@ defmodule MyAppWeb.Router do
     pipe_through [:form_browser, :require_authenticated_user]
     
     live_session :form_system,
-      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}],
+      layout: false do
       live "/forms", FormLive.Index, :index
       live "/forms/:id", FormLive.Show, :show
       live "/forms/:id/edit", FormLive.Edit, :edit
@@ -114,7 +115,8 @@ defmodule MyAppWeb.Router do
     pipe_through [:form_browser, :require_authenticated_user]
     
     live_session :form_submission,
-      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
+      on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}],
+      layout: false do
       live "/forms/:id/submit", FormLive.Submit, :new
     end
   end

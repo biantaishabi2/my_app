@@ -1,17 +1,17 @@
-<div class="container mx-auto p-6">
+<div class="form-list-container">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">我的表单</h1>
     <button
       id="new-form-btn"
       phx-click="new_form"
-      class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow"
+      class="form-button-primary"
     >
       创建新表单
     </button>
   </div>
 
   <%= if @show_new_form do %>
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="form-card">
       <h2 class="text-xl font-semibold mb-4">创建新表单</h2>
       <form
         phx-submit="save_form"
@@ -20,33 +20,33 @@
         class="space-y-4"
       >
         <div>
-          <label for="form_title" class="block text-sm font-medium text-gray-700 mb-1">表单标题</label>
+          <label for="form_title" class="form-label">表单标题</label>
           <input
             type="text"
             name="form[title]"
             id="form_title"
             required
             placeholder="输入表单标题"
-            class={"w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 #{if @form_errors[:title], do: "border-red-500"}"}
+            class={"form-input #{if @form_errors[:title], do: "border-red-500"}"}
             value={@form_values[:title]}
             phx-feedback-for="form_title"
           />
           <%= if @form_errors[:title] do %>
-            <p class="mt-1 text-sm text-red-500" phx-feedback-for="form_title"><%= @form_errors[:title] %></p>
+            <p class="form-error" phx-feedback-for="form_title"><%= @form_errors[:title] %></p>
           <% end %>
         </div>
 
         <div>
-          <label for="form_description" class="block text-sm font-medium text-gray-700 mb-1">表单描述（可选）</label>
+          <label for="form_description" class="form-label">表单描述（可选）</label>
           <textarea
             name="form[description]"
             id="form_description"
             rows="3"
             placeholder="输入表单描述"
-            class={"w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 #{if @form_errors[:description], do: "border-red-500"}"}
+            class={"form-input #{if @form_errors[:description], do: "border-red-500"}"}
           ><%= @form_values[:description] %></textarea>
           <%= if @form_errors[:description] do %>
-            <p class="mt-1 text-sm text-red-500"><%= @form_errors[:description] %></p>
+            <p class="form-error"><%= @form_errors[:description] %></p>
           <% end %>
         </div>
 
@@ -54,13 +54,13 @@
           <button
             type="button"
             phx-click="cancel_new_form"
-            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="form-button-secondary"
           >
             取消
           </button>
           <button
             type="submit"
-            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="form-button-primary"
           >
             保存
           </button>
@@ -70,38 +70,30 @@
   <% end %>
 
   <%= if Enum.empty?(@forms) and not @show_new_form do %>
-    <div class="text-center py-12">
-      <div class="text-gray-400 mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="form-empty-state">
+      <div class="form-empty-state-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       </div>
       <h3 class="text-lg font-medium text-gray-900">您还没有创建任何表单</h3>
-      <p class="mt-1 text-gray-500">点击"创建新表单"按钮开始创建您的第一个表单。</p>
+      <p class="form-empty-state-text">点击"创建新表单"按钮开始创建您的第一个表单。</p>
     </div>
   <% else %>
-    <div class="overflow-x-auto bg-white rounded-lg shadow">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+    <div class="bg-white rounded-lg shadow">
+      <table class="form-table">
+        <thead class="form-table-header">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              表单标题
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              状态
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              创建时间
-            </th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              操作
-            </th>
+            <th>表单标题</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>操作</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="form-table-body">
           <%= for form <- @forms do %>
             <tr>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td>
                 <div class="text-sm font-medium text-gray-900">
                   <%= form.title %>
                 </div>
@@ -111,22 +103,18 @@
                   </div>
                 <% end %>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap">
+              <td>
                 <%= case form.status do %>
                   <% :draft -> %>
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                      草稿
-                    </span>
+                    <span class="form-status-draft">草稿</span>
                   <% :published -> %>
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      已发布
-                    </span>
+                    <span class="form-status-published">已发布</span>
                 <% end %>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <td>
                 <%= Calendar.strftime(form.inserted_at, "%Y-%m-%d %H:%M") %>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+              <td class="space-x-2">
                 <button
                   phx-click="edit_form"
                   phx-value-id={form.id}

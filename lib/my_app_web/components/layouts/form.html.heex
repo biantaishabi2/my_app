@@ -1,3 +1,91 @@
-<div class="h-screen w-full m-0 p-0 overflow-auto bg-gray-50">
-  <%= @inner_content %>
-</div>
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; scroll-behavior: smooth;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <.live_title suffix=" · 表单系统">
+      <%= assigns[:page_title] || "表单系统" %>
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css?v=#{:os.system_time(:second)}"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js?v=#{:os.system_time(:second)}"}>
+    </script>
+    <style>
+      /* 直接在页面中添加必要的滚动样式，确保即使CSS未完全加载也能滚动 */
+      body {
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100vh; 
+        position: relative;
+        margin: 0;
+        padding: 0;
+      }
+      
+      /* 添加基本布局样式 */
+      .content-container {
+        padding: 1.5rem;
+        max-width: 1280px;
+        margin: 0 auto;
+        min-height: calc(100vh - 4rem);
+      }
+      
+      /* 添加表单基本样式 */
+      .form-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      
+      /* 确保输入框可见 */
+      input, textarea {
+        border: 1px solid #d1d5db;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        width: 100%;
+      }
+      
+      /* 确保按钮样式正确 */
+      button {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body style="overflow-y: auto; height: auto; min-height: 100vh;" class="bg-gray-100">
+    <nav class="bg-white shadow">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+          <div class="flex">
+            <div class="flex-shrink-0 flex items-center">
+              <a href="/forms" class="text-xl font-bold text-gray-800">表单系统</a>
+            </div>
+          </div>
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <%= if @current_user do %>
+                <div class="flex items-center space-x-4">
+                  <span class="text-sm text-gray-500"><%= @current_user.email %></span>
+                  <a href="/users/settings" class="text-sm text-gray-500 hover:text-gray-700">设置</a>
+                  <a href="/users/log_out" data-method="delete" class="text-sm text-gray-500 hover:text-gray-700">退出</a>
+                </div>
+              <% else %>
+                <div class="flex items-center space-x-4">
+                  <a href="/users/register" class="text-sm text-gray-500 hover:text-gray-700">注册</a>
+                  <a href="/users/log_in" class="text-sm text-gray-500 hover:text-gray-700">登录</a>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="content-container">
+      <%= @inner_content %>
+    </div>
+  </body>
+</html>
