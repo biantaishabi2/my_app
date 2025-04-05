@@ -207,8 +207,11 @@ defmodule MyAppWeb.FormLive.Responses do
     
     case Forms.get_form(form_id) do
       nil ->
-        {:error,
-          {:redirect, %{to: "/forms", flash: %{"error" => "表单不存在"}}}
+        # 重定向到表单列表页面
+        {:ok, 
+          socket
+          |> put_flash(:error, "表单不存在")
+          |> push_navigate(to: ~p"/forms")
         }
         
       form ->
@@ -224,8 +227,11 @@ defmodule MyAppWeb.FormLive.Responses do
             |> assign(:live_action, :index)
           }
         else
-          {:error,
-            {:redirect, %{to: "/forms", flash: %{"error" => "您没有权限查看此表单的回复"}}}
+          # 重定向到表单列表页面并显示错误消息
+          {:ok, 
+            socket
+            |> put_flash(:error, "您没有权限查看此表单的回复")
+            |> push_navigate(to: ~p"/forms")
           }
         end
     end
@@ -237,16 +243,22 @@ defmodule MyAppWeb.FormLive.Responses do
     
     case Forms.get_form_with_items(form_id) do
       nil ->
-        {:error,
-          {:redirect, %{to: "/forms", flash: %{"error" => "表单不存在"}}}
+        # 重定向到表单列表页面
+        {:ok, 
+          socket
+          |> put_flash(:error, "表单不存在")
+          |> push_navigate(to: ~p"/forms")
         }
         
       form ->
         if form.user_id == current_user.id do
           case Responses.get_response(response_id) do
             nil ->
-              {:error,
-                {:redirect, %{to: "/forms/#{form_id}/responses", flash: %{"error" => "回复不存在"}}}
+              # 重定向到响应列表页面
+              {:ok,
+                socket
+                |> put_flash(:error, "回复不存在")
+                |> push_navigate(to: ~p"/forms/#{form_id}/responses")
               }
               
             response ->
@@ -262,14 +274,20 @@ defmodule MyAppWeb.FormLive.Responses do
                   |> assign(:live_action, :show)
                 }
               else
-                {:error,
-                  {:redirect, %{to: "/forms/#{form_id}/responses", flash: %{"error" => "回复与表单不匹配"}}}
+                # 重定向到响应列表页面
+                {:ok,
+                  socket
+                  |> put_flash(:error, "回复与表单不匹配")
+                  |> push_navigate(to: ~p"/forms/#{form_id}/responses")
                 }
               end
           end
         else
-          {:error,
-            {:redirect, %{to: "/forms", flash: %{"error" => "您没有权限查看此表单的回复"}}}
+          # 重定向到表单列表页面并显示错误消息
+          {:ok, 
+            socket
+            |> put_flash(:error, "您没有权限查看此表单的回复")
+            |> push_navigate(to: ~p"/forms")
           }
         end
     end
