@@ -81,6 +81,10 @@ defmodule MyAppWeb.FormLive.Submit do
     {:noreply, socket}
   end
 
+  # ===========================================
+  # 表单验证事件处理
+  # ===========================================
+  
   @impl true
   def handle_event("validate", params, socket) do
     items_map = socket.assigns.items_map
@@ -97,6 +101,219 @@ defmodule MyAppWeb.FormLive.Submit do
       |> assign(:errors, errors)
     }
   end
+  
+  @impl true
+  def handle_event("submit_form", params, socket) do
+    form_data = params["form"] || %{}
+    form = socket.assigns.form
+    items_map = socket.assigns.items_map
+    
+    # 合并文件上传数据到表单数据中
+    form_data = Map.merge(form_data, socket.assigns.file_uploads)
+    
+    if length(form.pages || []) > 0 do
+      # 对于多页表单，验证所有页面的数据
+      all_errors = validate_all_pages(form, form_data, items_map)
+      
+      # 检查是否有错误
+      if Enum.empty?(all_errors) do
+        # 所有页面都验证通过，可以提交表单
+        submit_form_data(form, form_data, socket)
+      else
+        # 找出第一个有错误的页面
+        {error_page_idx, page_errors} = find_first_error_page(form, all_errors)
+        
+        if error_page_idx == socket.assigns.current_page_idx do
+          # 如果当前页面有错误，显示这些错误
+          {:noreply, 
+            socket
+            |> assign(:form_state, form_data)
+            |> assign(:errors, page_errors)
+            |> put_flash(:error, "请完成当前页面上的所有必填项")
+          }
+        else
+          # 如果错误在其他页面上，跳转到那个页面并显示错误
+          error_page = Enum.at(form.pages, error_page_idx)
+          page_items = get_page_items(form, error_page)
+          
+          {:noreply, 
+            socket
+            |> assign(:form_state, form_data)
+            |> assign(:current_page_idx, error_page_idx)
+            |> assign(:current_page, error_page)
+            |> assign(:page_items, page_items)
+            |> assign(:errors, page_errors)
+            |> put_flash(:error, "请完成所有必填项才能提交表单")
+          }
+        end
+      end
+    else
+      # 对于单页表单，执行一般验证
+      errors = validate_form_data(form_data, items_map)
+      
+      if Enum.empty?(errors) do
+        # 验证通过，提交表单
+        submit_form_data(form, form_data, socket)
+      else
+        # 验证失败，显示错误信息
+        {:noreply, 
+          socket
+          |> assign(:form_state, form_data)
+          |> assign(:errors, errors)
+          |> put_flash(:error, "表单提交失败，请检查所有必填项")
+        }
+      end
+    end
+  end
+  
+  # ===========================================
+  # 分页导航事件处理
+  # ===========================================
+  
+  @impl true
+  def handle_event("next_page", _params, socket) do
+    form = socket.assigns.form
+    current_idx = socket.assigns.current_page_idx
+    pages = form.pages || []
+    
+    # 验证当前页面
+    current_page = Enum.at(pages, current_idx)
+    page_items = get_page_items(form, current_page)
+    page_errors = validate_page_items(socket.assigns.form_state, page_items, socket.assigns.items_map)
+    
+    if Enum.empty?(page_errors) do
+      # 如果没有错误，切换到下一页
+      next_idx = min(current_idx + 1, length(pages) - 1)
+      next_page = Enum.at(pages, next_idx)
+      
+      # 获取下一页的表单项
+      next_page_items = get_page_items(form, next_page)
+      
+      # 更新当前页面的状态为完成
+      pages_status = update_page_status(socket.assigns.pages_status, current_idx, :complete)
+      
+      # 如果下一页是最后一页，检查之前所有页面是否都已完成
+      updated_status = 
+        if next_idx == length(pages) - 1 do
+          # 检查前面所有页面的状态
+          check_previous_pages_status(pages_status, next_idx)
+        else
+          pages_status
+        end
+      
+      # 保存表单状态以确保数据在页面导航时保留
+      form_state = socket.assigns.form_state || %{}
+      
+      {:noreply, socket
+        |> assign(:current_page_idx, next_idx)
+        |> assign(:current_page, next_page)
+        |> assign(:page_items, next_page_items)
+        |> assign(:pages_status, updated_status)
+        |> assign(:form_state, form_state) # 确保表单状态被保留
+        |> assign(:errors, %{}) # 清除错误信息
+      }
+    else
+      # 如果有错误，保持在当前页面并显示错误
+      {:noreply, socket 
+        |> assign(:errors, page_errors)
+        |> put_flash(:error, "请完成当前页面上的所有必填项")
+      }
+    end
+  end
+  
+  @impl true
+  def handle_event("prev_page", _params, socket) do
+    form = socket.assigns.form
+    current_idx = socket.assigns.current_page_idx
+    pages = form.pages || []
+    
+    # 切换到上一页
+    prev_idx = max(current_idx - 1, 0)
+    prev_page = Enum.at(pages, prev_idx)
+    
+    # 获取上一页的表单项
+    prev_page_items = get_page_items(form, prev_page)
+    
+    # 保存表单状态以确保数据在页面导航时保留
+    form_state = socket.assigns.form_state || %{}
+    
+    {:noreply, socket
+      |> assign(:current_page_idx, prev_idx)
+      |> assign(:current_page, prev_page)
+      |> assign(:page_items, prev_page_items)
+      |> assign(:form_state, form_state) # 确保表单状态被保留
+    }
+  end
+  
+  @impl true
+  def handle_event("jump_to_page", %{"index" => index_str}, socket) do
+    form = socket.assigns.form
+    pages = form.pages || []
+    current_idx = socket.assigns.current_page_idx
+    
+    # 转换为整数
+    {target_idx, _} = Integer.parse(index_str)
+    
+    # 确保索引在有效范围内
+    valid_index = max(0, min(target_idx, length(pages) - 1))
+    
+    # 如果要跳转到后面的页面，需要验证当前页面
+    if valid_index > current_idx do
+      # 验证当前页面
+      current_page = Enum.at(pages, current_idx)
+      page_items = get_page_items(form, current_page)
+      page_errors = validate_page_items(socket.assigns.form_state, page_items, socket.assigns.items_map)
+      
+      if not Enum.empty?(page_errors) do
+        # 当前页面有错误，无法跳转到后面的页面
+        {:noreply, socket 
+          |> assign(:errors, page_errors)
+          |> put_flash(:error, "请先完成当前页面上的所有必填项")
+        }
+      else
+        # 当前页面验证通过，可以跳转
+        process_page_jump(socket, form, valid_index)
+      end
+    else
+      # 跳转到前面的页面，无需验证
+      process_page_jump(socket, form, valid_index)
+    end
+  end
+  
+  # 处理页面跳转
+  defp process_page_jump(socket, form, target_idx) do
+    pages = form.pages || []
+    current_idx = socket.assigns.current_page_idx
+    target_page = Enum.at(pages, target_idx)
+    
+    # 获取目标页面的表单项
+    target_page_items = get_page_items(form, target_page)
+    
+    # 如果是向前跳转，将当前页面标记为已完成
+    updated_status = 
+      if target_idx > current_idx do
+        # 将当前页面标记为完成
+        update_page_status(socket.assigns.pages_status, current_idx, :complete)
+      else
+        socket.assigns.pages_status
+      end
+    
+    # 保存表单状态以确保数据在页面导航时保留
+    form_state = socket.assigns.form_state || %{}
+    
+    {:noreply, socket
+      |> assign(:current_page_idx, target_idx)
+      |> assign(:current_page, target_page)
+      |> assign(:page_items, target_page_items)
+      |> assign(:pages_status, updated_status)
+      |> assign(:form_state, form_state) # 确保表单状态被保留
+      |> assign(:errors, %{}) # 清除错误信息
+    }
+  end
+  
+  # ===========================================
+  # 表单控件事件处理
+  # ===========================================
   
   @impl true
   def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
@@ -241,6 +458,10 @@ defmodule MyAppWeb.FormLive.Submit do
     }
   end
 
+  # ===========================================
+  # 文件上传事件处理
+  # ===========================================
+  
   # 处理文件上传事件 - 文件选择
   @impl true
   def handle_event("select_files", %{"field-id" => field_id}, socket) do
@@ -363,211 +584,6 @@ defmodule MyAppWeb.FormLive.Submit do
       |> assign(:file_uploads, updated_file_uploads)
     }
   end
-
-  # 分页导航事件处理
-  @impl true
-  def handle_event("next_page", _params, socket) do
-    form = socket.assigns.form
-    current_idx = socket.assigns.current_page_idx
-    pages = form.pages || []
-    
-    # 验证当前页面
-    current_page = Enum.at(pages, current_idx)
-    page_items = get_page_items(form, current_page)
-    page_errors = validate_page_items(socket.assigns.form_state, page_items, socket.assigns.items_map)
-    
-    if Enum.empty?(page_errors) do
-      # 如果没有错误，切换到下一页
-      next_idx = min(current_idx + 1, length(pages) - 1)
-      next_page = Enum.at(pages, next_idx)
-      
-      # 获取下一页的表单项
-      next_page_items = get_page_items(form, next_page)
-      
-      # 更新当前页面的状态为完成
-      pages_status = update_page_status(socket.assigns.pages_status, current_idx, :complete)
-      
-      # 如果下一页是最后一页，检查之前所有页面是否都已完成
-      updated_status = 
-        if next_idx == length(pages) - 1 do
-          # 检查前面所有页面的状态
-          check_previous_pages_status(pages_status, next_idx)
-        else
-          pages_status
-        end
-      
-      {:noreply, socket
-        |> assign(:current_page_idx, next_idx)
-        |> assign(:current_page, next_page)
-        |> assign(:page_items, next_page_items)
-        |> assign(:pages_status, updated_status)
-        |> assign(:errors, %{}) # 清除错误信息
-      }
-    else
-      # 如果有错误，保持在当前页面并显示错误
-      {:noreply, socket 
-        |> assign(:errors, page_errors)
-        |> put_flash(:error, "请完成当前页面上的所有必填项")
-      }
-    end
-  end
-  
-  # 检查之前所有页面的状态
-  defp check_previous_pages_status(pages_status, current_idx) do
-    # 检查之前的页面，确保它们都标记为完成
-    Enum.reduce(0..(current_idx - 1), pages_status, fn idx, acc ->
-      case Map.get(acc, idx) do
-        :complete -> acc
-        _ -> Map.put(acc, idx, :complete) # 设置为完成状态
-      end
-    end)
-  end
-  
-  @impl true
-  def handle_event("prev_page", _params, socket) do
-    form = socket.assigns.form
-    current_idx = socket.assigns.current_page_idx
-    pages = form.pages || []
-    
-    # 切换到上一页
-    prev_idx = max(current_idx - 1, 0)
-    prev_page = Enum.at(pages, prev_idx)
-    
-    # 获取上一页的表单项
-    prev_page_items = get_page_items(form, prev_page)
-    
-    {:noreply, socket
-      |> assign(:current_page_idx, prev_idx)
-      |> assign(:current_page, prev_page)
-      |> assign(:page_items, prev_page_items)
-    }
-  end
-  
-  @impl true
-  def handle_event("jump_to_page", %{"index" => index_str}, socket) do
-    form = socket.assigns.form
-    pages = form.pages || []
-    current_idx = socket.assigns.current_page_idx
-    
-    # 转换为整数
-    {target_idx, _} = Integer.parse(index_str)
-    
-    # 确保索引在有效范围内
-    valid_index = max(0, min(target_idx, length(pages) - 1))
-    
-    # 如果要跳转到后面的页面，需要验证当前页面
-    if valid_index > current_idx do
-      # 验证当前页面
-      current_page = Enum.at(pages, current_idx)
-      page_items = get_page_items(form, current_page)
-      page_errors = validate_page_items(socket.assigns.form_state, page_items, socket.assigns.items_map)
-      
-      if not Enum.empty?(page_errors) do
-        # 当前页面有错误，无法跳转到后面的页面
-        {:noreply, socket 
-          |> assign(:errors, page_errors)
-          |> put_flash(:error, "请先完成当前页面上的所有必填项")
-        }
-      else
-        # 当前页面验证通过，可以跳转
-        process_page_jump(socket, form, valid_index)
-      end
-    else
-      # 跳转到前面的页面，无需验证
-      process_page_jump(socket, form, valid_index)
-    end
-  end
-  
-  # 处理页面跳转
-  defp process_page_jump(socket, form, target_idx) do
-    pages = form.pages || []
-    current_idx = socket.assigns.current_page_idx
-    target_page = Enum.at(pages, target_idx)
-    
-    # 获取目标页面的表单项
-    target_page_items = get_page_items(form, target_page)
-    
-    # 如果是向前跳转，将当前页面标记为已完成
-    updated_status = 
-      if target_idx > current_idx do
-        # 将当前页面标记为完成
-        update_page_status(socket.assigns.pages_status, current_idx, :complete)
-      else
-        socket.assigns.pages_status
-      end
-    
-    {:noreply, socket
-      |> assign(:current_page_idx, target_idx)
-      |> assign(:current_page, target_page)
-      |> assign(:page_items, target_page_items)
-      |> assign(:pages_status, updated_status)
-      |> assign(:errors, %{}) # 清除错误信息
-    }
-  end
-
-  @impl true
-  def handle_event("submit_form", params, socket) do
-    form_data = params["form"] || %{}
-    form = socket.assigns.form
-    items_map = socket.assigns.items_map
-    
-    # 合并文件上传数据到表单数据中
-    form_data = Map.merge(form_data, socket.assigns.file_uploads)
-    
-    if length(form.pages || []) > 0 do
-      # 对于多页表单，验证所有页面的数据
-      all_errors = validate_all_pages(form, form_data, items_map)
-      
-      # 检查是否有错误
-      if Enum.empty?(all_errors) do
-        # 所有页面都验证通过，可以提交表单
-        submit_form_data(form, form_data, socket)
-      else
-        # 找出第一个有错误的页面
-        {error_page_idx, page_errors} = find_first_error_page(form, all_errors)
-        
-        if error_page_idx == socket.assigns.current_page_idx do
-          # 如果当前页面有错误，显示这些错误
-          {:noreply, 
-            socket
-            |> assign(:form_state, form_data)
-            |> assign(:errors, page_errors)
-            |> put_flash(:error, "请完成当前页面上的所有必填项")
-          }
-        else
-          # 如果错误在其他页面上，跳转到那个页面并显示错误
-          error_page = Enum.at(form.pages, error_page_idx)
-          page_items = get_page_items(form, error_page)
-          
-          {:noreply, 
-            socket
-            |> assign(:form_state, form_data)
-            |> assign(:current_page_idx, error_page_idx)
-            |> assign(:current_page, error_page)
-            |> assign(:page_items, page_items)
-            |> assign(:errors, page_errors)
-            |> put_flash(:error, "请完成所有必填项才能提交表单")
-          }
-        end
-      end
-    else
-      # 对于单页表单，执行一般验证
-      errors = validate_form_data(form_data, items_map)
-      
-      if Enum.empty?(errors) do
-        # 验证通过，提交表单
-        submit_form_data(form, form_data, socket)
-      else
-        # 验证失败，显示错误信息
-        {:noreply, 
-          socket
-          |> assign(:form_state, form_data)
-          |> assign(:errors, errors)
-          |> put_flash(:error, "表单提交失败，请检查所有必填项")
-        }
-      end
-    end
-  end
   
   # 提交表单数据的辅助函数
   defp submit_form_data(form, form_data, socket) do
@@ -615,8 +631,19 @@ defmodule MyAppWeb.FormLive.Submit do
     end)
   end
   
+  # 检查之前所有页面的状态
+  defp check_previous_pages_status(pages_status, current_idx) do
+    # 检查之前的页面，确保它们都标记为完成
+    Enum.reduce(0..(current_idx - 1), pages_status, fn idx, acc ->
+      case Map.get(acc, idx) do
+        :complete -> acc
+        _ -> Map.put(acc, idx, :complete) # 设置为完成状态
+      end
+    end)
+  end
+  
   # 查找第一个有错误的页面
-  defp find_first_error_page(form, all_errors) do
+  defp find_first_error_page(_form, all_errors) do
     # 按页面索引排序
     sorted_errors = all_errors
     |> Enum.sort_by(fn {idx, _} -> idx end)
