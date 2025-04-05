@@ -363,7 +363,7 @@ defmodule MyAppWeb.FormLive.Edit do
         |> Map.put("required", Map.get(clean_params, "required", true))  # 默认为必填
       
       # 添加类型参数 - 确保类型总是有效值
-      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating] do
+      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone] do
         clean_params
       else
         # 从字符串转换为atom类型
@@ -374,6 +374,9 @@ defmodule MyAppWeb.FormLive.Edit do
           "checkbox" -> :checkbox
           "dropdown" -> :dropdown
           "rating" -> :rating
+          "number" -> :number
+          "email" -> :email
+          "phone" -> :phone
           _ -> :text_input  # 默认为文本输入
         end
         
@@ -617,6 +620,15 @@ defmodule MyAppWeb.FormLive.Edit do
       "checkbox" -> Map.put(params, "type", :checkbox)
       "dropdown" -> Map.put(params, "type", :dropdown)
       "rating" -> Map.put(params, "type", :rating)
+      "number" -> 
+        IO.puts("转换类型 number 为 atom")
+        Map.put(params, "type", :number)
+      "email" -> 
+        IO.puts("转换类型 email 为 atom")
+        Map.put(params, "type", :email)
+      "phone" -> 
+        IO.puts("转换类型 phone 为 atom")
+        Map.put(params, "type", :phone)
       type when is_binary(type) -> 
         IO.puts("转换其他字符串类型 #{type} 为 atom")
         Map.put(params, "type", String.to_existing_atom(type))
@@ -837,5 +849,8 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type("dropdown"), do: "下拉菜单"
   defp display_selected_type("checkbox"), do: "复选框"
   defp display_selected_type("rating"), do: "评分"
+  defp display_selected_type("number"), do: "数字输入"
+  defp display_selected_type("email"), do: "邮箱输入"
+  defp display_selected_type("phone"), do: "电话号码"
   defp display_selected_type(_), do: "未知类型"
 end

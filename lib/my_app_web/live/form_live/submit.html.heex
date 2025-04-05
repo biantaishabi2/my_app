@@ -225,6 +225,88 @@
                         <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
+                  <% :number -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="number"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        min={Map.get(item, :min)}
+                        max={Map.get(item, :max)}
+                        step={Map.get(item, :step, 1)}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <%= if Map.get(item, :min) && Map.get(item, :max) do %>
+                        <div class="text-gray-500 text-xs mt-1">有效范围: <%= item.min %> - <%= item.max %></div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                  
+                  <% :email -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="email"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <%= if Map.get(item, :show_format_hint, false) do %>
+                        <div class="text-gray-500 text-xs mt-1">示例格式: example@domain.com</div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
+                  
+                  <% :phone -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <input 
+                        type="tel"
+                        id={item.id}
+                        name={"form[#{item.id}]"}
+                        value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                        required={item.required}
+                        pattern={if Map.get(item, :format_display, false), do: "[0-9]{11}", else: nil}
+                        placeholder={if Map.get(item, :format_display, false), do: "13800138000", else: nil}
+                        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
+                        phx-debounce="blur"
+                        phx-change="validate"
+                      />
+                      <%= if Map.get(item, :format_display, false) do %>
+                        <div class="text-gray-500 text-xs mt-1">请输入11位手机号码</div>
+                      <% end %>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
                 <% end %>
               <% end %>
             </div>

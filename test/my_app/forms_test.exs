@@ -218,7 +218,6 @@ defmodule MyApp.FormsTest do
       assert item.type == :phone
       assert item.format_display == true
     end
-    end
   end
 
   describe "add_item_option/3" do

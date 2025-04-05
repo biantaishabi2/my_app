@@ -266,6 +266,33 @@ defmodule MyAppWeb.FormComponents do
                 >
                   评分
                 </button>
+                <button
+                  type="button"
+                  id="number-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="number"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "number" || @item.type == :number, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  数字输入
+                </button>
+                <button
+                  type="button"
+                  id="email-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="email"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "email" || @item.type == :email, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  邮箱输入
+                </button>
+                <button
+                  type="button"
+                  id="phone-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="phone"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "phone" || @item.type == :phone, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  电话号码
+                </button>
                 <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
               </div>
             <% end %>
@@ -394,6 +421,78 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
         
+        <%= if @item.type == :number || @item_type == "number" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-2">数值范围设置</label>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最小值</label>
+                <input 
+                  type="number" 
+                  name="item[min]" 
+                  value={@item.min} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="不限制"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最大值</label>
+                <input 
+                  type="number" 
+                  name="item[max]" 
+                  value={@item.max} 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="不限制"
+                />
+              </div>
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">步长</label>
+                <input 
+                  type="number" 
+                  name="item[step]" 
+                  value={@item.step || 1} 
+                  min="0.001"
+                  step="0.001"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="1"
+                />
+              </div>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">设置数值输入的范围限制（可选）</div>
+          </div>
+        <% end %>
+
+        <%= if @item.type == :email || @item_type == "email" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="show-format-hint"
+                name="item[show_format_hint]"
+                checked={@item.show_format_hint}
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label for="show-format-hint" class="ml-2 text-sm text-gray-700">显示邮箱格式提示</label>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @item.type == :phone || @item_type == "phone" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="format-display"
+                name="item[format_display]"
+                checked={@item.format_display}
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+              />
+              <label for="format-display" class="ml-2 text-sm text-gray-700">启用格式提示和验证</label>
+            </div>
+            <div class="mt-2 text-sm text-gray-500">启用后将显示格式提示并验证手机号格式</div>
+          </div>
+        <% end %>
+        
         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
@@ -422,6 +521,9 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:dropdown), do: "下拉菜单"
   defp display_item_type(:checkbox), do: "复选框"
   defp display_item_type(:rating), do: "评分"
+  defp display_item_type(:number), do: "数字输入"
+  defp display_item_type(:email), do: "邮箱输入"
+  defp display_item_type(:phone), do: "电话号码"
   defp display_item_type(_), do: "未知类型"
 
   @doc """
@@ -614,6 +716,137 @@ defmodule MyAppWeb.FormComponents do
       </div>
       <%= if @error do %>
         <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  渲染数字输入字段组件
+  
+  ## 示例
+      <.number_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def number_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <input 
+        type="number"
+        id={@field.id}
+        name={@field.id}
+        value={Map.get(@form_state, @field.id, "")}
+        required={@field.required}
+        min={Map.get(@field, :min)}
+        max={Map.get(@field, :max)}
+        step={Map.get(@field, :step, 1)}
+        disabled={@disabled}
+        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @error, do: "border-red-500", else: "border-gray-300"}"}
+        phx-debounce="blur"
+      />
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+      <%= if Map.get(@field, :min) && Map.get(@field, :max) do %>
+        <div class="text-gray-500 text-xs mt-1">有效范围: <%= @field.min %> - <%= @field.max %></div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  渲染邮箱输入字段组件
+  
+  ## 示例
+      <.email_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def email_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <input 
+        type="email"
+        id={@field.id}
+        name={@field.id}
+        value={Map.get(@form_state, @field.id, "")}
+        required={@field.required}
+        disabled={@disabled}
+        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @error, do: "border-red-500", else: "border-gray-300"}"}
+        phx-debounce="blur"
+      />
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+      <%= if Map.get(@field, :show_format_hint, false) do %>
+        <div class="text-gray-500 text-xs mt-1">示例格式: example@domain.com</div>
+      <% end %>
+    </div>
+    """
+  end
+
+  @doc """
+  渲染电话号码输入字段组件
+  
+  ## 示例
+      <.phone_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+      />
+  """
+  def phone_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <input 
+        type="tel"
+        id={@field.id}
+        name={@field.id}
+        value={Map.get(@form_state, @field.id, "")}
+        required={@field.required}
+        disabled={@disabled}
+        pattern={if Map.get(@field, :format_display, false), do: "[0-9]{11}", else: nil}
+        placeholder={if Map.get(@field, :format_display, false), do: "13800138000", else: nil}
+        class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @error, do: "border-red-500", else: "border-gray-300"}"}
+        phx-debounce="blur"
+      />
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
+      <%= if Map.get(@field, :format_display, false) do %>
+        <div class="text-gray-500 text-xs mt-1">请输入11位手机号码</div>
       <% end %>
     </div>
     """
