@@ -257,6 +257,15 @@ defmodule MyAppWeb.FormComponents do
                 >
                   复选框
                 </button>
+                <button
+                  type="button"
+                  id="rating-type-btn"
+                  phx-click="type_changed"
+                  phx-value-type="rating"
+                  class={"px-3 py-2 border rounded-md #{if @item_type == "rating" || @item.type == :rating, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                >
+                  评分
+                </button>
                 <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
               </div>
             <% end %>
@@ -300,7 +309,7 @@ defmodule MyAppWeb.FormComponents do
           <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
         </div>
         
-        <%= if @item.type == :radio || @item_type == "radio" || @item.type == :dropdown || @item_type == "dropdown" || @item.type == :checkbox || @item_type == "checkbox" do %>
+        <%= if @item.type in [:radio, :dropdown, :checkbox] || @item_type in ["radio", "dropdown", "checkbox"] do %>
           <div class="pt-4 border-t border-gray-200">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
@@ -356,6 +365,35 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
         
+        <%= if @item.type == :rating || @item_type == "rating" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">最大评分值</label>
+              <select
+                name="item[max_rating]"
+                class="w-40 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                id="max-rating-select"
+              >
+                <%= for val <- 3..10 do %>
+                  <option value={val} selected={@item.max_rating == val || (@item.max_rating == nil && val == 5)}>
+                    <%= val %> 星
+                  </option>
+                <% end %>
+              </select>
+            </div>
+            
+            <div class="rating-preview p-3 bg-gray-50 rounded-md">
+              <div class="text-sm text-gray-700 mb-2">预览:</div>
+              <div class="flex items-center">
+                <%= for i <- 1..5 do %>
+                  <span class={"text-2xl #{if i <= 3, do: "text-yellow-500", else: "text-gray-300"}"}>★</span>
+                <% end %>
+                <span class="ml-2 text-sm text-gray-600">3星</span>
+              </div>
+            </div>
+          </div>
+        <% end %>
+        
         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
@@ -383,6 +421,7 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:textarea), do: "文本区域"
   defp display_item_type(:dropdown), do: "下拉菜单"
   defp display_item_type(:checkbox), do: "复选框"
+  defp display_item_type(:rating), do: "评分"
   defp display_item_type(_), do: "未知类型"
 
   @doc """
@@ -516,6 +555,66 @@ defmodule MyAppWeb.FormComponents do
           <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
         <% end %>
       </fieldset>
+    </div>
+    """
+  end
+  
+  @doc """
+  渲染评分控件组件
+  
+  ## 示例
+      <.rating_field
+        field={@field}
+        form_state={@form_state}
+        error={@errors[@field.id]}
+        disabled={@disabled}
+        max_rating={5}
+      />
+  """
+  def rating_field(assigns) do
+    assigns = assign_new(assigns, :disabled, fn -> false end)
+    assigns = assign_new(assigns, :max_rating, fn -> 5 end)
+    
+    ~H"""
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
+        <% end %>
+      </label>
+      <div class="rating-container py-2">
+        <div class="flex items-center" id={"rating-stars-#{@field.id}"}>
+          <%= for i <- 1..@max_rating do %>
+            <button
+              type="button"
+              id={"rating-star-#{@field.id}-#{i}"}
+              data-value={i}
+              data-field-id={@field.id}
+              class={"rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{if Map.get(@form_state, @field.id) != nil && i <= String.to_integer(Map.get(@form_state, @field.id, "0")), do: "text-yellow-500", else: "text-gray-300"}"}
+              phx-click="set_rating"
+              phx-value-field-id={@field.id}
+              phx-value-rating={i}
+              disabled={@disabled}
+            >
+              ★
+            </button>
+          <% end %>
+          <input 
+            type="hidden" 
+            id={@field.id}
+            name={@field.id}
+            value={Map.get(@form_state, @field.id, "")}
+            required={@field.required}
+          />
+          <span class="ml-3 text-gray-600 rating-display" id={"rating-display-#{@field.id}"}>
+            <%= if rating = Map.get(@form_state, @field.id), do: rating <> "星", else: "请评分" %>
+          </span>
+        </div>
+      </div>
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
     </div>
     """
   end

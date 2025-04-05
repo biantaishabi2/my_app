@@ -92,6 +92,8 @@
                       下拉菜单
                     <% :radio -> %>
                       单选
+                    <% :rating -> %>
+                      评分
                     <% other -> %>
                       <%= other %>
                   <% end %>
@@ -146,6 +148,17 @@
                           </label>
                         </div>
                       <% end %>
+                    </div>
+                    
+                  <% :rating -> %>
+                    <div class="rating-preview py-2">
+                      <div class="flex items-center">
+                        <% max_rating = item.max_rating || 5 %>
+                        <%= for _i <- 1..max_rating do %>
+                          <span class="mx-1 text-2xl text-gray-300">★</span>
+                        <% end %>
+                        <span class="ml-3 text-gray-600">请评分</span>
+                      </div>
                     </div>
                 <% end %>
               </div>

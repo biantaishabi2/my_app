@@ -177,13 +177,14 @@ defmodule MyAppWeb.FormLive.Edit do
     
     socket = 
       cond do
-        target == ["form", "title"] || List.last(target) == "title" ->
+        # 添加防御性检查，确保target是列表
+        is_list(target) && (target == ["form", "title"] || List.last(target) == "title") ->
           # 存储表单标题，并写入日志
           title = form_params["title"]
           IO.puts("保存临时标题: #{title}")
           socket |> assign(:temp_title, title)
           
-        target == ["form", "description"] || List.last(target) == "description" ->
+        is_list(target) && (target == ["form", "description"] || List.last(target) == "description") ->
           # 存储表单描述，并写入日志
           description = form_params["description"]
           IO.puts("保存临时描述: #{description}")
@@ -231,6 +232,13 @@ defmodule MyAppWeb.FormLive.Edit do
   @impl true
   def handle_event("form_change", _params, socket) do
     # 仅用于处理表单变化，不需要更新状态
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_group", %{"group" => _group}, socket) do
+    # 侧边栏分组折叠/展开的处理在前端JavaScript中完成
+    # 这里只需返回不变的socket
     {:noreply, socket}
   end
 
@@ -574,12 +582,6 @@ defmodule MyAppWeb.FormLive.Edit do
     }
   end
 
-  @impl true
-  def handle_event("toggle_group", %{"group" => _group}, socket) do
-    # 侧边栏分组折叠/展开的处理在前端JavaScript中完成
-    # 这里只需返回不变的socket
-    {:noreply, socket}
-  end
 
   # 辅助函数
 
@@ -833,5 +835,7 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type("textarea"), do: "文本区域"
   defp display_selected_type("radio"), do: "单选按钮"
   defp display_selected_type("dropdown"), do: "下拉菜单"
+  defp display_selected_type("checkbox"), do: "复选框"
+  defp display_selected_type("rating"), do: "评分"
   defp display_selected_type(_), do: "未知类型"
 end

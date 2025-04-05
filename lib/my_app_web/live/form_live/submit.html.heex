@@ -184,6 +184,47 @@
                         <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
                       <% end %>
                     </div>
+                  <% :rating -> %>
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+                      <div class="rating-container py-2">
+                        <div class="flex items-center" id={"rating-stars-#{item.id}"}>
+                          <% max_rating = item.max_rating || 5 %>
+                          <%= for i <- 1..max_rating do %>
+                            <button
+                              type="button"
+                              id={"rating-star-#{item.id}-#{i}"}
+                              data-value={i}
+                              data-field-id={item.id}
+                              class={"rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{if Map.get(@form_state || %{}, "#{item.id}") != nil && i <= String.to_integer(Map.get(@form_state || %{}, "#{item.id}", "0")), do: "text-yellow-500", else: "text-gray-300"}"}
+                              phx-click="set_rating"
+                              phx-value-field-id={item.id}
+                              phx-value-rating={i}
+                            >
+                              ★
+                            </button>
+                          <% end %>
+                          <input 
+                            type="hidden" 
+                            id={item.id}
+                            name={"form[#{item.id}]"}
+                            value={Map.get(@form_state || %{}, "#{item.id}", "")}
+                            required={item.required}
+                          />
+                          <span class="ml-3 text-gray-600 rating-display" id={"rating-display-#{item.id}"}>
+                            <%= if rating = Map.get(@form_state || %{}, "#{item.id}"), do: rating <> "星", else: "请评分" %>
+                          </span>
+                        </div>
+                      </div>
+                      <%= if Map.get(@errors || %{}, item.id) do %>
+                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                      <% end %>
+                    </div>
                 <% end %>
               <% end %>
             </div>

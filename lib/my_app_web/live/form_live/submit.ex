@@ -59,6 +59,22 @@ defmodule MyAppWeb.FormLive.Submit do
       |> assign(:errors, errors)
     }
   end
+  
+  @impl true
+  def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
+    # 更新评分字段的值
+    form_state = socket.assigns.form_state || %{}
+    updated_form_state = Map.put(form_state, field_id, rating)
+    
+    # 重新验证
+    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
+    
+    {:noreply, 
+      socket
+      |> assign(:form_state, updated_form_state)
+      |> assign(:errors, errors)
+    }
+  end
 
   # 不再需要单独的radio_change处理函数，由标准的validate函数处理所有字段
 

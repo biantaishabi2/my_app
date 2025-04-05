@@ -102,6 +102,9 @@ defmodule MyApp.Forms do
   Creates a form item with the given attributes.
   """
   def create_form_item(attrs) do
+    # 处理特殊属性
+    attrs = prepare_special_attributes(attrs)
+    
     # 创建changeset
     changeset = FormItem.changeset(%FormItem{}, attrs)
     
@@ -111,6 +114,25 @@ defmodule MyApp.Forms do
     
     # 插入数据库
     Repo.insert(changeset)
+  end
+  
+  # 处理特殊表单项属性
+  defp prepare_special_attributes(attrs) do
+    case get_in(attrs, ["type"]) || get_in(attrs, [:type]) do
+      "rating" ->
+        # 处理评分控件的属性，将max_rating转换为整数
+        max_rating = attrs["max_rating"] || attrs[:max_rating] || "5"
+        max_rating = 
+          case max_rating do
+            max when is_binary(max) -> String.to_integer(max)
+            max when is_integer(max) -> max
+            _ -> 5
+          end
+        Map.put(attrs, "max_rating", max_rating)
+      
+      _ ->
+        attrs
+    end
   end
   
   # 辅助函数，用于打印变量类型
@@ -358,6 +380,9 @@ defmodule MyApp.Forms do
 
   """
   def update_form_item(%FormItem{} = item, attrs) do
+    # 处理特殊属性
+    attrs = prepare_special_attributes(attrs)
+    
     item
     |> FormItem.changeset(attrs)
     |> Repo.update()

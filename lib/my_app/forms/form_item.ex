@@ -20,6 +20,9 @@ defmodule MyApp.Forms.FormItem do
       :rating
       # Add other types as needed
     ]
+    
+    # 评分控件的最大评分值，默认为5
+    field :max_rating, :integer, default: 5
     field :order, :integer
     field :required, :boolean, default: false
     field :validation_rules, :map, default: %{} # Store rules as JSONB or Map
@@ -33,7 +36,7 @@ defmodule MyApp.Forms.FormItem do
   @doc false
   def changeset(item, attrs) do
     item
-    |> cast(attrs, [:label, :description, :type, :order, :required, :validation_rules, :form_id])
+    |> cast(attrs, [:label, :description, :type, :order, :required, :validation_rules, :form_id, :max_rating])
     |> validate_required([:label, :type, :order, :required, :form_id])
     |> foreign_key_constraint(:form_id)
     # Add custom validations for type, rules etc.
