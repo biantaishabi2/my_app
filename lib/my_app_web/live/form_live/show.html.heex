@@ -96,6 +96,24 @@
                       复选框
                     <% :rating -> %>
                       评分
+                    <% :number -> %>
+                      数字输入
+                    <% :email -> %>
+                      邮箱输入
+                    <% :phone -> %>
+                      电话号码
+                    <% :date -> %>
+                      日期选择
+                    <% :time -> %>
+                      时间选择
+                    <% :region -> %>
+                      地区选择
+                    <% :matrix -> %>
+                      矩阵题
+                    <% :image_choice -> %>
+                      图片选择
+                    <% :file_upload -> %>
+                      文件上传
                     <% other -> %>
                       <%= other %>
                   <% end %>
@@ -178,6 +196,153 @@
                           <span class="mx-1 text-2xl text-gray-300">★</span>
                         <% end %>
                         <span class="ml-3 text-gray-600">请评分</span>
+                      </div>
+                    </div>
+                    
+                  <% :number -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <input type="number" class="w-full bg-white opacity-75" disabled placeholder="请输入数字" />
+                      <%= if item.min != nil && item.max != nil do %>
+                        <div class="mt-1 text-xs text-gray-500">有效范围: <%= item.min %> - <%= item.max %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :email -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <input type="email" class="w-full bg-white opacity-75" disabled placeholder="example@example.com" />
+                      <%= if item.show_format_hint do %>
+                        <div class="mt-1 text-xs text-gray-500">示例格式: example@domain.com</div>
+                      <% end %>
+                    </div>
+                    
+                  <% :phone -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <input type="tel" class="w-full bg-white opacity-75" disabled placeholder="13800138000" />
+                      <%= if item.format_display do %>
+                        <div class="mt-1 text-xs text-gray-500">请输入11位手机号码</div>
+                      <% end %>
+                    </div>
+                    
+                  <% :date -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <input type="date" class="w-full bg-white opacity-75" disabled />
+                      <%= if item.min_date && item.max_date do %>
+                        <div class="mt-1 text-xs text-gray-500">可选日期范围: <%= item.min_date %> 至 <%= item.max_date %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :time -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <input type="time" class="w-full bg-white opacity-75" disabled />
+                      <%= if item.min_time && item.max_time do %>
+                        <div class="mt-1 text-xs text-gray-500">可选时间范围: <%= item.min_time %> 至 <%= item.max_time %></div>
+                      <% end %>
+                    </div>
+                    
+                  <% :region -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <div class="flex flex-wrap gap-2">
+                        <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75" disabled>
+                          <option><%= item.default_province || "省/直辖市" %></option>
+                        </select>
+                        <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75" disabled>
+                          <option>市</option>
+                        </select>
+                        <%= if item.region_level == 3 || item.region_level == nil do %>
+                          <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75" disabled>
+                            <option>区/县</option>
+                          </select>
+                        <% end %>
+                      </div>
+                      <div class="mt-1 text-xs text-gray-500">地区级别: <%= item.region_level || 3 %></div>
+                    </div>
+                    
+                  <% :matrix -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <table class="w-full border-collapse rounded-lg overflow-hidden text-sm">
+                        <thead>
+                          <tr>
+                            <th class="p-2 border border-gray-300 bg-gray-50"></th>
+                            <%= for column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                              <th class="p-2 border border-gray-300 bg-gray-50 text-center"><%= column %></th>
+                            <% end %>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <%= for row <- (item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
+                            <tr>
+                              <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                              <%= for _column <- (item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
+                                <td class="p-2 border border-gray-300 text-center">
+                                  <%= if item.matrix_type == :multiple do %>
+                                    <input type="checkbox" disabled class="h-4 w-4 text-indigo-600" />
+                                  <% else %>
+                                    <input type="radio" disabled class="h-4 w-4 text-indigo-600" />
+                                  <% end %>
+                                </td>
+                              <% end %>
+                            </tr>
+                          <% end %>
+                        </tbody>
+                      </table>
+                      <div class="mt-1 text-xs text-gray-500">
+                        矩阵类型: <%= if item.matrix_type == :multiple, do: "多选", else: "单选" %>
+                      </div>
+                    </div>
+                    
+                  <% :image_choice -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <div class="flex flex-wrap gap-4">
+                        <%= for _i <- 1..2 do %>
+                          <div class="w-32 border border-gray-300 rounded overflow-hidden">
+                            <div class="h-24 bg-gray-200 flex items-center justify-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <%= if item.image_caption_position == :bottom || item.image_caption_position == nil do %>
+                              <div class="p-1 text-xs text-center">示例图片</div>
+                            <% end %>
+                            <div class="p-1 text-center">
+                              <%= if item.selection_type == :multiple do %>
+                                <input type="checkbox" disabled class="h-4 w-4 text-indigo-600" />
+                              <% else %>
+                                <input type="radio" disabled class="h-4 w-4 text-indigo-600" />
+                              <% end %>
+                            </div>
+                          </div>
+                        <% end %>
+                      </div>
+                      <div class="mt-1 text-xs text-gray-500">
+                        选择类型: <%= if item.selection_type == :multiple, do: "多选", else: "单选" %>
+                      </div>
+                    </div>
+                    
+                  <% :file_upload -> %>
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white opacity-75">
+                      <div class="border-2 border-dashed border-gray-300 rounded-md p-4 text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500">点击或拖拽文件到此区域上传</p>
+                        <p class="mt-1 text-xs text-gray-400">
+                          <%= if item.allowed_extensions && length(item.allowed_extensions) > 0 do %>
+                            支持格式: <%= Enum.join(item.allowed_extensions, ", ") %>
+                          <% else %>
+                            支持所有文件格式
+                          <% end %>
+                        </p>
+                        <button type="button" disabled class="mt-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded opacity-50">
+                          选择文件
+                        </button>
+                      </div>
+                      <div class="mt-1 text-xs text-gray-500">
+                        <%= if item.multiple_files do %>
+                          可上传多个文件 (最多 <%= item.max_files || 1 %> 个)
+                        <% else %>
+                          只能上传单个文件
+                        <% end %>
+                        - 最大 <%= item.max_file_size || 5 %> MB
                       </div>
                     </div>
                 <% end %>
