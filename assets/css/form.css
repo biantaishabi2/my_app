@@ -188,6 +188,122 @@
   padding: 1.5rem;
 }
 
+/* 表单分页导航样式 */
+.form-pagination-container {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.form-pagination-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.form-pagination-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-pagination-counter {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.form-pagination-progress {
+  width: 100%;
+  height: 0.5rem;
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.form-pagination-progress-bar {
+  height: 100%;
+  background-color: #4f46e5;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.form-pagination-indicators {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-pagination-indicator {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-pagination-indicator.active {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.form-pagination-indicator.complete {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.form-pagination-indicator.incomplete {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.form-pagination-navigation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+
+.form-pagination-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.form-pagination-prev {
+  color: #4b5563;
+  background-color: white;
+  border: 1px solid #d1d5db;
+}
+
+.form-pagination-prev:hover {
+  background-color: #f3f4f6;
+}
+
+.form-pagination-next {
+  color: white;
+  background-color: #4f46e5;
+  border: 1px solid transparent;
+}
+
+.form-pagination-next:hover {
+  background-color: #4338ca;
+}
+
 /* 表单卡片样式 */
 .form-card {
   background-color: white;
