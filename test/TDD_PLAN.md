@@ -349,9 +349,9 @@
 每个新控件类型的测试应关注行为而非实现细节:
 
 1. **基本渲染测试**
-   - [ ] **number_field/1**：测试数字输入控件的渲染，包括label、min/max属性
-   - [ ] **email_field/1**：测试邮箱输入控件的渲染，包括验证提示
-   - [ ] **phone_field/1**：测试电话输入控件的渲染，包括格式化展示
+   - [x] **number_field/1**：测试数字输入控件的渲染，包括label、min/max属性
+   - [x] **email_field/1**：测试邮箱输入控件的渲染，包括验证提示
+   - [x] **phone_field/1**：测试电话输入控件的渲染，包括格式化展示
    - [ ] **date_field/1**：测试日期选择控件的渲染，包括日期选择器
    - [ ] **time_field/1**：测试时间选择控件的渲染
    - [ ] **region_field/1**：测试地区选择控件的渲染，包括省市区联动
@@ -360,25 +360,26 @@
    - [ ] **file_upload_field/1**：测试文件上传控件的渲染
 
 2. **特殊属性测试**
-   - [ ] 测试number_field的min/max/step属性
+   - [x] 测试number_field的min/max/step属性
    - [ ] 测试date_field的日期范围属性
    - [ ] 测试region_field的级联选择行为
    - [ ] 测试matrix_field的行列定义和选择模式
    - [ ] 测试file_upload_field的文件类型限制
 
 3. **数据处理测试**
-   - [ ] 测试各控件的数据显示（回填）
-   - [ ] 测试各控件的错误状态显示
-   - [ ] 测试各控件的禁用状态行为
+   - [x] 测试number_field、email_field、phone_field的数据显示（回填）
+   - [x] 测试number_field、email_field、phone_field的错误状态显示
+   - [x] 测试number_field的禁用状态行为
+   - [ ] 测试其他控件的数据处理
 
 ### 页面集成测试（edit_test.exs）
 
 编辑页面应测试控件的完整生命周期:
 
 1. **控件添加测试**
-   - [ ] 测试添加number_field控件到表单
-   - [ ] 测试添加email_field控件到表单
-   - [ ] 测试添加phone_field控件到表单
+   - [x] 测试添加number_field控件到表单
+   - [x] 测试添加email_field控件到表单
+   - [x] 测试添加phone_field控件到表单
    - [ ] 测试添加date_field控件到表单
    - [ ] 测试添加region_field控件到表单
    - [ ] 测试添加更复杂控件类型到表单
@@ -397,9 +398,9 @@
 ### 后端模型测试（forms_test.exs）
 
 1. **模型定义测试**
-   - [ ] 测试`:number`类型的表单项创建与验证
-   - [ ] 测试`:email`类型的表单项创建与验证
-   - [ ] 测试`:phone`类型的表单项创建与验证
+   - [x] 测试`:number`类型的表单项创建与验证
+   - [x] 测试`:email`类型的表单项创建与验证
+   - [x] 测试`:phone`类型的表单项创建与验证
    - [ ] 测试`:date`类型的表单项创建与验证
    - [ ] 测试`:region`类型的表单项创建与验证
    - [ ] 测试`:matrix`类型的表单项创建与验证
@@ -407,15 +408,15 @@
    - [ ] 测试`:file_upload`类型的表单项创建与验证
 
 2. **特殊属性测试**
-   - [ ] 测试number_field的min/max/step属性保存
+   - [x] 测试number_field的min/max/step属性保存
    - [ ] 测试date_field的日期范围属性保存
    - [ ] 测试region_field的地区数据结构
    - [ ] 测试matrix_field的行列数据结构
 
 3. **数据验证测试**
-   - [ ] 测试number_field的范围验证
-   - [ ] 测试email_field的格式验证
-   - [ ] 测试phone_field的格式验证
+   - [x] 测试number_field的范围验证
+   - [x] 测试email_field的格式提示功能
+   - [x] 测试phone_field的格式化显示功能
    - [ ] 测试date_field的日期范围验证
 
 ### 响应提交测试（submit_test.exs和responses_test.exs）
