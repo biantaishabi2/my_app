@@ -7,7 +7,7 @@ defmodule MyAppWeb.FormLive.Show do
   def mount(%{"id" => id}, _session, socket) do
     current_user = socket.assigns.current_user
     
-    case Forms.get_form_with_items(id) do
+    case Forms.get_form(id) do
       nil ->
         {:ok,
           socket

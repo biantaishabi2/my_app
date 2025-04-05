@@ -241,7 +241,7 @@ defmodule MyAppWeb.FormLive.Responses do
   def mount(%{"form_id" => form_id, "id" => response_id}, _session, socket) do
     current_user = socket.assigns.current_user
     
-    case Forms.get_form_with_items(form_id) do
+    case Forms.get_form(form_id) do
       nil ->
         # 重定向到表单列表页面
         {:ok, 

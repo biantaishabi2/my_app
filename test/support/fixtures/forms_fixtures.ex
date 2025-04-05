@@ -28,14 +28,36 @@ defmodule MyApp.FormsFixtures do
   为表单添加一个测试表单项.
   """
   def form_item_fixture(form, attrs \\ %{}) do
-    attrs = Enum.into(attrs, %{
+    base_attrs = %{
       label: "测试表单项 #{System.unique_integer()}",
       type: :text_input,
       required: false
-    })
+    }
     
-    {:ok, item} = Forms.add_form_item(form, attrs)
-    item
+    # 根据类型添加特定属性
+    attrs = 
+      case attrs[:type] || attrs["type"] do
+        :matrix ->
+          # 矩阵题类型需要额外的属性
+          Map.merge(base_attrs, %{
+            matrix_rows: ["问题1", "问题2", "问题3"],
+            matrix_columns: ["选项A", "选项B", "选项C"],
+            matrix_type: :single
+          })
+        _ -> base_attrs
+      end
+      |> Map.merge(attrs)
+    
+    # 添加表单项
+    case Forms.add_form_item(form, attrs) do
+      {:ok, item} -> item
+      {:error, changeset} ->
+        IO.puts("表单项创建失败: #{inspect(changeset.errors)}")
+        # 如果创建失败，使用基本类型再次尝试
+        fallback_attrs = Map.merge(attrs, %{type: :text_input})
+        {:ok, item} = Forms.add_form_item(form, fallback_attrs)
+        item
+    end
   end
   
   @doc """

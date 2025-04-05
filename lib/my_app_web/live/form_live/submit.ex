@@ -11,7 +11,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    case Forms.get_form_with_items(id) do
+    case Forms.get_form(id) do
       nil ->
         {:ok, 
           socket
