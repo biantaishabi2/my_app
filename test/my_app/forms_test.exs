@@ -4,6 +4,7 @@ defmodule MyApp.FormsTest do
 
   alias MyApp.Forms
   alias MyApp.Forms.Form # Assuming Form schema will be inside Forms context
+  import MyApp.AccountsFixtures
 
   @moduletag :capture_log
 
@@ -12,26 +13,27 @@ defmodule MyApp.FormsTest do
     @invalid_attrs %{description: "Missing title"}
 
     test "create_form/1 with valid data creates a form" do
-      assert {:ok, %Form{} = form} = Forms.create_form(@valid_attrs)
+      user = user_fixture()
+      attrs = Map.put(@valid_attrs, :user_id, user.id)
+      assert {:ok, %Form{} = form} = Forms.create_form(attrs)
       assert form.title == "User Satisfaction Survey"
       assert form.status == :draft # Default status should be draft
       assert form.description == nil # Fields not provided should be nil or default
     end
 
     test "create_form/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{} = changeset} = Forms.create_form(@invalid_attrs)
+      user = user_fixture()
+      attrs = Map.put(@invalid_attrs, :user_id, user.id)
+      assert {:error, %Ecto.Changeset{} = changeset} = Forms.create_form(attrs)
       # Verify that the changeset indicates title is required
-      # The exact way to check might depend on your DataCase setup
       # This is a common way using Ecto.Changeset.traverse_errors
       assert Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end) |> Map.has_key?(:title)
     end
 
     test "get_form/1 returns the form with given id" do
-      # We need a way to insert a form first for this test to be independent,
-      # or rely on create_form working. Let's assume we insert directly for now.
-      # This might require a helper function in your DataCase or test setup.
-      # Placeholder: Replace with actual fixture insertion if needed.
-      {:ok, form} = Forms.create_form(@valid_attrs)
+      user = user_fixture()
+      attrs = Map.put(@valid_attrs, :user_id, user.id)
+      {:ok, form} = Forms.create_form(attrs)
 
       # Fetch the form using the function under test
       fetched_form = Forms.get_form(form.id)
@@ -51,8 +53,9 @@ defmodule MyApp.FormsTest do
   describe "add_form_item/2" do
     # Helper to create a form for these tests
     defp create_a_form(_) do
-      {:ok, form} = Forms.create_form(%{title: "Test Form for Items"})
-      %{form: form}
+      user = user_fixture()
+      {:ok, form} = Forms.create_form(%{title: "Test Form for Items", user_id: user.id})
+      %{form: form, user: user}
     end
 
     setup [:create_a_form]
@@ -117,10 +120,11 @@ defmodule MyApp.FormsTest do
   describe "add_item_option/3" do
     # Helper to create a form and a radio item for these tests
     defp create_form_with_radio_item(_) do
-      {:ok, form} = Forms.create_form(%{title: "Form with Radio"})
+      user = user_fixture()
+      {:ok, form} = Forms.create_form(%{title: "Form with Radio", user_id: user.id})
       radio_item_attrs = %{label: "Choose One", type: :radio, required: true}
       {:ok, radio_item} = Forms.add_form_item(form, radio_item_attrs)
-      %{form: form, radio_item: radio_item}
+      %{form: form, radio_item: radio_item, user: user}
     end
 
     setup [:create_form_with_radio_item]
@@ -174,8 +178,9 @@ defmodule MyApp.FormsTest do
 
   describe "publish_form/1" do
     defp create_draft_form(_) do
-      {:ok, form} = Forms.create_form(%{title: "Draft Form to Publish"})
-      %{form: form}
+      user = user_fixture()
+      {:ok, form} = Forms.create_form(%{title: "Draft Form to Publish", user_id: user.id})
+      %{form: form, user: user}
     end
 
     setup [:create_draft_form]
@@ -298,9 +303,9 @@ defmodule MyApp.FormsTest do
       assert Forms.get_form_item(item.id) == nil
     end
     
-    test "deletes associated options when deleting a form item", %{radio_item: item} do
+    test "deletes associated options when deleting a form item", %{radio_item: item, user: user} do
       # Add options to the item
-      {:ok, option} = Forms.add_item_option(item, %{label: "Test Option", value: "test"})
+      {:ok, _option} = Forms.add_item_option(item, %{label: "Test Option", value: "test"})
       
       # Delete the item
       assert {:ok, _} = Forms.delete_form_item(item)
@@ -309,7 +314,7 @@ defmodule MyApp.FormsTest do
       assert Forms.get_form_item(item.id) == nil
       
       # Create a similar item to verify options don't exist in options table
-      {:ok, new_form} = Forms.create_form(%{title: "New Test Form"})
+      {:ok, new_form} = Forms.create_form(%{title: "New Test Form", user_id: user.id})
       {:ok, new_item} = Forms.add_form_item(new_form, %{
         label: "New Radio Question", 
         type: :radio,
@@ -317,7 +322,7 @@ defmodule MyApp.FormsTest do
       })
       
       # Try to query for previous option's value - should not find any
-      {:ok, all_new_options} = Forms.add_item_option(new_item, %{label: "New Option", value: "new"})
+      {:ok, _all_new_options} = Forms.add_item_option(new_item, %{label: "New Option", value: "new"})
       # Assume we can't directly test option deletion since we don't have a public API for it
       # In a full implementation, you might add temporary helper functions for testing
     end
@@ -326,14 +331,15 @@ defmodule MyApp.FormsTest do
   describe "reorder_form_items/2" do
     setup do
       # Create a form with multiple items for reordering
-      {:ok, form} = Forms.create_form(%{title: "Form for Reordering"})
+      user = user_fixture()
+      {:ok, form} = Forms.create_form(%{title: "Form for Reordering", user_id: user.id})
       
       # Add several items with initial ordering
       {:ok, item1} = Forms.add_form_item(form, %{label: "Question 1", type: :text_input})
       {:ok, item2} = Forms.add_form_item(form, %{label: "Question 2", type: :text_input})
       {:ok, item3} = Forms.add_form_item(form, %{label: "Question 3", type: :text_input})
       
-      %{form: form, items: [item1, item2, item3]}
+      %{form: form, items: [item1, item2, item3], user: user}
     end
     
     test "changes the order of form items", %{form: form, items: [item1, item2, item3]} do
@@ -359,9 +365,9 @@ defmodule MyApp.FormsTest do
       assert first.id == item3.id
     end
     
-    test "returns error when item IDs don't match form's items", %{form: form, items: [item1, item2, _item3]} do
+    test "returns error when item IDs don't match form's items", %{form: form, items: [item1, item2, _item3], user: user} do
       # Create an item for a different form
-      {:ok, other_form} = Forms.create_form(%{title: "Another Form"})
+      {:ok, other_form} = Forms.create_form(%{title: "Another Form", user_id: user.id})
       {:ok, other_item} = Forms.add_form_item(other_form, %{label: "Other Question", type: :text_input})
       
       # Try to include that item in our reordering
@@ -377,4 +383,4 @@ defmodule MyApp.FormsTest do
       assert {:error, :missing_items} = Forms.reorder_form_items(form.id, incomplete_order)
     end
   end
-end 
+end

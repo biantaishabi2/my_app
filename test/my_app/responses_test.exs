@@ -6,13 +6,15 @@ defmodule MyApp.ResponsesTest do
   alias MyApp.Responses
   alias MyApp.Responses.Response # Assuming Response schema is in Responses context
   alias MyApp.Responses.Answer   # Assuming Answer schema is in Responses context
+  import MyApp.AccountsFixtures
 
   @moduletag :capture_log
 
   # Helper function to set up a published form with items for testing responses
   defp setup_published_form(_) do
-    # 1. Create a form
-    {:ok, form} = Forms.create_form(%{title: "Test Response Form"})
+    # 1. Create a form with user
+    user = user_fixture()
+    {:ok, form} = Forms.create_form(%{title: "Test Response Form", user_id: user.id})
 
     # 2. Add a required text input item
     {:ok, text_item} = Forms.add_form_item(form, %{
@@ -41,7 +43,8 @@ defmodule MyApp.ResponsesTest do
       form: published_form,
       text_item: text_item,
       radio_item: radio_item,
-      radio_options: [option1, option2, option3]
+      radio_options: [option1, option2, option3],
+      user: user
     }
   end
 
@@ -89,7 +92,7 @@ defmodule MyApp.ResponsesTest do
 
     test "returns error if required text_input answer is missing", %{
       form: form,
-      _text_item: text_item, # Needed for context, but value is omitted
+      text_item: _text_item, # Needed for context, but value is omitted
       radio_item: radio_item
     } do
       invalid_answers = %{
@@ -106,7 +109,7 @@ defmodule MyApp.ResponsesTest do
     test "returns error if required radio answer is missing", %{
       form: form,
       text_item: text_item,
-      _radio_item: radio_item # Needed for context, but value is omitted
+      radio_item: _radio_item # Needed for context, but value is omitted
     } do
       invalid_answers = %{
         text_item.id => "another@example.com" # Provide text answer, omit radio answer
@@ -128,7 +131,8 @@ defmodule MyApp.ResponsesTest do
 
     test "returns error when submitting to a non-published form" do
       # Create a new form, leave it as draft
-      {:ok, draft_form} = Forms.create_form(%{title: "Draft Form Only"})
+      user = user_fixture()
+      {:ok, draft_form} = Forms.create_form(%{title: "Draft Form Only", user_id: user.id})
       # Assume it has items, or test the check happens before item validation
       dummy_answers = %{}
       assert {:error, :form_not_published} = Responses.create_response(draft_form.id, dummy_answers)
@@ -189,7 +193,8 @@ defmodule MyApp.ResponsesTest do
     test "returns all responses submitted for a given form", %{
       form: form,
       text_item: text_item,
-      radio_item: radio_item
+      radio_item: radio_item,
+      user: user
     } do
       # Create a couple of responses for the same form
       answers1 = %{text_item.id => "resp1@test.com", radio_item.id => "1"}
@@ -199,7 +204,7 @@ defmodule MyApp.ResponsesTest do
       {:ok, resp2} = Responses.create_response(form.id, answers2)
 
       # Create a response for a different form to ensure filtering works
-      {:ok, other_form} = Forms.create_form(%{title: "Another Form"})
+      {:ok, other_form} = Forms.create_form(%{title: "Another Form", user_id: user.id})
       {:ok, other_form_published} = Forms.publish_form(other_form)
       # Assume other_form has items or create_response handles empty answers gracefully
       {:ok, _other_resp} = Responses.create_response(other_form_published.id, %{}) # Or valid answers
