@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormLive.Submit do
   use MyAppWeb, :live_view
+  require Logger # 确保 Logger 被引入
 
   alias MyApp.Forms
   alias MyApp.Responses
@@ -20,6 +21,14 @@ defmodule MyAppWeb.FormLive.Submit do
       %MyApp.Forms.Form{status: :published} = form ->
         # 预加载表单项和选项（已包含页面加载）
         form = Forms.preload_form_items_and_options(form)
+        
+        # --- 添加详细选项标签日志 (移动到 mount 函数中) ---
+        # IO.puts("\\n===== Detailed Option Labels in Submit Mount =====")
+        # ... (日志代码保持在原位，但可以在 mount 中访问 form)
+        # IO.puts("===== Detailed Option Labels End =====\\n")
+        # --- 详细选项标签日志结束 ---
+        
+        # 这个函数只负责获取和预加载表单，返回 {:ok, form}
         {:ok, form}
 
       %MyApp.Forms.Form{} ->
@@ -32,26 +41,35 @@ defmodule MyAppWeb.FormLive.Submit do
     # 使用与预览页面相同的获取表单方法
     case get_published_form(id) do
       {:ok, form} ->
-        # 添加调试日志，检查选项加载情况
-        if Mix.env() == :dev do
-          IO.puts("\n===== 选项加载检查 =====")
 
+        # --- 详细选项标签日志 (移动到这里) ---
+        if Mix.env() == :dev do
+          IO.puts("\\n===== Detailed Option Labels in Submit Mount =====")
           form.items
           |> Enum.filter(fn item -> item.type in [:radio, :checkbox, :dropdown] end)
           |> Enum.each(fn item ->
-            IO.puts("#{item.label} (#{item.type}) 选项:")
-
-            if is_list(item.options) do
-              Enum.each(item.options, fn opt ->
-                IO.puts("  - #{opt.label || "[无标签]"} (#{opt.value})")
-              end)
-            else
-              IO.puts("  [无选项]")
+            IO.puts("Item: #{item.label} (ID: #{item.id}, Type: #{item.type})")
+            options_data = item.options
+            cond do
+              is_list(options_data) ->
+                if Enum.empty?(options_data) do
+                  IO.puts("  -> No options loaded.")
+                else
+                  Enum.each(options_data, fn opt ->
+                    # 打印选项的 label 字段
+                    IO.puts("    Option Label: #{inspect(opt.label)}") 
+                  end)
+                end
+              %Ecto.Association.NotLoaded{} ->
+                IO.puts("  -> Options association not loaded.")
+              true ->
+                 IO.puts("  -> Options data is not a list or not loaded.")
+                 IO.inspect(options_data, label: "    Unexpected Options Data")
             end
           end)
-
-          IO.puts("===== 选项加载检查结束 =====\n")
+          IO.puts("===== Detailed Option Labels End =====\\n")
         end
+        # --- 详细选项标签日志结束 ---
 
         items_map = build_items_map(form.items)
 
@@ -93,7 +111,7 @@ defmodule MyAppWeb.FormLive.Submit do
           IO.puts("===== 调试信息结束 =====\n")
         end
 
-        # 初始化文件上传配置
+        # 初始化文件上传配置 (移动到这里)
         socket =
           Enum.reduce(form.items, socket, fn item, acc ->
             if item.type == :file_upload do
@@ -145,12 +163,6 @@ defmodule MyAppWeb.FormLive.Submit do
          |> assign(:current_page, current_page)
          |> assign(:page_items, page_items)
          |> assign(:pages_status, initialize_pages_status(pages))}
-
-      {:error, :not_found} ->
-        {:ok,
-         socket
-         |> put_flash(:error, "表单不存在")
-         |> push_navigate(to: ~p"/forms")}
 
       {:error, :not_published} ->
         # 表单未发布，重定向到表单列表
@@ -420,218 +432,123 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:errors, errors)}
   end
 
-  # 处理省份变化 - JavaScript钩子发送的事件
+  # ===========================================
+  # 处理地区选择联动
+  # ===========================================
+
+  # 处理省份选择变化，使用纯 LiveView 方式
   @impl true
-  def handle_event(
-        "handle_province_change",
-        %{"field_id" => field_id, "province" => province},
-        socket
-      ) do
-    form_state = socket.assigns.form_state || %{}
-
-    # 更新省份并清除城市和区县
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_province", province)
-      |> Map.delete("#{field_id}_city")
-      |> Map.delete("#{field_id}_district")
-
-    # 更新组合值
-    updated_form_state =
-      Map.put(
-        updated_form_state,
-        field_id,
-        combine_region_value(province, nil, nil)
-      )
-
-    # 重新验证
-    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
-
-    # 获取城市列表
-    cities = MyApp.Regions.get_cities(province)
-
-    # 添加日志帮助调试
-    if Mix.env() == :dev do
-      IO.puts("JS地区选择 - 省份变化: #{field_id} -> #{province}")
-      IO.puts("获取到#{length(cities)}个城市")
-    end
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:errors, errors)
-     |> push_event("update_cities", %{field_id: field_id, cities: cities})}
-  end
-
-  # 处理城市变化 - JavaScript钩子发送的事件
-  @impl true
-  def handle_event(
-        "handle_city_change",
-        %{"field_id" => field_id, "province" => province, "city" => city},
-        socket
-      ) do
-    form_state = socket.assigns.form_state || %{}
-
-    # 更新城市并清除区县
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_province", province)
-      |> Map.put("#{field_id}_city", city)
-      |> Map.delete("#{field_id}_district")
-
-    # 更新组合值
-    updated_form_state =
-      Map.put(
-        updated_form_state,
-        field_id,
-        combine_region_value(province, city, nil)
-      )
-
-    # 重新验证
-    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
-
-    # 获取区县列表
-    districts = MyApp.Regions.get_districts(province, city)
-
-    # 添加日志帮助调试
-    if Mix.env() == :dev do
-      IO.puts("JS地区选择 - 城市变化: #{field_id} -> #{city}")
-      IO.puts("获取到#{length(districts)}个区县")
-    end
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:errors, errors)
-     |> push_event("update_districts", %{field_id: field_id, districts: districts})}
-  end
-
-  # 处理区县变化 - JavaScript钩子发送的事件
-  @impl true
-  def handle_event(
-        "handle_district_change",
-        %{"field_id" => field_id, "district" => district},
-        socket
-      ) do
-    form_state = socket.assigns.form_state || %{}
-    province = Map.get(form_state, "#{field_id}_province")
-    city = Map.get(form_state, "#{field_id}_city")
-
-    # 更新区县
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_province", province)
-      |> Map.put("#{field_id}_city", city)
-      |> Map.put("#{field_id}_district", district)
-
-    # 更新组合值
-    updated_form_state =
-      Map.put(
-        updated_form_state,
-        field_id,
-        combine_region_value(province, city, district)
-      )
-
-    # 重新验证
-    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
-
-    # 添加日志帮助调试
-    if Mix.env() == :dev do
-      IO.puts("JS地区选择 - 区县变化: #{field_id} -> #{district}")
-    end
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:errors, errors)}
-  end
-
-  # 保持原有的表单事件处理兼容性
-  @impl true
-  def handle_event(
-        "region_province_change",
-        %{"field-id" => field_id, "value" => province},
-        socket
-      ) do
-    handle_event(
-      "handle_province_change",
-      %{"field_id" => field_id, "province" => province},
-      socket
-    )
-  end
-
-  @impl true
-  def handle_event("region_city_change", %{"field-id" => field_id, "value" => city}, socket) do
-    form_state = socket.assigns.form_state || %{}
-    province = Map.get(form_state, "#{field_id}_province")
-
-    handle_event(
-      "handle_city_change",
-      %{"field_id" => field_id, "province" => province, "city" => city},
-      socket
-    )
-  end
-
-  @impl true
-  def handle_event(
-        "region_district_change",
-        %{"field-id" => field_id, "value" => district},
-        socket
-      ) do
-    handle_event(
-      "handle_district_change",
-      %{"field_id" => field_id, "district" => district},
-      socket
-    )
-  end
-
-  # 处理矩阵题变化
-  @impl true
-  def handle_event(
-        "matrix_change",
-        %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx},
-        socket
-      ) do
-    form_state = socket.assigns.form_state || %{}
-    item = socket.assigns.items_map[field_id]
-
-    # 解析行索引和列索引为整数
-    {row_idx, _} = Integer.parse(row_idx)
-    {col_idx, _} = Integer.parse(col_idx)
-
-    # 获取当前矩阵数据
-    matrix_data = Map.get(form_state, field_id, %{})
-
-    # 更新矩阵数据
-    updated_matrix_data =
-      if item.matrix_type == :multiple do
-        # 处理多选情况
-        row_data = Map.get(matrix_data, to_string(row_idx), %{})
-        # 切换选中状态
-        row_data =
-          if Map.get(row_data, to_string(col_idx), false) do
-            Map.delete(row_data, to_string(col_idx))
-          else
-            Map.put(row_data, to_string(col_idx), true)
-          end
-
-        # 更新行数据
-        Map.put(matrix_data, to_string(row_idx), row_data)
-      else
-        # 处理单选情况 (每行只能选择一列)
-        Map.put(matrix_data, to_string(row_idx), to_string(col_idx))
+  def handle_event("handle_province_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_province")
+          field_name
+          |> String.split("_province")
+          |> List.first()
+        _ -> nil
       end
 
+    form_data = params["form"] || %{}
+    province = form_data["#{field_id}_province"]
+    
+    Logger.info("Received handle_province_change event for field '#{field_id}' with province: #{inspect(province)}")
+
     # 更新表单状态
-    updated_form_state = Map.put(form_state, field_id, updated_matrix_data)
+    form_state = socket.assigns.form_state || %{}
+    
+    # 清空相关的城市和区县选择
+    updated_form_state = form_state
+      |> Map.put("#{field_id}_province", province)
+      |> Map.put("#{field_id}_city", nil)
+      |> Map.put("#{field_id}_district", nil)
+      |> Map.put(field_id, province) # 更新隐藏字段的值
 
-    # 验证表单
-    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
+    {:noreply, 
+      socket
+      |> assign(:form_state, updated_form_state)
+      |> maybe_validate_form(updated_form_state)}
+  end
 
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:errors, errors)}
+  # 处理城市选择变化，使用纯 LiveView 方式
+  @impl true
+  def handle_event("handle_city_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_city")
+          field_name
+          |> String.split("_city")
+          |> List.first()
+        _ -> nil
+      end
+    
+    form_data = params["form"] || %{}
+    city = form_data["#{field_id}_city"]
+    
+    # 从表单状态获取省份
+    form_state = socket.assigns.form_state || %{}
+    province = Map.get(form_state, "#{field_id}_province")
+    
+    Logger.info("Received handle_city_change event for field '#{field_id}' with province: #{inspect(province)} and city: #{inspect(city)}")
+    
+    # 更新表单状态
+    # 清空区县选择，保留省份和城市选择
+    updated_form_state = form_state
+      |> Map.put("#{field_id}_city", city)
+      |> Map.put("#{field_id}_district", nil)
+      |> Map.put(field_id, "#{province}-#{city}") # 更新隐藏字段的值
+
+    {:noreply, 
+      socket
+      |> assign(:form_state, updated_form_state)
+      |> maybe_validate_form(updated_form_state)}
+  end
+
+  # 处理区县选择变化，使用纯 LiveView 方式
+  @impl true
+  def handle_event("handle_district_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_district")
+          field_name
+          |> String.split("_district")
+          |> List.first()
+        _ -> nil
+      end
+    
+    form_data = params["form"] || %{}
+    district = form_data["#{field_id}_district"]
+    
+    Logger.info("Received handle_district_change event for field '#{field_id}' with district: #{inspect(district)}")
+    
+    # 更新表单状态
+    form_state = socket.assigns.form_state || %{}
+    
+    # 获取已选择的省份和城市
+    province = Map.get(form_state, "#{field_id}_province")
+    city = Map.get(form_state, "#{field_id}_city")
+    
+    # 更新区县选择和完整的地区值
+    updated_form_state = form_state
+      |> Map.put("#{field_id}_district", district)
+      |> Map.put(field_id, "#{province}-#{city}-#{district}") # 更新隐藏字段的值
+
+    {:noreply, 
+      socket
+      |> assign(:form_state, updated_form_state)
+      |> maybe_validate_form(updated_form_state)}
+  end
+
+  # 辅助函数：在表单状态更新后进行验证
+  defp maybe_validate_form(socket, form_data) do
+    # 执行基本验证（必填项）
+    errors = validate_form_data(form_data, socket.assigns.items_map)
+    assign(socket, :errors, errors)
   end
 
   # ===========================================

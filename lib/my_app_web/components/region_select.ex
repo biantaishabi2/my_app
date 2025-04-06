@@ -28,11 +28,10 @@ defmodule MyAppWeb.Components.RegionSelect do
           <select 
             id={"#{@field_id}_province"}
             name={"form[#{@field_id}_province]"}
-            phx-hook="RegionSelectProvince"
+            phx-change={"handle_province_change"}
             data-field-id={@field_id}
             class="region-select w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
             {if @disabled, do: [disabled: true], else: []}
-            phx-update="ignore"
           >
             <option value="" disabled selected={!@province}>省/直辖市</option>
             
@@ -58,11 +57,11 @@ defmodule MyAppWeb.Components.RegionSelect do
           <select 
             id={"#{@field_id}_city"}
             name={"form[#{@field_id}_city]"}
-            phx-hook="RegionSelectCity"
+            phx-change={"handle_city_change"}
             data-field-id={@field_id}
+            data-province={@province}
             class="region-select w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
             disabled={!@province}
-            phx-update="ignore"
           >
             <option value="" disabled selected={!@city}>市</option>
             
@@ -91,11 +90,10 @@ defmodule MyAppWeb.Components.RegionSelect do
           <select 
             id={"#{@field_id}_district"}
             name={"form[#{@field_id}_district]"}
-            phx-hook="RegionSelectDistrict"
+            phx-change={"handle_district_change"}
             data-field-id={@field_id}
             class="region-select w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
             disabled={!@city}
-            phx-update="ignore"
           >
             <option value="" disabled selected={!@district}>区/县</option>
             
