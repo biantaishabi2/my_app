@@ -31,7 +31,7 @@ defmodule MyAppWeb.Components.RegionSelect do
             phx-hook="RegionSelectProvince"
             data-field-id={@field_id}
             class="region-select w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
-            <%= if @disabled do %>disabled<% end %>
+            {if @disabled, do: [disabled: true], else: []}
             phx-update="ignore"
           >
             <option value="" disabled selected={!@province}>省/直辖市</option>
