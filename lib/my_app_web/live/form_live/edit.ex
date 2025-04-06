@@ -15,10 +15,7 @@ defmodule MyAppWeb.FormLive.Edit do
   def mount(%{"id" => id}, _session, socket) do
     current_user = socket.assigns.current_user
     
-    # 获取控件类型
-    all_types = Forms.list_available_form_item_types()
-    
-    case Forms.get_form(id) do
+    case Forms.get_form_basic_info(id) do
       nil ->
         {:ok, 
           socket
@@ -28,68 +25,35 @@ defmodule MyAppWeb.FormLive.Edit do
         
       form ->
         if form.user_id == current_user.id do
-          # 确保表单有默认页面
-          Forms.assign_default_page(form)
-          
-          # 重新加载表单以获取页面信息
-          form_with_pages = Forms.get_form(id)
-          
-          # 获取所有表单项，确保它们有正确的页面关联
-          all_form_items = 
-            Enum.flat_map(form_with_pages.pages, fn page -> 
-              # 提取每个页面的表单项
-              page.items || []
-            end)
-          
-          # 确保添加任何未关联的表单项到默认页面，以便它们能被显示
-          if length(form_with_pages.items) > length(all_form_items) do
-            # 首先迁移未关联页面的表单项到默认页面
-            {:ok, migrated_items} = Forms.migrate_items_to_default_page(form_with_pages)
-            IO.puts("迁移了#{length(migrated_items)}个未关联页面的表单项到默认页面")
-            
-            # 重新加载表单以获取更新后的关联
-            form_with_pages = Forms.get_form(id)
-            
-            # 重新收集所有表单项
-            all_form_items = 
-              Enum.flat_map(form_with_pages.pages, fn page -> 
-                page.items || []
-              end)
-          end
-            
-          IO.puts("加载表单项: 发现#{length(all_form_items)}个项目")
-          
+          # 只初始化基本状态，不加载详细数据
           {:ok, 
             socket
             |> assign(:page_title, "编辑表单")
-            |> assign(:form, form_with_pages)
-            |> assign(:form_changeset, Forms.change_form(form_with_pages))
-            |> assign(:editing_form_info, Enum.empty?(all_form_items) && (form_with_pages.title == nil || form_with_pages.title == ""))
-            |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
+            |> assign(:form, form)
+            |> assign(:form_changeset, Forms.change_form(form))
+            |> assign(:editing_form_info, false)
+            |> assign(:form_items, [])  # 初始为空数组
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
-            |> assign(:editing_item_id, nil)  # 添加新状态，记录原地编辑的表单项ID
+            |> assign(:editing_item_id, nil) 
             |> assign(:item_options, [])
             |> assign(:item_type, nil)
             |> assign(:delete_item_id, nil)
             |> assign(:show_publish_confirm, false)
-            # 控件分类相关状态
-            |> assign(:all_item_types, all_types) # 按类别分组的控件类型
-            |> assign(:active_category, :basic) # 当前激活的类别
-            |> assign(:search_term, nil) # 搜索关键词
-            # 初始化临时值，用于表单编辑
-            |> assign(:temp_title, form_with_pages.title)
-            |> assign(:temp_description, form_with_pages.description)
-            # 页面管理相关状态
+            |> assign(:all_item_types, %{basic: [], personal: [], advanced: []}) # 初始化为正确结构但内容为空
+            |> assign(:active_category, :basic)
+            |> assign(:search_term, nil)
+            |> assign(:temp_title, form.title)
+            |> assign(:temp_description, form.description)
             |> assign(:editing_page, false)
             |> assign(:current_page, nil)
             |> assign(:delete_page_id, nil)
             |> assign(:form_preview_mode, false)
             |> assign(:preview_current_page_idx, 0)
-            # 条件逻辑相关状态
-            |> assign(:editing_conditions, false)  # 是否正在编辑条件
-            |> assign(:condition_type, :visibility)  # 当前编辑的条件类型：visibility 或 required
-            |> assign(:current_condition, nil)  # 当前正在编辑的条件
+            |> assign(:editing_conditions, false)
+            |> assign(:condition_type, :visibility)
+            |> assign(:current_condition, nil)
+            |> assign(:loading_complete, false) # 新增标记，表示数据是否加载完成
           }
         else
           {:ok,
@@ -103,7 +67,67 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_params(params, _url, socket) do
-    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+    if socket.assigns[:loading_complete] do
+      # 已经加载过数据的情况下不重复加载
+      {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+    else
+      # 开始异步加载表单完整数据
+      send(self(), {:load_form_data, socket.assigns.form.id})
+      
+      # 先返回正在加载的状态
+      {:noreply, 
+        socket
+        |> assign(:loading_complete, false)
+        |> apply_action(socket.assigns.live_action, params)
+      }
+    end
+  end
+  
+  # 异步加载表单数据
+  @impl true
+  def handle_info({:load_form_data, form_id}, socket) do
+    # 并行获取需要的数据（控件类型和表单数据）
+    all_types = Forms.list_available_form_item_types()
+    form_with_pages = Forms.get_form_with_full_preload(form_id)
+    
+    # 确保表单有默认页面并处理未关联页面的表单项
+    {:ok, _} = Forms.assign_default_page(form_with_pages)
+
+    # 预先收集现有表单项，检查是否需要迁移
+    all_form_items = 
+      Enum.flat_map(form_with_pages.pages, fn page -> 
+        # 提取每个页面的表单项
+        page.items || []
+      end)
+    
+    # 只有在确实需要迁移的情况下执行迁移操作
+    form_with_pages = 
+      if length(form_with_pages.items) > length(all_form_items) do
+        # 迁移未关联页面的表单项到默认页面
+        {:ok, updated_form} = Forms.migrate_items_to_default_page_optimized(form_with_pages)
+        updated_form
+      else
+        # 不需要迁移，直接使用现有表单
+        form_with_pages
+      end
+      
+    # 重新收集所有表单项
+    all_form_items = 
+      Enum.flat_map(form_with_pages.pages, fn page -> 
+        page.items || []
+      end)
+    
+    IO.puts("异步加载完成: 发现#{length(all_form_items)}个表单项")
+    
+    # 更新socket状态
+    {:noreply, 
+      socket
+      |> assign(:form, form_with_pages)
+      |> assign(:form_items, all_form_items)
+      |> assign(:all_item_types, all_types)
+      |> assign(:loading_complete, true)
+      |> assign(:editing_form_info, Enum.empty?(all_form_items) && (form_with_pages.title == nil || form_with_pages.title == ""))
+    }
   end
 
   defp apply_action(socket, :edit, _params) do
@@ -567,9 +591,6 @@ defmodule MyAppWeb.FormLive.Edit do
     condition_type = socket.assigns.condition_type
     condition = socket.assigns.current_condition
     
-    # 如果条件为空，则传递nil，否则将条件转换为JSON
-    condition_json = if is_nil(condition), do: nil, else: Jason.encode!(condition)
-    
     # 根据条件类型更新表单项
     result = case condition_type do
       :visibility ->
@@ -580,7 +601,7 @@ defmodule MyAppWeb.FormLive.Edit do
     end
     
     case result do
-      {:ok, updated_item} ->
+      {:ok, _} ->
         # 更新成功，重新加载表单和表单项
         updated_form = Forms.get_form_with_items(socket.assigns.form.id)
         
@@ -824,7 +845,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 处理表单提交或无参数的情况
     item_params = params["item"] || %{}
     form = socket.assigns.form
-    current_item = socket.assigns.current_item
     
     # 检查是否需要选项的控件类型
     if requires_options?(item_type) && Enum.empty?(socket.assigns.item_options) do
@@ -842,7 +862,7 @@ defmodule MyAppWeb.FormLive.Edit do
     # 使用更新后的socket
     socket = updated_socket
     
-    # 更新current_item，确保使用最新的值
+    # 获取current_item，确保使用最新的值
     current_item = socket.assigns.current_item
     
     # 处理选项数据
@@ -949,7 +969,7 @@ defmodule MyAppWeb.FormLive.Edit do
       IO.puts("处理后的矩阵类型: #{inspect(matrix_type)}")
       
       # 更新参数，确保使用字符串键
-      item_params = item_params
+      updated_params = item_params
         |> Map.put("matrix_rows", matrix_rows)
         |> Map.put("matrix_columns", matrix_columns)
         |> Map.put("matrix_type", matrix_type)
@@ -1922,6 +1942,12 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type("image_choice"), do: "图片选择"
   defp display_selected_type("file_upload"), do: "文件上传"
   defp display_selected_type(_), do: "未知类型"
+  
+  # 条件相关辅助函数（简化版）
+  defp find_source_item(nil, _available_items), do: nil
+  defp find_source_item(source_id, available_items) do
+    Enum.find(available_items, fn item -> item.id == source_id end)
+  end
   
   # 这些函数已经从FormComponents导入:
 end
