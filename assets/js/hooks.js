@@ -145,4 +145,64 @@ Hooks.PageHook = {
   }
 };
 
+// 地区选择器钩子
+Hooks.RegionSelector = {
+  mounted() {
+    console.log("RegionSelector钩子已挂载", this.el.id);
+    
+    // 防止选择器表单提交
+    this.el.addEventListener('change', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // 记录原始选择的值
+      const selectElement = e.target;
+      const fieldId = selectElement.getAttribute('phx-value-field-id');
+      const level = selectElement.id.split('_').pop(); // province, city, district
+      const selectedValue = selectElement.value;
+      
+      console.log(`地区选择变化: ${level} -> ${selectedValue}`);
+      
+      // 允许LiveView正常处理选择变化
+      return true;
+    });
+    
+    // 处理服务器端推送的更新事件
+    this.handleEvent("region_updated", (data) => {
+      console.log("接收到地区更新事件", data);
+      const {field_id, level} = data;
+      
+      // 根据更新的级别处理UI
+      if (level === "province") {
+        // 省份变化时，重新启用城市选择器但禁用区县选择器
+        const citySelect = document.getElementById(`${field_id}_city`);
+        const districtSelect = document.getElementById(`${field_id}_district`);
+        
+        if (citySelect) {
+          citySelect.disabled = false;
+          // 默认选中第一个选项
+          if (citySelect.options.length > 1) {
+            citySelect.selectedIndex = 0;
+          }
+        }
+        
+        if (districtSelect) {
+          districtSelect.disabled = true;
+          districtSelect.selectedIndex = 0;
+        }
+      } else if (level === "city") {
+        // 城市变化时，启用区县选择器
+        const districtSelect = document.getElementById(`${field_id}_district`);
+        if (districtSelect) {
+          districtSelect.disabled = false;
+          // 默认选中第一个选项
+          if (districtSelect.options.length > 1) {
+            districtSelect.selectedIndex = 0;
+          }
+        }
+      }
+    });
+  }
+};
+
 export default Hooks;

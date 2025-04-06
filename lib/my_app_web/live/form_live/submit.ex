@@ -352,10 +352,17 @@ defmodule MyAppWeb.FormLive.Submit do
     # 重新验证
     errors = validate_form_data(updated_form_state, socket.assigns.items_map)
     
+    # 添加日志帮助调试
+    if Mix.env() == :dev do
+      IO.puts("地区选择 - 省份变化: #{field_id} -> #{province}")
+      IO.inspect(updated_form_state, label: "更新后的表单状态")
+    end
+    
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
+      |> push_event("region_updated", %{field_id: field_id, level: "province"})
     }
   end
   
@@ -380,10 +387,17 @@ defmodule MyAppWeb.FormLive.Submit do
     # 重新验证
     errors = validate_form_data(updated_form_state, socket.assigns.items_map)
     
+    # 添加日志帮助调试
+    if Mix.env() == :dev do
+      IO.puts("地区选择 - 城市变化: #{field_id} -> #{city}")
+      IO.inspect(updated_form_state, label: "更新后的表单状态")
+    end
+    
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
+      |> push_event("region_updated", %{field_id: field_id, level: "city"})
     }
   end
   
@@ -407,10 +421,17 @@ defmodule MyAppWeb.FormLive.Submit do
     # 重新验证
     errors = validate_form_data(updated_form_state, socket.assigns.items_map)
     
+    # 添加日志帮助调试
+    if Mix.env() == :dev do
+      IO.puts("地区选择 - 区县变化: #{field_id} -> #{district}")
+      IO.inspect(updated_form_state, label: "更新后的表单状态")
+    end
+    
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
+      |> push_event("region_updated", %{field_id: field_id, level: "district"})
     }
   end
   

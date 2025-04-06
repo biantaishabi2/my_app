@@ -572,3 +572,23 @@ button#form-submit-button:active {
   font-size: 0.875rem;
   color: #6b7280;
 }
+
+/* 地区选择器样式 */
+.region-select {
+  height: auto !important;
+  overflow-y: auto !important;
+  max-height: 200px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.region-select option {
+  padding: 8px 12px;
+}
+
+/* 修复select下拉框被切断的问题 */
+.region-select-container {
+  position: relative;
+  z-index: 10;
+}
