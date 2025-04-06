@@ -694,19 +694,7 @@ defmodule MyApp.Forms do
     update_form_item(form_item, attrs)
   end
   
-  @doc """
-  获取表单及其所有表单项
-  
-  ## 示例
-  
-      iex> get_form_with_items(form_id)
-      %Form{items: [%FormItem{}, ...]}
-  """
-  def get_form_with_items(form_id) do
-    Form
-    |> Repo.get(form_id)
-    |> Repo.preload([items: from(i in FormItem, order_by: i.order)])
-  end
+  # 此处有重复的 get_form_with_items 函数，已经在上面定义过，这里删除
 
   @doc """
   Adds a form item to a form.

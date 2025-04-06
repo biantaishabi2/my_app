@@ -152,6 +152,115 @@
                   <input type="time" id={item.id} name={"form_data[#{item.id}]"} value={Map.get(@form_data, item.id, "")} 
                         class={"form-control w-full p-2 border rounded #{if Map.has_key?(@errors, item.id), do: "border-red-500"}"} />
                 
+                <% :region -> %>
+                  <div class="region-selector grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <select
+                      id={"#{item.id}_province"}
+                      name={"form_data[#{item.id}_province]"}
+                      class="form-control p-2 border rounded"
+                      phx-change="province_changed"
+                      phx-value-field-id={item.id}
+                    >
+                      <option value="">请选择省份</option>
+                      <!-- 省份选项会由JS钩子加载 -->
+                    </select>
+                    
+                    <select
+                      id={"#{item.id}_city"}
+                      name={"form_data[#{item.id}_city]"}
+                      class="form-control p-2 border rounded"
+                      phx-change="city_changed"
+                      phx-value-field-id={item.id}
+                      disabled={!Map.get(@form_data, "#{item.id}_province")}
+                    >
+                      <option value="">请选择城市</option>
+                      <!-- 城市选项会由JS钩子加载 -->
+                    </select>
+                    
+                    <%= if item.region_level == 3 do %>
+                      <select
+                        id={"#{item.id}_district"}
+                        name={"form_data[#{item.id}_district]"}
+                        class="form-control p-2 border rounded"
+                        phx-change="district_changed"
+                        phx-value-field-id={item.id}
+                        disabled={!Map.get(@form_data, "#{item.id}_city")}
+                      >
+                        <option value="">请选择区县</option>
+                        <!-- 区县选项会由JS钩子加载 -->
+                      </select>
+                    <% end %>
+                    
+                    <!-- 隐藏字段用于保存完整地址值 -->
+                    <input type="hidden" id={item.id} name={"form_data[#{item.id}]"} value={Map.get(@form_data, item.id, "")} />
+                  </div>
+                
+                <% :file_upload -> %>
+                  <% 
+                    # 获取文件上传引用
+                    upload_ref = Map.get(@uploads || %{}, Map.get(@upload_names || %{}, item.id))
+                  %>
+                  <%= if upload_ref do %>
+                    <div class="file-upload mt-1">
+                      <div class="upload-area border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <form id={"file-upload-form-#{item.id}"} phx-change="validate" phx-submit="save" class="space-y-4">
+                          <div class="flex items-center justify-center">
+                            <label for={item.id} class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded inline-flex items-center">
+                              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                              </svg>
+                              <span>选择文件</span>
+                              <.live_file_input upload={upload_ref} style="display: none" />
+                            </label>
+                          </div>
+                          
+                          <p class="text-sm text-gray-500 mt-2">
+                            <%= if item.multiple_files do %>
+                              最多上传 <%= item.max_files || 1 %> 个文件
+                            <% else %>
+                              仅支持上传单个文件
+                            <% end %>
+                          </p>
+                          
+                          <p class="text-sm text-gray-500">
+                            <% 
+                              extensions = item.allowed_extensions || []
+                              extensions = if Enum.empty?(extensions), do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"], else: extensions
+                            %>
+                            支持格式: <%= Enum.join(extensions, ", ") %>
+                          </p>
+                        </form>
+                        
+                        <!-- 上传中的文件预览 -->
+                        <%= for entry <- Phoenix.LiveView.upload_entries(upload_ref) do %>
+                          <div class="mt-4 p-3 bg-gray-100 rounded flex items-center justify-between">
+                            <div class="flex items-center">
+                              <span class="truncate"><%= entry.client_name %></span>
+                              <progress class="ml-3" value={entry.progress} max="100"><%= entry.progress %>%</progress>
+                            </div>
+                            <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="ml-2 text-red-500">
+                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          <%= for err <- Phoenix.LiveView.upload_errors(upload_ref, entry) do %>
+                            <div class="text-red-500 text-sm mt-1"><%= error_to_string(err) %></div>
+                          <% end %>
+                        <% end %>
+                        
+                        <%= for err <- Phoenix.LiveView.upload_errors(upload_ref) do %>
+                          <div class="text-red-500 text-sm mt-1"><%= error_to_string(err) %></div>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% else %>
+                    <div class="p-3 bg-yellow-100 text-yellow-800 rounded">
+                      文件上传控件配置错误，请联系管理员。
+                    </div>
+                  <% end %>
+                
                 <% _ -> %>
                   <div class="unsupported-field text-gray-500">
                     <p>不支持此类型的表单项</p>

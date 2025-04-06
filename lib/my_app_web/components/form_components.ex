@@ -1456,6 +1456,8 @@ defmodule MyAppWeb.FormComponents do
   def file_upload_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     assigns = assign_new(assigns, :uploads, fn -> nil end)
+    # 添加上传名称映射
+    assigns = assign_new(assigns, :upload_names, fn -> Map.get(assigns[:context] || %{}, :upload_names, %{}) end)
     
     ~H"""
     <div class="form-field form-item mb-6">
@@ -1470,138 +1472,15 @@ defmodule MyAppWeb.FormComponents do
         <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
       <% end %>
       
-      <%= if @uploads && Map.has_key?(@uploads, String.to_atom("#{@field.id}_uploader")) do %>
-        <% upload = @uploads[String.to_atom("#{@field.id}_uploader")] %>
-        
-        <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
-             phx-drop-target={upload.ref}
-             id={"#{@field.id}-upload-dropzone"}>
-          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <div class="mt-2 text-sm text-gray-600">
-            点击或拖拽文件到此区域上传
-          </div>
-          <div class="mt-1 text-xs text-gray-500">
-            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
-              支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
-            <% else %>
-              支持所有文件格式
-            <% end %>
-          </div>
-          <div class="mt-1 text-xs text-gray-500">
-            最大文件大小: <%= @field.max_file_size || 5 %> MB
-            <%= if @field.multiple_files do %>
-              , 最多 <%= @field.max_files || 3 %> 个文件
-            <% end %>
-          </div>
-          
-          <!-- 隐藏的文件输入框 -->
-          <form id={"#{@field.id}-upload-form"} phx-change={"validate_upload"} phx-value-field-id={@field.id} phx-submit="upload_files">
-            <.live_file_input upload={upload} class="hidden" />
-            <button 
-              type="button" 
-              phx-click="select_files"
-              phx-value-field-id={@field.id}
-              disabled={@disabled || Enum.count(upload.entries) >= upload.max_entries}
-              class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
-            >
-              选择文件
-            </button>
-          </form>
-          
-          <!-- 错误信息显示 -->
-          <%= for err <- upload.errors do %>
-            <div class="text-red-500 text-sm mt-1">
-              <%= error_to_string(err) %>
-            </div>
-          <% end %>
-          
-          <!-- 上传中的文件列表 -->
-          <%= if Enum.any?(upload.entries) do %>
-            <div class="mt-4">
-              <h4 class="text-sm font-medium text-gray-700 mb-2">准备上传的文件:</h4>
-              <ul class="space-y-2">
-                <%= for entry <- upload.entries do %>
-                  <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
-                    <span class="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <%= entry.client_name %>
-                      <span class="ml-2 text-xs text-gray-500">
-                        (<%= format_file_size(entry.client_size) %>)
-                      </span>
-                      
-                      <!-- 上传进度显示 -->
-                      <%= if entry.progress > 0 do %>
-                        <span class="ml-2 text-xs text-gray-500">
-                          <%= Float.round(entry.progress, 1) %>%
-                        </span>
-                        <div class="w-16 h-1 ml-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div class="h-full bg-indigo-500" style={"width: #{entry.progress}%"}></div>
-                        </div>
-                      <% end %>
-                    </span>
-                    
-                    <!-- 取消上传按钮 -->
-                    <button
-                      type="button"
-                      phx-click="cancel_upload"
-                      phx-value-field-id={@field.id}
-                      phx-value-ref={entry.ref}
-                      class="text-red-500 hover:text-red-700"
-                      title="取消上传"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
-                  </li>
-                <% end %>
-              </ul>
-              
-              <button
-                type="button"
-                phx-click="upload_files"
-                phx-value-field-id={@field.id}
-                class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                开始上传
-              </button>
-            </div>
-          <% end %>
-        </div>
+      <%= if @uploads do %>
+        <% upload_ref = get_upload_ref_for_component(@uploads, @field.id, @upload_names) %>
+        <%= if upload_ref && Map.has_key?(@uploads, upload_ref) do %>
+          <%= render_file_upload_ui(@field, @uploads[upload_ref], @form_state, @disabled) %>
+        <% else %>
+          <%= render_simple_file_upload_ui(@field, @disabled) %>
+        <% end %>
       <% else %>
-        <!-- 非LiveView环境下的简单预览 -->
-        <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <div class="mt-2 text-sm text-gray-600">
-            点击或拖拽文件到此区域上传
-          </div>
-          <div class="mt-1 text-xs text-gray-500">
-            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
-              支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
-            <% else %>
-              支持所有文件格式
-            <% end %>
-          </div>
-          <div class="mt-1 text-xs text-gray-500">
-            最大文件大小: <%= @field.max_file_size || 5 %> MB
-            <%= if @field.multiple_files do %>
-              , 最多 <%= @field.max_files || 3 %> 个文件
-            <% end %>
-          </div>
-          <button 
-            type="button"
-            disabled={@disabled}
-            class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            选择文件
-          </button>
-        </div>
+        <%= render_simple_file_upload_ui(@field, @disabled) %>
       <% end %>
       
       <!-- 已上传的文件列表 -->
@@ -1651,6 +1530,182 @@ defmodule MyAppWeb.FormComponents do
     """
   end
   
+  # 渲染带上传功能的文件上传UI
+  defp render_file_upload_ui(field, upload, form_state, disabled) do
+    assigns = %{field: field, upload: upload, form_state: form_state, disabled: disabled}
+    
+    ~H"""
+    <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
+         phx-drop-target={@upload.ref}
+         id={"#{@field.id}-upload-dropzone"}>
+      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+      <div class="mt-2 text-sm text-gray-600">
+        点击或拖拽文件到此区域上传
+      </div>
+      <div class="mt-1 text-xs text-gray-500">
+        <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+          支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
+        <% else %>
+          支持所有文件格式
+        <% end %>
+      </div>
+      <div class="mt-1 text-xs text-gray-500">
+        最大文件大小: <%= @field.max_file_size || 5 %> MB
+        <%= if @field.multiple_files do %>
+          , 最多 <%= @field.max_files || 3 %> 个文件
+        <% end %>
+      </div>
+      
+      <!-- 隐藏的文件输入框 -->
+      <form id={"#{@field.id}-upload-form"} phx-change={"validate_upload"} phx-value-field-id={@field.id} phx-submit="upload_files">
+        <.live_file_input upload={@upload} class="hidden" />
+        <button 
+          type="button" 
+          phx-click="select_files"
+          phx-value-field-id={@field.id}
+          disabled={@disabled || Enum.count(@upload.entries) >= @upload.max_entries}
+          class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
+        >
+          选择文件
+        </button>
+      </form>
+      
+      <!-- 错误信息显示 -->
+      <%= for err <- @upload.errors do %>
+        <div class="text-red-500 text-sm mt-1">
+          <%= error_to_string(err) %>
+        </div>
+      <% end %>
+      
+      <!-- 上传中的文件列表 -->
+      <%= if Enum.any?(@upload.entries) do %>
+        <div class="mt-4">
+          <h4 class="text-sm font-medium text-gray-700 mb-2">准备上传的文件:</h4>
+          <ul class="space-y-2">
+            <%= for entry <- @upload.entries do %>
+              <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
+                <span class="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <%= entry.client_name %>
+                  <span class="ml-2 text-xs text-gray-500">
+                    (<%= format_file_size(entry.client_size) %>)
+                  </span>
+                  
+                  <!-- 上传进度显示 -->
+                  <%= if entry.progress > 0 do %>
+                    <span class="ml-2 text-xs text-gray-500">
+                      <%= Float.round(entry.progress, 1) %>%
+                    </span>
+                    <div class="w-16 h-1 ml-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div class="h-full bg-indigo-500" style={"width: #{entry.progress}%"}></div>
+                    </div>
+                  <% end %>
+                </span>
+                
+                <!-- 取消上传按钮 -->
+                <button
+                  type="button"
+                  phx-click="cancel_upload"
+                  phx-value-field-id={@field.id}
+                  phx-value-ref={entry.ref}
+                  class="text-red-500 hover:text-red-700"
+                  title="取消上传"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </li>
+            <% end %>
+          </ul>
+          
+          <button
+            type="button"
+            phx-click="upload_files"
+            phx-value-field-id={@field.id}
+            class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            开始上传
+          </button>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+  
+  # 渲染简单的文件上传UI（无实际上传功能）
+  defp render_simple_file_upload_ui(field, disabled) do
+    assigns = %{field: field, disabled: disabled}
+    
+    ~H"""
+    <!-- 非LiveView环境下的简单预览 -->
+    <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+      </svg>
+      <div class="mt-2 text-sm text-gray-600">
+        点击或拖拽文件到此区域上传
+      </div>
+      <div class="mt-1 text-xs text-gray-500">
+        <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+          支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
+        <% else %>
+          支持所有文件格式
+        <% end %>
+      </div>
+      <div class="mt-1 text-xs text-gray-500">
+        最大文件大小: <%= @field.max_file_size || 5 %> MB
+        <%= if @field.multiple_files do %>
+          , 最多 <%= @field.max_files || 3 %> 个文件
+        <% end %>
+      </div>
+      <button 
+        type="button"
+        disabled={@disabled}
+        class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
+      >
+        选择文件
+      </button>
+    </div>
+    """
+  end
+  
+  # 辅助函数：获取上传引用（用于组件）
+  defp get_upload_ref_for_component(uploads, field_id, upload_names) do
+    # 首先尝试从upload_names映射中获取
+    upload_ref = Map.get(upload_names, field_id)
+    
+    # 如果没有映射关系，则尝试使用旧方式（向后兼容）
+    if upload_ref && Map.has_key?(uploads, upload_ref) do
+      upload_ref
+    else
+      # 回退到旧方式，使用field_id_uploader的形式
+      legacy_ref = String.to_atom("#{field_id}_uploader")
+      if Map.has_key?(uploads, legacy_ref) do
+        legacy_ref
+      else
+        # 尝试查找任何以field_id开头的上传引用
+        uploads
+        |> Map.keys()
+        |> Enum.find(nil, fn key -> 
+          key_str = Atom.to_string(key)
+          String.starts_with?(key_str, "file_upload_")
+        end)
+      end
+    end
+  end
+  
+  # 将上传错误转换为字符串
+  defp error_to_string(:too_large), do: "文件太大"
+  defp error_to_string(:too_many_files), do: "选择的文件太多"
+  defp error_to_string(:not_accepted), do: "文件类型不被接受"
+  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
+  defp error_to_string(err), do: "上传错误: #{inspect(err)}"
+  
   # 辅助函数：格式化文件大小
   defp format_file_size(size_bytes) when is_integer(size_bytes) do
     cond do
@@ -1662,12 +1717,6 @@ defmodule MyAppWeb.FormComponents do
   end
   defp format_file_size(_), do: "未知大小"
   
-  # 将上传错误转换为可读的消息
-  defp error_to_string(:too_large), do: "文件太大了"
-  defp error_to_string(:too_many_files), do: "文件数量过多"
-  defp error_to_string(:not_accepted), do: "文件类型不允许"
-  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
-  defp error_to_string(error), do: "上传失败: #{inspect(error)}"
 
   @doc """
   渲染文本区域字段组件

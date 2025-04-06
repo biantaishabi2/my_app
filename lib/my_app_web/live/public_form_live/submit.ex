@@ -5,6 +5,8 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   alias MyApp.Forms.Form
   alias MyApp.Responses
   alias MyApp.FormLogic
+  
+  # LiveView上传功能在LiveView模块中
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -31,6 +33,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
             form.items |> Enum.sort_by(& &1.order)
           end
         
+        # 初始化socket
         socket =
           socket
           |> assign(:form, form)
@@ -43,6 +46,36 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           |> assign(:errors, %{})
           |> assign(:page_title, "填写表单 - #{form.title}")
           |> assign(:respondent_info, %{"name" => "", "email" => ""})
+          
+        # 初始化文件上传配置
+        socket = 
+          Enum.reduce(form.items, socket, fn item, acc ->
+            if item.type == :file_upload do
+              # 每个文件上传控件都有自己的上传配置
+              max_files_value = if item.multiple_files, do: item.max_files || 1, else: 1
+              # 确保 accept 参数总是有值，不能为空列表
+              allowed_extensions = item.allowed_extensions || [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
+              allowed_extensions = if Enum.empty?(allowed_extensions), do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"], else: allowed_extensions
+              
+              # 为每个文件上传控件注册一个上传配置
+              # 使用固定前缀加序号的方式来命名上传配置，避免创建过多的atom
+              upload_index = System.unique_integer([:positive])
+              upload_name = :"file_upload_#{upload_index}"
+              
+              # 在socket中存储item_id到upload_name的映射，以便后续使用
+              upload_names = Map.get(acc.assigns, :upload_names, %{})
+              acc = assign(acc, :upload_names, Map.put(upload_names, item.id, upload_name))
+              
+              # 注册上传配置 - 直接传递参数而不是用map
+              Phoenix.LiveView.allow_upload(acc, upload_name,
+                max_entries: max_files_value,
+                max_file_size: (item.max_file_size || 5) * 1024 * 1024,
+                accept: allowed_extensions
+              )
+            else
+              acc
+            end
+          end)
 
         {:ok, socket}
 
@@ -150,6 +183,29 @@ defmodule MyAppWeb.PublicFormLive.Submit do
      |> assign(:form_data, updated_form_data)
      |> assign(:respondent_info, respondent_info)}
   end
+  
+  @impl true
+  def handle_event("validate", %{"_target" => [_ref]}, socket) do
+    {:noreply, socket}
+  end
+  
+  @impl true
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    # 取消特定的文件上传
+    {upload_name, _entry_ref} = 
+      ref
+      |> String.split("-", parts: 2)
+      |> then(fn [name, ref] -> {String.to_existing_atom(name), ref} end)
+      
+    {:noreply, Phoenix.LiveView.cancel_upload(socket, upload_name, ref)}
+  end
+  
+  # 文件上传错误转换为对用户友好的错误消息
+  defp error_to_string(:too_large), do: "文件太大"
+  defp error_to_string(:not_accepted), do: "文件类型不被接受"
+  defp error_to_string(:too_many_files), do: "文件数量过多"
+  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
+  defp error_to_string(error), do: "上传错误: #{inspect(error)}"
 
   # 获取已发布的表单及其表单项和选项
   defp get_published_form(id) do
@@ -181,8 +237,20 @@ defmodule MyAppWeb.PublicFormLive.Submit do
     form_data = socket.assigns.form_data
     respondent_info = socket.assigns.respondent_info
     
+    # 过滤掉辅助字段（如地区选择的辅助字段）
+    filtered_form_data = 
+      form_data
+      |> Enum.filter(fn {key, _value} -> 
+        # 过滤掉以下模式的键
+        not (is_binary(key) and 
+             (String.ends_with?(key, "_province") or 
+              String.ends_with?(key, "_city") or 
+              String.ends_with?(key, "_district")))
+      end)
+      |> Enum.into(%{})
+    
     # 调用Responses上下文创建响应
-    Responses.create_response(form.id, form_data, respondent_info)
+    Responses.create_response(form.id, filtered_form_data, respondent_info)
   end
 
   # 验证表单数据

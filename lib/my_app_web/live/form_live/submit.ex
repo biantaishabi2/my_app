@@ -75,14 +75,25 @@ defmodule MyAppWeb.FormLive.Submit do
               if item.type == :file_upload do
                 # 每个文件上传控件都有自己的上传配置
                 max_files_value = if item.multiple_files, do: item.max_files || 1, else: 1
-                live_upload_config = %{
-                  max_entries: max_files_value,
-                  max_file_size: (item.max_file_size || 5) * 1024 * 1024, # 转换为字节
-                  accept: item.allowed_extensions || [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
-                }
+                # 确保 accept 参数总是有值，不能为空列表
+                allowed_extensions = item.allowed_extensions || [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
+                allowed_extensions = if Enum.empty?(allowed_extensions), do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"], else: allowed_extensions
                 
                 # 为每个文件上传控件注册一个上传配置
-                allow_upload(acc, String.to_atom("#{item.id}_uploader"), live_upload_config)
+                # 使用固定前缀加序号的方式来命名上传配置，避免创建过多的atom
+                upload_index = System.unique_integer([:positive])
+                upload_name = :"file_upload_#{upload_index}"
+                
+                # 在socket中存储item_id到upload_name的映射，以便后续使用
+                upload_names = Map.get(acc.assigns, :upload_names, %{})
+                acc = assign(acc, :upload_names, Map.put(upload_names, item.id, upload_name))
+                
+                # 注册上传配置 - 直接传递参数而不是用map
+                Phoenix.LiveView.allow_upload(acc, upload_name,
+                  max_entries: max_files_value,
+                  max_file_size: (item.max_file_size || 5) * 1024 * 1024,
+                  accept: allowed_extensions
+                )
               else
                 acc
               end
@@ -97,6 +108,7 @@ defmodule MyAppWeb.FormLive.Submit do
             |> assign(:errors, %{})
             |> assign(:submitted, false)
             |> assign(:file_uploads, %{}) # 存储已上传文件的信息
+            |> assign(:upload_names, %{}) # 存储item_id到upload_name的映射
             # 分页相关状态
             |> assign(:current_page_idx, current_page_idx)
             |> assign(:current_page, current_page)
@@ -543,7 +555,8 @@ defmodule MyAppWeb.FormLive.Submit do
   # 处理文件上传事件 - 文件选择
   @impl true
   def handle_event("select_files", %{"field-id" => field_id}, socket) do
-    _upload_ref = String.to_atom("#{field_id}_uploader")
+    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
+    _upload_ref = get_upload_ref(socket, field_id)
     
     # 触发文件选择对话框
     # 实际上，这个空实现会导致使用JS hooks中的代码来处理
@@ -553,7 +566,8 @@ defmodule MyAppWeb.FormLive.Submit do
   # 处理文件上传验证
   @impl true
   def handle_event("validate_upload", %{"field-id" => field_id}, socket) do
-    _upload_ref = String.to_atom("#{field_id}_uploader")
+    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
+    _upload_ref = get_upload_ref(socket, field_id)
     
     # 验证上传
     {:noreply, socket}
@@ -562,7 +576,8 @@ defmodule MyAppWeb.FormLive.Submit do
   # 取消上传
   @impl true
   def handle_event("cancel_upload", %{"field-id" => field_id, "ref" => ref}, socket) do
-    upload_ref = String.to_atom("#{field_id}_uploader")
+    # 从映射中获取上传引用
+    upload_ref = get_upload_ref(socket, field_id)
     
     # 根据上传引用取消特定上传
     {:noreply, cancel_upload(socket, upload_ref, ref)}
@@ -599,7 +614,8 @@ defmodule MyAppWeb.FormLive.Submit do
   # 处理文件上传完成
   @impl true
   def handle_event("upload_files", %{"field-id" => field_id}, socket) do
-    upload_ref = String.to_atom("#{field_id}_uploader")
+    # 从映射中获取上传引用
+    upload_ref = get_upload_ref(socket, field_id)
     _item = socket.assigns.items_map[field_id]
     
     # 获取当前控件的上传配置
@@ -665,8 +681,20 @@ defmodule MyAppWeb.FormLive.Submit do
   
   # 提交表单数据的辅助函数
   defp submit_form_data(form, form_data, socket) do
-    # 修正提交格式，直接传递表单数据而不是嵌套在answers中
-    case Responses.create_response(form.id, form_data) do
+    # 过滤掉辅助字段（如地区选择的辅助字段）
+    filtered_form_data = 
+      form_data
+      |> Enum.filter(fn {key, _value} -> 
+        # 过滤掉以下模式的键
+        not (is_binary(key) and 
+             (String.ends_with?(key, "_province") or 
+              String.ends_with?(key, "_city") or 
+              String.ends_with?(key, "_district")))
+      end)
+      |> Enum.into(%{})
+    
+    # 修正提交格式，直接传递过滤后的表单数据
+    case Responses.create_response(form.id, filtered_form_data) do
       {:ok, _response} ->
         # 保持响应在此进程，以便测试可以查询它
         if :test == Mix.env() do
@@ -856,6 +884,21 @@ defmodule MyAppWeb.FormLive.Submit do
       2 -> %{province: Enum.at(parts, 0), city: Enum.at(parts, 1), district: nil}
       3 -> %{province: Enum.at(parts, 0), city: Enum.at(parts, 1), district: Enum.at(parts, 2)}
       _ -> %{province: nil, city: nil, district: nil}
+    end
+  end
+  
+  # 获取上传引用 - 从映射中获取item_id对应的upload_name，如果不存在则创建一个新的
+  defp get_upload_ref(socket, field_id) do
+    upload_names = socket.assigns.upload_names || %{}
+    
+    case Map.get(upload_names, field_id) do
+      nil ->
+        # 如果不存在映射（很少发生，可能是热重载后），则创建一个默认名称
+        # 使用固定前缀加字段ID的哈希值
+        hash = :erlang.phash2(field_id)
+        :"file_upload_#{hash}"
+      
+      upload_name -> upload_name
     end
   end
   
