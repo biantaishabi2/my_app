@@ -166,13 +166,13 @@
             发布表单
           </button>
           
-          <button 
-            type="button"
-            phx-click="toggle_preview"
-            style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #10b981; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
+          <a
+            href={~p"/forms/#{@form.id}"}
+            target="_blank"
+            style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #10b981; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; text-decoration: none; border: none;"
           >
-            <%= if @form_preview_mode, do: "退出预览", else: "预览表单" %>
-          </button>
+            预览表单
+          </a>
         </div>
       </div>
       
@@ -434,383 +434,261 @@
         </div>
       <% end %>
       
-      <!-- 主内容区域 - 根据是否预览模式切换显示 -->
-      <%= if @form_preview_mode do %>
-        <!-- 表单预览模式 -->
-        <div class="bg-white rounded-lg shadow-sm border p-6 max-w-3xl mx-auto">
-          <div class="mb-6">
-            <h2 class="text-2xl font-bold mb-2"><%= @form.title %></h2>
-            <%= if @form.description do %>
-              <p class="text-gray-600"><%= @form.description %></p>
-            <% end %>
-          </div>
-          
-          <!-- 分页导航栏 -->
-          <%= if length(@form.pages) > 1 do %>
-            <div class="flex items-center justify-between mb-6 border-b pb-4">
-              <button
-                type="button"
-                phx-click="preview_prev_page"
-                disabled={@preview_current_page_idx == 0}
-                class={"px-3 py-1 rounded #{if @preview_current_page_idx == 0, do: "bg-gray-100 text-gray-400 cursor-not-allowed", else: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}"}
-              >
-                上一页
-              </button>
-              
-              <div class="flex space-x-2">
-                <%= for {_page, idx} <- Enum.with_index(@form.pages) do %>
-                  <button
-                    type="button"
-                    phx-click="preview_jump_to_page"
-                    phx-value-index={idx}
-                    class={"w-8 h-8 rounded-full flex items-center justify-center #{if idx == @preview_current_page_idx, do: "bg-indigo-600 text-white", else: "bg-gray-100 text-gray-700 hover:bg-gray-200"}"}
-                  >
-                    <%= idx + 1 %>
-                  </button>
-                <% end %>
-              </div>
-              
-              <button
-                type="button"
-                phx-click="preview_next_page"
-                disabled={@preview_current_page_idx == length(@form.pages) - 1}
-                class={"px-3 py-1 rounded #{if @preview_current_page_idx == length(@form.pages) - 1, do: "bg-gray-100 text-gray-400 cursor-not-allowed", else: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}"}
-              >
-                下一页
-              </button>
-            </div>
-          <% end %>
-          
-          <!-- 当前页面内容 -->
-          <%= if length(@form.pages) > 0 && @preview_current_page_idx < length(@form.pages) do %>
-            <% current_page = Enum.at(@form.pages, @preview_current_page_idx) %>
-            <div class="mb-4">
-              <h3 class="text-lg font-semibold mb-1"><%= current_page.title %></h3>
-              <%= if current_page.description do %>
-                <p class="text-gray-600 text-sm mb-4"><%= current_page.description %></p>
-              <% end %>
-            </div>
-            
-            <!-- 当前页面的表单项 -->
-            <div class="space-y-6">
-              <% page_items = Enum.filter(@form_items, fn item -> item.page_id == current_page.id end) %>
-              <%= for item <- page_items do %>
-                <div class="border rounded-md p-4">
-                  <div class="mb-2">
-                    <label class="font-medium">
-                      <%= item.label %>
-                      <%= if item.required do %>
-                        <span class="text-red-500">*</span>
-                      <% end %>
-                    </label>
-                    <%= if item.description do %>
-                      <p class="text-sm text-gray-500"><%= item.description %></p>
-                    <% end %>
-                  </div>
-                  
-                  <!-- 根据表单项类型显示不同的控件 -->
-                  <%= case item.type do %>
-                    <% :text_input -> %>
-                      <input type="text" class="w-full p-2 border rounded" disabled />
-                      
-                    <% :textarea -> %>
-                      <textarea class="w-full p-2 border rounded h-24" disabled></textarea>
-                      
-                    <% :radio -> %>
-                      <div class="space-y-2">
-                        <%= for option <- (item.options || []) do %>
-                          <div class="flex items-center">
-                            <input type="radio" disabled class="mr-2" />
-                            <span><%= option.label %></span>
-                          </div>
-                        <% end %>
-                      </div>
-                      
-                    <% :checkbox -> %>
-                      <div class="space-y-2">
-                        <%= for option <- (item.options || []) do %>
-                          <div class="flex items-center">
-                            <input type="checkbox" disabled class="mr-2" />
-                            <span><%= option.label %></span>
-                          </div>
-                        <% end %>
-                      </div>
-                      
-                    <% :dropdown -> %>
-                      <select class="w-full p-2 border rounded" disabled>
-                        <option>请选择...</option>
-                        <%= for option <- (item.options || []) do %>
-                          <option><%= option.label %></option>
-                        <% end %>
-                      </select>
-                      
-                    <% _ -> %>
-                      <div class="text-center py-2 text-gray-400 bg-gray-50 rounded">
-                        <%= item.type %> 控件预览
-                      </div>
-                  <% end %>
-                </div>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
-      <% else %>
-        <!-- 表单编辑模式 -->
-        <div class="form-card" style="margin-bottom: 1.5rem;">
-          <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单页面</h2>
-          
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <p style="font-size: 0.875rem; color: #6b7280;">
-              表单页面可以帮助您组织表单内容，将表单分为多个页面可以提高填写体验。
-            </p>
-            
-            <button
-              type="button"
-              phx-click="add_page"
-              style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
-              data-test-id="add-page-button"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
-                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-              </svg>
-              添加页面
-            </button>
-          </div>
-          
-          <!-- 显示页面列表 -->
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;" data-test-id="form-pages-list" id="form-pages-list" phx-hook="FormPagesList">
-            <%= if not @loading_complete || (@form.pages == %Ecto.Association.NotLoaded{} || Enum.empty?(@form.pages || [])) do %>
-              <div style="text-align: center; padding: 1.5rem 0; color: #6b7280; background-color: #f9fafb; border-radius: 0.375rem;">
-                <p>表单还没有任何页面。点击"添加页面"按钮创建第一个页面。</p>
-              </div>
-            <% else %>
-              <%= for page <- @form.pages do %>
-                <div 
-                  style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: white;"
-                  data-test-id="page-item"
-                  data-page-id={page.id}
-                >
-                  <div style="display: flex; align-items: center;">
-                    <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.75rem; flex-shrink: 0;">
-                      <%= page.order %>
-                    </span>
-                    <div>
-                      <div style="font-weight: 500; color: #1f2937;"><%= page.title %></div>
-                      <%= if page.description do %>
-                        <div style="font-size: 0.875rem; color: #6b7280;"><%= page.description %></div>
-                      <% end %>
-                      <!-- 显示是否为默认页面 -->
-                      <%= if @form.default_page_id == page.id do %>
-                        <div style="font-size: 0.75rem; color: #059669; margin-top: 0.25rem;">默认页面</div>
-                      <% end %>
-                    </div>
-                  </div>
-                  
-                  <div style="display: flex; gap: 0.75rem;">
-                    <button
-                      phx-click="edit_page"
-                      phx-value-id={page.id}
-                      style="color: #4f46e5; background: none; border: none; cursor: pointer;"
-                      data-test-id={"edit-page-#{page.id}"}
-                    >
-                      编辑
-                    </button>
-                    <!-- 不能删除默认页面 -->
-                    <%= if @form.default_page_id != page.id do %>
-                      <button
-                        phx-click="delete_page"
-                        phx-value-id={page.id}
-                        style="color: #ef4444; background: none; border: none; cursor: pointer;"
-                        data-test-id={"delete-page-#{page.id}"}
-                      >
-                        删除
-                      </button>
-                    <% end %>
-                  </div>
-                </div>
-              <% end %>
-            <% end %>
-          </div>
-        </div>
-      
-        <!-- 确认删除页面对话框 -->
-        <%= if @delete_page_id do %>
-          <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-              <h3 class="text-lg font-medium mb-4">确认删除页面</h3>
-              <p class="text-gray-600 mb-6">您确定要删除这个页面吗？页面中的所有表单项将被移动到默认页面。此操作无法撤销。</p>
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  phx-click="cancel_delete_page"
-                  class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  phx-click="confirm_delete_page"
-                  data-test-id="confirm-delete-page"
-                  class="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  确认删除
-                </button>
-              </div>
-            </div>
-          </div>
-        <% end %>
+      <!-- 表单编辑模式 -->
+      <div class="form-card" style="margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单页面</h2>
         
-        <!-- 表单项区域 -->
-        <div class="form-card" style="margin-top: 1.5rem;">
-          <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单项</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <p style="font-size: 0.875rem; color: #6b7280;">
+            表单页面可以帮助您组织表单内容，将表单分为多个页面可以提高填写体验。
+          </p>
           
-          <%= if Enum.empty?(@form_items) do %>
-            <div style="text-align: center; padding: 3rem 0;">
-              <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">表单还没有表单项</h3>
-              <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮添加新的表单项</p>
+          <button
+            type="button"
+            phx-click="add_page"
+            style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
+            data-test-id="add-page-button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            添加页面
+          </button>
+        </div>
+        
+        <!-- 显示页面列表 -->
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;" data-test-id="form-pages-list" id="form-pages-list" phx-hook="FormPagesList">
+          <%= if not @loading_complete || (@form.pages == %Ecto.Association.NotLoaded{} || Enum.empty?(@form.pages || [])) do %>
+            <div style="text-align: center; padding: 1.5rem 0; color: #6b7280; background-color: #f9fafb; border-radius: 0.375rem;">
+              <p>表单还没有任何页面。点击"添加页面"按钮创建第一个页面。</p>
             </div>
           <% else %>
-            <!-- 表单项显示区域 -->
-            <div style="display: flex; flex-direction: column; gap: 2rem;" id="form-items-container" data-test-id="page-items-container">
-              <%= if not @loading_complete do %>
-                <div class="loading-page-items">
-                  <p>加载中...</p>
+            <%= for page <- @form.pages do %>
+              <div 
+                style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background-color: white;"
+                data-test-id="page-item"
+                data-page-id={page.id}
+              >
+                <div style="display: flex; align-items: center;">
+                  <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.75rem; flex-shrink: 0;">
+                    <%= page.order %>
+                  </span>
+                  <div>
+                    <div style="font-weight: 500; color: #1f2937;"><%= page.title %></div>
+                    <%= if page.description do %>
+                      <div style="font-size: 0.875rem; color: #6b7280;"><%= page.description %></div>
+                    <% end %>
+                    <!-- 显示是否为默认页面 -->
+                    <%= if @form.default_page_id == page.id do %>
+                      <div style="font-size: 0.75rem; color: #059669; margin-top: 0.25rem;">默认页面</div>
+                    <% end %>
+                  </div>
                 </div>
-              <% else %>
-                <%= if @form.pages && is_list(@form.pages) do %>
-                  <%= for page <- @form.pages do %>
-                    <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden;" data-test-id={"page-#{page.id}-items"}>
-                      <!-- 页面标题区 -->
-                      <div style="padding: 0.75rem 1rem; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
-                        <h3 style="font-size: 1rem; font-weight: 500; color: #1f2937;"><%= page.title %></h3>
-                        <%= if page.description do %>
-                          <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;"><%= page.description %></p>
-                        <% end %>
-                      </div>
-                      
-                      <!-- 页面的表单项 -->
-                      <div style="padding: 1rem;">
-                        <% page_items = 
-                          if page.id == @form.default_page_id do
-                            Enum.filter(@form_items, fn item -> item.page_id == page.id || is_nil(item.page_id) end)
-                          else
-                            Enum.filter(@form_items, fn item -> item.page_id == page.id end)
-                          end
-                        %>
-                        
-                        <%= if Enum.empty?(page_items) do %>
-                          <div style="text-align: center; padding: 1.5rem 0; color: #6b7280;">
-                            <p>此页面还没有表单项</p>
-                            <button
-                              type="button"
-                              phx-click="add_item"
-                              phx-value-page_id={page.id}
-                              style="display: inline-flex; margin-top: 0.75rem; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
-                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                              </svg>
-                              添加表单项到此页面
-                            </button>
-                          </div>
-                        <% else %>
-                          <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <%= for {item, index} <- Enum.with_index(page_items) do %>
-                              <div class="form-card" style="border: 1px solid #e5e7eb;" id={"item-#{item.id}"} data-item-id={item.id} data-order={index + 1} data-page-id={page.id}>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                  <div style="font-weight: 500; display: flex; align-items: center;">
-                                    <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.5rem;">
-                                      <%= index + 1 %>
-                                    </span>
-                                    <span><%= item.label %></span>
-                                    <%= if item.required do %>
-                                      <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
-                                    <% end %>
-                                    <span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem;">
-                                      <%= case item.type do %>
-                                        <% :text_input -> %>文本输入
-                                        <% :textarea -> %>文本区域
-                                        <% :radio -> %>单选
-                                        <% :dropdown -> %>下拉菜单
-                                        <% :checkbox -> %>复选框
-                                        <% :number -> %>数字输入
-                                        <% :email -> %>邮箱输入
-                                        <% :phone -> %>电话号码
-                                        <% :date -> %>日期选择
-                                        <% :time -> %>时间选择
-                                        <% :region -> %>地区选择
-                                        <% :matrix -> %>矩阵题
-                                        <% :image_choice -> %>图片选择
-                                        <% :file_upload -> %>文件上传
-                                        <% _ -> %>未知类型
-                                      <% end %>
-                                    </span>
-                                  </div>
-                                  <div style="display: flex; gap: 0.5rem;">
-                                    <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
-                                      编辑
-                                    </button>
-                                    <button type="button" phx-click="edit_conditions" phx-value-id={item.id} phx-value-type="visibility" style="color: #8b5cf6; background: none; border: none; cursor: pointer;" id={"edit-conditions-#{item.id}"}>
-                                      条件
-                                    </button>
-                                    <button type="button" phx-click="delete_item" phx-value-id={item.id} style="color: #ef4444; background: none; border: none; cursor: pointer;" id={"delete-item-#{item.id}"}>
-                                      删除
-                                    </button>
-                                  </div>
-                                </div>
-                                
-                                <%= if item.description do %>
-                                  <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
-                                <% end %>
-                                
-                                <!-- 表单项预览区域简化 -->
-                                <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
-                                  <%= case item.type do %>
-                                    <% :text_input -> %>
-                                      <input type="text" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="文本输入示例" />
-                                    <% :textarea -> %>
-                                      <textarea style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; min-height: 80px;" disabled placeholder="文本区域示例"></textarea>
-                                    <% _ -> %>
-                                      <div style="padding: 0.5rem; color: #6b7280; text-align: center;">
-                                        <%= item.type %> 控件预览
-                                      </div>
-                                  <% end %>
-                                </div>
-                                
-                                <!-- 原地编辑区域 -->
-                                <%= if @editing_item_id == item.id do %>
-                                  <div class="inline-form-item-editor" style="margin-top: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;">
-                                    <.form_item_editor
-                                      item={@current_item}
-                                      options={@item_options}
-                                      item_type={@item_type}
-                                      form={@form}
-                                      id="inline-form-item-editor-#{item.id}"
-                                      on_save="save_item"
-                                      on_cancel="cancel_edit_item"
-                                      on_add_option="add_option"
-                                      on_remove_option="remove_option"
-                                    />
-                                  </div>
-                                <% end %>
-                              </div>
-                            <% end %>
-                          </div>
-                        <% end %>
-                      </div>
-                    </div>
+                
+                <div style="display: flex; gap: 0.75rem;">
+                  <button
+                    phx-click="edit_page"
+                    phx-value-id={page.id}
+                    style="color: #4f46e5; background: none; border: none; cursor: pointer;"
+                    data-test-id={"edit-page-#{page.id}"}
+                  >
+                    编辑
+                  </button>
+                  <!-- 不能删除默认页面 -->
+                  <%= if @form.default_page_id != page.id do %>
+                    <button
+                      phx-click="delete_page"
+                      phx-value-id={page.id}
+                      style="color: #ef4444; background: none; border: none; cursor: pointer;"
+                      data-test-id={"delete-page-#{page.id}"}
+                    >
+                      删除
+                    </button>
                   <% end %>
-                <% end %>
-              <% end %>
-            </div>
+                </div>
+              </div>
+            <% end %>
           <% end %>
         </div>
+      </div>
+      
+      <!-- 确认删除页面对话框 -->
+      <%= if @delete_page_id do %>
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 class="text-lg font-medium mb-4">确认删除页面</h3>
+            <p class="text-gray-600 mb-6">您确定要删除这个页面吗？页面中的所有表单项将被移动到默认页面。此操作无法撤销。</p>
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                phx-click="cancel_delete_page"
+                class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                phx-click="confirm_delete_page"
+                data-test-id="confirm-delete-page"
+                class="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
       <% end %>
+      
+      <!-- 表单项区域 -->
+      <div class="form-card" style="margin-top: 1.5rem;">
+        <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单项</h2>
+        
+        <%= if Enum.empty?(@form_items) do %>
+          <div style="text-align: center; padding: 3rem 0;">
+            <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">表单还没有表单项</h3>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮添加新的表单项</p>
+          </div>
+        <% else %>
+          <!-- 表单项显示区域 -->
+          <div style="display: flex; flex-direction: column; gap: 2rem;" id="form-items-container" data-test-id="page-items-container">
+            <%= if not @loading_complete do %>
+              <div class="loading-page-items">
+                <p>加载中...</p>
+              </div>
+            <% else %>
+              <%= if @form.pages && is_list(@form.pages) do %>
+                <%= for page <- @form.pages do %>
+                  <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden;" data-test-id={"page-#{page.id}-items"}>
+                    <!-- 页面标题区 -->
+                    <div style="padding: 0.75rem 1rem; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                      <h3 style="font-size: 1rem; font-weight: 500; color: #1f2937;"><%= page.title %></h3>
+                      <%= if page.description do %>
+                        <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;"><%= page.description %></p>
+                      <% end %>
+                    </div>
+                    
+                    <!-- 页面的表单项 -->
+                    <div style="padding: 1rem;">
+                      <% page_items = 
+                        if page.id == @form.default_page_id do
+                          Enum.filter(@form_items, fn item -> item.page_id == page.id || is_nil(item.page_id) end)
+                        else
+                          Enum.filter(@form_items, fn item -> item.page_id == page.id end)
+                        end
+                      %>
+                      
+                      <%= if Enum.empty?(page_items) do %>
+                        <div style="text-align: center; padding: 1.5rem 0; color: #6b7280;">
+                          <p>此页面还没有表单项</p>
+                          <button
+                            type="button"
+                            phx-click="add_item"
+                            phx-value-page_id={page.id}
+                            style="display: inline-flex; margin-top: 0.75rem; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem; margin-right: 0.5rem;">
+                              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                            </svg>
+                            添加表单项到此页面
+                          </button>
+                        </div>
+                      <% else %>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                          <%= for {item, index} <- Enum.with_index(page_items) do %>
+                            <div class="form-card" style="border: 1px solid #e5e7eb;" id={"item-#{item.id}"} data-item-id={item.id} data-order={index + 1} data-page-id={page.id}>
+                              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <div style="font-weight: 500; display: flex; align-items: center;">
+                                  <span style="width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; margin-right: 0.5rem;">
+                                    <%= index + 1 %>
+                                  </span>
+                                  <span><%= item.label %></span>
+                                  <%= if item.required do %>
+                                    <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
+                                  <% end %>
+                                  <span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem;">
+                                    <%= case item.type do %>
+                                      <% :text_input -> %>文本输入
+                                      <% :textarea -> %>文本区域
+                                      <% :radio -> %>单选
+                                      <% :dropdown -> %>下拉菜单
+                                      <% :checkbox -> %>复选框
+                                      <% :number -> %>数字输入
+                                      <% :email -> %>邮箱输入
+                                      <% :phone -> %>电话号码
+                                      <% :date -> %>日期选择
+                                      <% :time -> %>时间选择
+                                      <% :region -> %>地区选择
+                                      <% :matrix -> %>矩阵题
+                                      <% :image_choice -> %>图片选择
+                                      <% :file_upload -> %>文件上传
+                                      <% _ -> %>未知类型
+                                    <% end %>
+                                  </span>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                  <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
+                                    编辑
+                                  </button>
+                                  <button type="button" phx-click="edit_conditions" phx-value-id={item.id} phx-value-type="visibility" style="color: #8b5cf6; background: none; border: none; cursor: pointer;" id={"edit-conditions-#{item.id}"}>
+                                    条件
+                                  </button>
+                                  <button type="button" phx-click="delete_item" phx-value-id={item.id} style="color: #ef4444; background: none; border: none; cursor: pointer;" id={"delete-item-#{item.id}"}>
+                                    删除
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <%= if item.description do %>
+                                <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
+                              <% end %>
+                              
+                              <!-- 表单项预览区域简化 -->
+                              <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
+                                <%= case item.type do %>
+                                  <% :text_input -> %>
+                                    <input type="text" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="文本输入示例" />
+                                  <% :textarea -> %>
+                                    <textarea style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; min-height: 80px;" disabled placeholder="文本区域示例"></textarea>
+                                  <% _ -> %>
+                                    <div style="padding: 0.5rem; color: #6b7280; text-align: center;">
+                                      <%= item.type %> 控件预览
+                                    </div>
+                                <% end %>
+                              </div>
+                              
+                              <!-- 原地编辑区域 -->
+                              <%= if @editing_item_id == item.id do %>
+                                <div class="inline-form-item-editor" style="margin-top: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;">
+                                  <.form_item_editor
+                                    item={@current_item}
+                                    options={@item_options}
+                                    item_type={@item_type}
+                                    form={@form}
+                                    id="inline-form-item-editor-#{item.id}"
+                                    on_save="save_item"
+                                    on_cancel="cancel_edit_item"
+                                    on_add_option="add_option"
+                                    on_remove_option="remove_option"
+                                  />
+                                </div>
+                              <% end %>
+                            </div>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
     </div>
   </div>
 </div>

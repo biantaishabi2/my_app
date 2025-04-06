@@ -48,8 +48,6 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:editing_page, false)
             |> assign(:current_page, nil)
             |> assign(:delete_page_id, nil)
-            |> assign(:form_preview_mode, false)
-            |> assign(:preview_current_page_idx, 0)
             |> assign(:editing_conditions, false)
             |> assign(:condition_type, :visibility)
             |> assign(:current_condition, nil)
@@ -1874,56 +1872,6 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
   
-  @impl true
-  def handle_event("toggle_preview", _params, socket) do
-    # 切换预览模式
-    form_preview_mode = not socket.assigns.form_preview_mode
-    
-    # 如果进入预览模式，设置当前页面为第一页
-    preview_current_page_idx = if form_preview_mode, do: 0, else: socket.assigns.preview_current_page_idx
-    
-    {:noreply, 
-      socket
-      |> assign(:form_preview_mode, form_preview_mode)
-      |> assign(:preview_current_page_idx, preview_current_page_idx)
-    }
-  end
-  
-  @impl true
-  def handle_event("preview_next_page", _params, socket) do
-    # 切换到下一页
-    pages = socket.assigns.form.pages
-    current_idx = socket.assigns.preview_current_page_idx
-    
-    # 确保不超出页面范围
-    new_idx = if current_idx < length(pages) - 1, do: current_idx + 1, else: current_idx
-    
-    {:noreply, assign(socket, :preview_current_page_idx, new_idx)}
-  end
-  
-  @impl true
-  def handle_event("preview_prev_page", _params, socket) do
-    # 切换到上一页
-    current_idx = socket.assigns.preview_current_page_idx
-    
-    # 确保不小于0
-    new_idx = if current_idx > 0, do: current_idx - 1, else: 0
-    
-    {:noreply, assign(socket, :preview_current_page_idx, new_idx)}
-  end
-  
-  @impl true
-  def handle_event("preview_jump_to_page", %{"index" => index}, socket) do
-    # 直接跳转到指定页面
-    index = String.to_integer(index)
-    pages = socket.assigns.form.pages
-    
-    # 确保索引在有效范围内
-    valid_index = max(0, min(index, length(pages) - 1))
-    
-    {:noreply, assign(socket, :preview_current_page_idx, valid_index)}
-  end
-
   # 辅助函数：显示选中的控件类型名称
   defp display_selected_type(nil), do: "未选择"
   defp display_selected_type("text_input"), do: "文本输入"
