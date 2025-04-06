@@ -69,35 +69,53 @@
 
 ## 调试技巧
 
-### 使用系统服务记录Phoenix日志
+### 使用 systemd 管理服务和日志
 
-为了更有效地调试Phoenix应用程序，可以使用以下方法将服务器输出重定向到日志文件：
+为了更稳定、更方便地管理 Phoenix 应用程序服务和查看日志，推荐使用 `systemd` 进行管理。
 
-1. 创建服务脚本（例如 `my_app_service.sh`）：
-```bash
-#!/bin/bash
-cd /home/wangbo/document/wangbo/my_app
-rm -f my_app_server.log
-echo "启动Phoenix服务器: $(date)" >> my_app_server.log
-MIX_ENV=dev mix phx.server >> my_app_server.log 2>&1
-```
+1.  **创建 systemd 服务文件** (`/etc/systemd/system/my_app.service`)：
+    ```ini
+    [Unit]
+    Description=My Phoenix Application Service (MyApp)
+    After=network.target
 
-2. 设置脚本权限并启动服务：
-```bash
-chmod +x my_app_service.sh
-nohup ./my_app_service.sh &
-```
+    [Service]
+    User=wangbo
+    WorkingDirectory=/home/wangbo/document/wangbo/my_app
+    Environment="MIX_ENV=dev" # 注意：生产环境应使用 prod 并运行 release
+    Environment="HOME=/home/wangbo"
+    # 确保 PATH 包含 mix 命令的路径
+    Environment="PATH=/home/wangbo/.local/bin:/home/wangbo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin" 
+    ExecStart=/usr/bin/mix phx.server
+    Restart=on-failure
+    RestartSec=5s
+    StandardOutput=journal
+    StandardError=journal
 
-3. 监控日志输出：
-```bash
-tail -f my_app_server.log
-```
+    [Install]
+    WantedBy=multi-user.target
+    ```
 
-这种方法使调试更容易，因为：
-- 服务器输出被保存到文件中，可以随时查看
-- 不会因为终端关闭而中断服务
-- 可以通过查看日志来识别错误和问题
-- 对于调试事件处理和数据流非常有帮助
+2.  **管理服务**:
+    *   **重载配置** (创建或修改服务文件后): `sudo systemctl daemon-reload`
+    *   **启动服务**: `sudo systemctl start my_app.service`
+    *   **停止服务**: `sudo systemctl stop my_app.service`
+    *   **重启服务**: `sudo systemctl restart my_app.service`
+    *   **查看状态**: `sudo systemctl status my_app.service`
+    *   **设置开机自启**: `sudo systemctl enable my_app.service`
+    *   **取消开机自启**: `sudo systemctl disable my_app.service`
+
+3.  **查看日志**:
+    *   **查看所有日志**: `sudo journalctl -u my_app.service`
+    *   **实时跟踪日志**: `sudo journalctl -u my_app.service -f`
+    *   **查看最近N行日志**: `sudo journalctl -u my_app.service -n 50` (查看最近50行)
+    *   **根据时间过滤**: `sudo journalctl -u my_app.service --since "10 minutes ago"`
+
+使用 `systemd` 的优势：
+- 标准化的服务管理命令。
+- 集成的日志系统 (`journald`)，无需手动管理日志文件。
+- 可以方便地查看服务状态和错误信息。
+- 可配置自动重启等高级功能。
 
 ### 利用Phoenix的热重载功能
 

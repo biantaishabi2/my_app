@@ -25,6 +25,8 @@ import topbar from "../vendor/topbar"
 import Hooks from "./hooks"
 // 导入表单构建器钩子
 import FormHooks from "./form-builder"
+// 导入钩子测试 - 查看控制台输出
+import "./hooks_test"
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 

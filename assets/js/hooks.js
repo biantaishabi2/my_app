@@ -179,24 +179,27 @@ Hooks.RegionSelectProvince = {
   },
   
   // 处理服务器响应
-  handleEvent("update_cities", ({field_id, cities}) => {
-    const citySelect = document.getElementById(`${field_id}_city`);
-    if (!citySelect) return;
-    
-    // 清空城市选择
-    this.clearOptions(citySelect);
-    
-    // 添加默认选项
-    this.addOption(citySelect, "", "市", true, true);
-    
-    // 添加城市选项
-    cities.forEach(city => {
-      this.addOption(citySelect, city.name, city.name);
-    });
-    
-    // 启用城市选择
-    citySelect.disabled = false;
-  }),
+  handleEvent(event, payload) {
+    if (event === "update_cities") {
+      const { field_id, cities } = payload;
+      const citySelect = document.getElementById(`${field_id}_city`);
+      if (!citySelect) return;
+      
+      // 清空城市选择
+      this.clearOptions(citySelect);
+      
+      // 添加默认选项
+      this.addOption(citySelect, "", "市", true, true);
+      
+      // 添加城市选项
+      cities.forEach(city => {
+        this.addOption(citySelect, city.name, city.name);
+      });
+      
+      // 启用城市选择
+      citySelect.disabled = false;
+    }
+  },
   
   // 清空选择框选项
   clearOptions(select) {
@@ -275,34 +278,37 @@ Hooks.RegionSelectCity = {
   },
   
   // 处理服务器响应
-  handleEvent("update_districts", ({field_id, districts}) => {
-    const districtSelect = document.getElementById(`${field_id}_district`);
-    if (!districtSelect) return;
-    
-    // 清空区县选择
-    while (districtSelect.options.length > 0) {
-      districtSelect.remove(0);
+  handleEvent(event, payload) {
+    if (event === "update_districts") {
+      const { field_id, districts } = payload;
+      const districtSelect = document.getElementById(`${field_id}_district`);
+      if (!districtSelect) return;
+      
+      // 清空区县选择
+      while (districtSelect.options.length > 0) {
+        districtSelect.remove(0);
+      }
+      
+      // 添加默认选项
+      const defaultOption = document.createElement('option');
+      defaultOption.value = "";
+      defaultOption.text = "区/县";
+      defaultOption.disabled = true;
+      defaultOption.selected = true;
+      districtSelect.add(defaultOption);
+      
+      // 添加区县选项
+      districts.forEach(district => {
+        const option = document.createElement('option');
+        option.value = district.name;
+        option.text = district.name;
+        districtSelect.add(option);
+      });
+      
+      // 启用区县选择
+      districtSelect.disabled = false;
     }
-    
-    // 添加默认选项
-    const defaultOption = document.createElement('option');
-    defaultOption.value = "";
-    defaultOption.text = "区/县";
-    defaultOption.disabled = true;
-    defaultOption.selected = true;
-    districtSelect.add(defaultOption);
-    
-    // 添加区县选项
-    districts.forEach(district => {
-      const option = document.createElement('option');
-      option.value = district.name;
-      option.text = district.name;
-      districtSelect.add(option);
-    });
-    
-    // 启用区县选择
-    districtSelect.disabled = false;
-  })
+  }
 };
 
 // 区县选择钩子

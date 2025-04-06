@@ -251,7 +251,15 @@
                               id={"rating-star-#{item.id}-#{i}"}
                               data-value={i}
                               data-field-id={item.id}
-                              class={"rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{if Map.get(@form_state || %{}, "#{item.id}") != nil && i <= String.to_integer(Map.get(@form_state || %{}, "#{item.id}", "0")), do: "text-yellow-500", else: "text-gray-300"}"}
+                              class={"rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{
+                                rating_str = Map.get(@form_state || %{}, "#{item.id}") # Get the value
+                                # Check if it's a valid number string and compare
+                                if rating_str != nil && rating_str != "" && i <= String.to_integer(rating_str) do
+                                  "text-yellow-500"
+                                else
+                                  "text-gray-300"
+                                end
+                              }"}
                               phx-click="set_rating"
                               phx-value-field-id={item.id}
                               phx-value-rating={i}
