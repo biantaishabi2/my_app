@@ -639,7 +639,13 @@
                                 </span>
                               </div>
                               <div style="display: flex; gap: 0.5rem;">
-                                <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
+                                <button 
+                                  type="button" 
+                                  phx-click="edit_item" 
+                                  phx-value-id={item.id} 
+                                  style="color: #4f46e5; background: none; border: none; cursor: pointer;" 
+                                  id={"edit-item-#{item.id}"}
+                                >
                                   编辑
                                 </button>
                                 <button type="button" phx-click="edit_conditions" phx-value-id={item.id} phx-value-type="visibility" style="color: #8b5cf6; background: none; border: none; cursor: pointer;" id={"edit-conditions-#{item.id}"}>
@@ -656,6 +662,7 @@
                               <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
                             <% end %>
                             
+                            <!-- 表单项预览区域 -->
                             <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
                               <%= case item.type do %>
                                 <% :text_input -> %>
@@ -895,6 +902,23 @@
                                   </div>
                               <% end %>
                             </div>
+                            
+                            <!-- 原地编辑区域 - 当editing_item_id等于当前item.id时显示 -->
+                            <%= if @editing_item_id == item.id do %>
+                              <div class="inline-form-item-editor" style="margin-top: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; background-color: #f9fafb;">
+                                <.form_item_editor
+                                  item={@current_item}
+                                  options={@item_options}
+                                  item_type={@item_type}
+                                  form={@form}
+                                  id="inline-form-item-editor-#{item.id}"
+                                  on_save="save_item"
+                                  on_cancel="cancel_edit_item"
+                                  on_add_option="add_option"
+                                  on_remove_option="remove_option"
+                                />
+                              </div>
+                            <% end %>
                           </div>
                         <% end %>
                       </div>

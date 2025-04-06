@@ -68,6 +68,7 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
+            |> assign(:editing_item_id, nil)  # 添加新状态，记录原地编辑的表单项ID
             |> assign(:item_options, [])
             |> assign(:item_type, nil)
             |> assign(:delete_item_id, nil)
@@ -218,13 +219,17 @@ defmodule MyAppWeb.FormLive.Edit do
       new_item
     end
       
+    IO.puts("添加新表单项，使用顶部编辑区域")
+    
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
+    # 注意：设置editing_item=true但不设置editing_item_id，使用顶部编辑区域
     {:noreply, 
       socket
       |> assign(:current_item, new_item)
       |> assign(:item_options, [])
       |> assign(:item_type, item_type)
       |> assign(:editing_item, true)
+      |> assign(:editing_item_id, nil)  # 明确设置为nil，确保使用顶部编辑区域
       |> assign(:temp_label, temp_label)  # 保留标签值，不清除
     }
   end
@@ -239,13 +244,15 @@ defmodule MyAppWeb.FormLive.Edit do
         opts -> opts
       end
       
-      # 确保初始化临时标签值，便于编辑
+      IO.puts("开始编辑表单项 ID: #{id}, 类型: #{item.type}")
+      
+      # 改为设置editing_item_id而不是editing_item=true
       {:noreply, 
         socket
         |> assign(:current_item, item)
         |> assign(:item_options, options)
         |> assign(:item_type, to_string(item.type))
-        |> assign(:editing_item, true)
+        |> assign(:editing_item_id, id)  # 设置当前正在原地编辑的表单项ID
         |> assign(:temp_label, item.label)
       }
     else
@@ -255,10 +262,13 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("cancel_edit_item", _params, socket) do
+    IO.puts("取消编辑表单项")
+    
     {:noreply, 
       socket
       |> assign(:current_item, nil)
       |> assign(:editing_item, false)
+      |> assign(:editing_item_id, nil)  # 清除原地编辑ID
       |> assign(:item_options, [])
       |> assign(:editing_conditions, false)
       |> assign(:current_condition, nil)
@@ -1004,6 +1014,7 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:form_items, updated_form.items)
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
+            |> assign(:editing_item_id, nil)  # 清除原地编辑ID
             |> assign(:item_options, [])
             |> put_flash(:info, "表单项已更新")
           }
@@ -1131,6 +1142,7 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:form_items, updated_form.items)
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
+            |> assign(:editing_item_id, nil)  # 清除原地编辑ID 
             |> assign(:item_options, [])
             |> put_flash(:info, "表单项已添加")
             
