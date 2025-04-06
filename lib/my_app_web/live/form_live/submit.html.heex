@@ -122,9 +122,9 @@
                               />
                               <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
                                 <%= if option.label && option.label != "" do %>
-                                  <%= option.label %>
+                                  <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
                                 <% else %>
-                                  选项<%= option.value %>
+                                  选项 <%= option.value %>
                                 <% end %>
                               </label>
                             </div>
@@ -159,7 +159,11 @@
                             selected={Map.get(@form_state || %{}, "#{item.id}") == option.value}
                             style="white-space: normal; overflow: visible;"
                           >
-                            <%= option.label %>
+                            <%= if option.label && option.label != "" do %>
+                              <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                            <% else %>
+                              选项 <%= option.value %>
+                            <% end %>
                           </option>
                         <% end %>
                       </select>
@@ -195,9 +199,9 @@
                               />
                               <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
                                 <%= if option.label && option.label != "" do %>
-                                  <%= option.label %>
+                                  <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
                                 <% else %>
-                                  选项<%= option.value %>
+                                  选项 <%= option.value %>
                                 <% end %>
                               </label>
                             </div>

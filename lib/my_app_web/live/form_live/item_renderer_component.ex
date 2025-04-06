@@ -75,12 +75,18 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             >
               <option value="" disabled selected>请选择...</option>
               <%= for option <- item.options || [] do %>
-                <option value={option.value} disabled={is_preview}><%= option.label %></option>
+                <option value={option.value} disabled={is_preview}>
+                  <%= if option.label && option.label != "" do %>
+                    <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                  <% else %>
+                    选项 <%= option.value %>
+                  <% end %>
+                </option>
               <% end %>
             </select>
             <%= if is_preview && !Enum.empty?(item.options || []) do %>
               <div class="mt-2 pt-2 border-t text-xs text-gray-500">
-                选项: <%= Enum.map(item.options, &(&1.label <> " (" <> &1.value <> ")")) |> Enum.join(", ") %>
+                选项: <%= Enum.map(item.options, &("#{&1.label} (#{&1.value})")) |> Enum.join(", ") %>
               </div>
             <% end %>
 
@@ -98,7 +104,11 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                     class="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                   />
                   <label for={"preview_#{item.id}_#{option.id}"} class="ml-2 text-gray-700">
-                    <%= option.label %> <%= if is_preview, do: "(#{option.value})" %>
+                    <%= if option.label && option.label != "" do %>
+                      <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                    <% else %>
+                      选项 <%= option.value %>
+                    <% end %>
                   </label>
                 </div>
               <% end %>
@@ -120,7 +130,11 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                     class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                   />
                   <label for={"preview_#{item.id}_#{option.id}"} class="ml-2 text-gray-700">
-                    <%= option.label %> <%= if is_preview, do: "(#{option.value})" %>
+                    <%= if option.label && option.label != "" do %>
+                      <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                    <% else %>
+                      选项 <%= option.value %>
+                    <% end %>
                   </label>
                 </div>
               <% end %>
