@@ -500,32 +500,57 @@ defmodule MyAppWeb.FormComponents do
               phx-change="form_change"
             />
           </div>
-        </div>
-        
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">描述（可选）</label>
-          <textarea
-            name="item[description]"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            rows="2"
-            placeholder="请输入描述信息"
-          ><%= @item.description || "" %></textarea>
-        </div>
-        
-        <div class="flex items-center">
-          <input
-            type="checkbox"
-            id={if @item.id, do: "item-required", else: "new-item-required"}
-            name="item[required]"
-            checked={@item.required}
-            phx-change="form_change"
-            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-          />
-          <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
-        </div>
-        
-        <%= if @item.type in [:radio, :dropdown, :checkbox] || @item_type in ["radio", "dropdown", "checkbox"] do %>
-          <div class="pt-4 border-t border-gray-200">
+
+          <%= if @item_type in ["text_input", "textarea", "number", "email", "phone"] or @item.type in [:text_input, :textarea, :number, :email, :phone] do %>
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">占位提示</label>
+              <input
+                type="text"
+                name="item[placeholder]"
+                value={@item.placeholder || ""}
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="请输入占位提示文字 (可选)"
+                id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
+                phx-value-id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
+                phx-change="form_change"
+              />
+            </div>
+          <% end %>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">是否必填</label>
+            <input
+              type="checkbox"
+              id={if @item.id, do: "item-required", else: "new-item-required"}
+              name="item[required]"
+              checked={@item.required}
+              phx-change="form_change"
+              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+            />
+            <label for={if @item.id, do: "item-required", else: "new-item-required"} class="ml-2 text-sm text-gray-700">必填项</label>
+          </div>
+        </div> <%# Closing div of the main grid %>
+
+        <%# Add the placeholder input conditionally AFTER the main grid %>
+        <%= if @item_type in ["text_input", "textarea", "number", "email", "phone"] or @item.type in [:text_input, :textarea, :number, :email, :phone] do %>
+          <div class="mt-4"> <%# Add some margin top for spacing %>
+            <label class="block text-sm font-medium text-gray-700 mb-1">占位提示</label>
+            <input
+              type="text"
+              name="item[placeholder]"
+              value={@item.placeholder || ""}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="请输入占位提示文字 (可选)"
+              id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
+              phx-value-id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
+              phx-change="form_change"
+            />
+          </div>
+        <% end %>
+
+        <%# Options for radio, checkbox, dropdown %>
+        <%= if @item_type in ["radio", "checkbox", "dropdown"] or @item.type in [:radio, :checkbox, :dropdown] do %>
+          <div class="options-editor mt-4">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
               <button type="button" id="add-option-btn" phx-click={@on_add_option} class="text-sm text-indigo-600 hover:text-indigo-800">

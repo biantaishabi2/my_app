@@ -328,93 +328,15 @@
               <% end %>
             </p>
             
-            <!-- 条件编辑区域 -->
-            <div class="mb-6">
-              <!-- 条件类型选择 -->
-              <div class="flex gap-2 mb-4">
-                <button
-                  type="button"
-                  phx-click="edit_conditions"
-                  phx-value-id={@current_item.id}
-                  phx-value-type="visibility"
-                  class={"px-3 py-1 rounded-md text-sm #{if @condition_type == :visibility, do: "bg-indigo-600 text-white", else: "bg-gray-200 text-gray-700"}"}
-                >
-                  显示条件
-                </button>
-                <button
-                  type="button"
-                  phx-click="edit_conditions"
-                  phx-value-id={@current_item.id}
-                  phx-value-type="required"
-                  class={"px-3 py-1 rounded-md text-sm #{if @condition_type == :required, do: "bg-indigo-600 text-white", else: "bg-gray-200 text-gray-700"}"}
-                >
-                  必填条件
-                </button>
-              </div>
-              
-              <!-- 可用的源表单项 -->
-              <div class="mb-4 p-4 border rounded-md bg-gray-50">
-                <h4 class="text-sm font-medium mb-2">可用表单项</h4>
-                <%= if Enum.empty?(@available_items) do %>
-                  <p class="text-sm text-gray-500">没有可用的表单项作为条件源</p>
-                <% else %>
-                  <div class="grid grid-cols-3 gap-2">
-                    <%= for item <- @available_items do %>
-                      <div class="text-sm p-2 border rounded bg-white">
-                        <div class="font-medium"><%= item.label %></div>
-                        <div class="text-xs text-gray-500">类型: <%= item.type %></div>
-                      </div>
-                    <% end %>
-                  </div>
-                <% end %>
-              </div>
-              
-              <!-- 条件编辑区 -->
-              <div class="p-4 border rounded-md">
-                <div class="flex justify-between items-center mb-4">
-                  <h4 class="text-sm font-medium">
-                    <%= if @condition_type == :visibility do %>
-                      显示此表单项，当...
-                    <% else %>
-                      此表单项为必填，当...
-                    <% end %>
-                  </h4>
-                  <div class="space-x-2">
-                    <button
-                      type="button"
-                      phx-click="add_simple_condition"
-                      class="px-2 py-1 bg-white border border-gray-300 rounded text-xs"
-                    >
-                      添加条件
-                    </button>
-                    <button
-                      type="button"
-                      phx-click="add_condition_group"
-                      class="px-2 py-1 bg-white border border-gray-300 rounded text-xs"
-                    >
-                      添加条件组
-                    </button>
-                  </div>
-                </div>
-                
-                <!-- 条件显示区域 -->
-                <%= if is_nil(@current_condition) do %>
-                  <div class="text-center py-4 text-gray-500 text-sm">
-                    没有设置条件。点击"添加条件"或"添加条件组"按钮创建条件。
-                  </div>
-                <% else %>
-                  <!-- 条件树渲染 -->
-                  <div class="border-l-2 border-indigo-200 pl-4 py-2">
-                    <!-- 简化的条件显示 -->
-                    <div class="text-sm text-gray-600 py-2">
-                      条件已设置 (此处为简化版显示)
-                    </div>
-                  </div>
-                <% end %>
-              </div>
-            </div>
+            <!-- 条件编辑器组件 -->
+            <.condition_editor
+              id="condition-editor"
+              condition={@current_condition}
+              available_items={@available_items}
+              target={@myself}
+            />
             
-            <div class="flex justify-end space-x-3">
+            <div class="flex justify-end space-x-3 mt-4">
               <button
                 type="button"
                 phx-click="cancel_edit_conditions"
@@ -647,19 +569,8 @@
                                 <div style="font-size: 0.875rem; color: #4b5563; margin-top: 0.25rem; margin-bottom: 0.5rem;"><%= item.description %></div>
                               <% end %>
                               
-                              <!-- 表单项预览区域简化 -->
-                              <div style="margin-top: 0.5rem; background-color: #f9fafb; padding: 0.75rem; border-radius: 0.25rem;">
-                                <%= case item.type do %>
-                                  <% :text_input -> %>
-                                    <input type="text" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white;" disabled placeholder="文本输入示例" />
-                                  <% :textarea -> %>
-                                    <textarea style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; min-height: 80px;" disabled placeholder="文本区域示例"></textarea>
-                                  <% _ -> %>
-                                    <div style="padding: 0.5rem; color: #6b7280; text-align: center;">
-                                      <%= item.type %> 控件预览
-                                    </div>
-                                <% end %>
-                              </div>
+                              <!-- 表单项预览区域 - 使用共享组件 -->
+                              <ItemRendererComponent.render_item item={item} mode={:edit_preview} />
                               
                               <!-- 原地编辑区域 -->
                               <%= if @editing_item_id == item.id do %>

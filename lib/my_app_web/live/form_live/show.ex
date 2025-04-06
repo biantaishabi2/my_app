@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormLive.Show do
   use MyAppWeb, :live_view
+  alias MyAppWeb.FormLive.ItemRendererComponent
 
   alias MyApp.Forms
 

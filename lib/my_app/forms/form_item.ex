@@ -10,6 +10,7 @@ defmodule MyApp.Forms.FormItem do
   schema "form_items" do
     field :label, :string
     field :description, :string # 添加描述字段，用于显示表单项的附加说明
+    field :placeholder, :string # 添加 placeholder 字段
     # Use Ecto.Enum for type later if preferred
     field :type, Ecto.Enum, values: [
       :text_input,
