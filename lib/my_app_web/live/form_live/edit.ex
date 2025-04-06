@@ -18,8 +18,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 获取控件类型
     all_types = Forms.list_available_form_item_types()
     
-    
-    
     case Forms.get_form(id) do
       nil ->
         {:ok, 
@@ -61,8 +59,6 @@ defmodule MyAppWeb.FormLive.Edit do
             
           IO.puts("加载表单项: 发现#{length(all_form_items)}个项目")
           
-          
-          
           {:ok, 
             socket
             |> assign(:page_title, "编辑表单")
@@ -72,7 +68,6 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:form_items, all_form_items)  # 使用从页面收集的表单项
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
-            |> assign(:editing_item_ids, %{})  # 存储正在编辑的表单项ID映射
             |> assign(:item_options, [])
             |> assign(:item_type, nil)
             |> assign(:delete_item_id, nil)
@@ -236,58 +231,34 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("edit_item", %{"id" => id}, socket) do
-    IO.puts("\n==== 开始处理编辑项目事件 ====")
-    IO.puts("项目ID: #{id}")
-    IO.puts("socket.assigns: #{inspect(Map.keys(socket.assigns))}")
-    
     item = Enum.find(socket.assigns.form_items, fn item -> item.id == id end)
     
     if item do
-      IO.puts("找到表单项: #{item.label}, 类型: #{item.type}")
       options = case item.options do
         nil -> []
         opts -> opts
       end
       
-      # 更新编辑项目ID映射，启用当前项目的就地编辑
-      editing_item_ids = Map.put(socket.assigns.editing_item_ids, id, true)
-      IO.puts("编辑项目ID映射: #{inspect(editing_item_ids)}")
-      
       # 确保初始化临时标签值，便于编辑
-      IO.puts("返回前 - 不执行任何导航或重定向")
       {:noreply, 
         socket
         |> assign(:current_item, item)
         |> assign(:item_options, options)
         |> assign(:item_type, to_string(item.type))
-        |> assign(:editing_item_ids, editing_item_ids)
+        |> assign(:editing_item, true)
         |> assign(:temp_label, item.label)
       }
     else
-      IO.puts("未找到表单项")
       {:noreply, put_flash(socket, :error, "表单项不存在")}
     end
   end
 
   @impl true
-  def handle_event("cancel_edit_item", %{"id" => id}, socket) do
-    # 更新编辑项目ID映射，关闭当前项目的就地编辑
-    editing_item_ids = Map.delete(socket.assigns.editing_item_ids, id)
-    
-    {:noreply, 
-      socket
-      |> assign(:editing_item_ids, editing_item_ids)
-    }
-  end
-  
-  @impl true
   def handle_event("cancel_edit_item", _params, socket) do
-    # 向后兼容的处理方式，清除所有编辑状态
     {:noreply, 
       socket
       |> assign(:current_item, nil)
       |> assign(:editing_item, false)
-      |> assign(:editing_item_ids, %{})
       |> assign(:item_options, [])
       |> assign(:editing_conditions, false)
       |> assign(:current_condition, nil)
@@ -726,177 +697,32 @@ defmodule MyAppWeb.FormLive.Edit do
   end
   
   @impl true
-  def handle_event("add_matrix_row", %{"id" => id} = params, socket) do
-    # 添加调试日志
-    IO.puts("处理矩阵行添加: id=#{id}, params=#{inspect(params)}")
-    
-    # 从editing_item_ids中找到对应的表单项
-    form_items = socket.assigns.form_items
-    item = Enum.find(form_items, fn item -> item.id == id end)
-    
-    if item do
-      # 获取当前所有行
-      current_rows = item.matrix_rows || ["问题1", "问题2", "问题3"]
-      next_idx = length(current_rows) + 1
-      
-      # 添加新行
-      updated_item = Map.put(item, :matrix_rows, current_rows ++ ["问题#{next_idx}"])
-      
-      # 更新表单项列表中的项目
-      updated_form_items = Enum.map(form_items, fn 
-        i when i.id == id -> updated_item
-        i -> i
-      end)
-      
-      # 如果当前正在编辑这个项目，也更新current_item
-      socket = 
-        if socket.assigns.current_item && socket.assigns.current_item.id == id do
-          assign(socket, :current_item, updated_item)
-        else
-          socket
-        end
-      
-      {:noreply, assign(socket, :form_items, updated_form_items)}
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # 兼容老的调用方式
-  @impl true
   def handle_event("add_matrix_row", _params, socket) do
     current_item = socket.assigns.current_item
     
-    if current_item do
-      # 获取当前所有行
-      current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
-      next_idx = length(current_rows) + 1
-      
-      # 添加新行
-      updated_item = Map.put(current_item, :matrix_rows, current_rows ++ ["问题#{next_idx}"])
-      
-      {:noreply, assign(socket, :current_item, updated_item)}
-    else
-      {:noreply, socket}
-    end
+    # 获取当前所有行
+    current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
+    next_idx = length(current_rows) + 1
+    
+    # 添加新行
+    updated_item = Map.put(current_item, :matrix_rows, current_rows ++ ["问题#{next_idx}"])
+    
+    {:noreply, assign(socket, :current_item, updated_item)}
   end
   
-  @impl true
-  def handle_event("remove_matrix_row", %{"id" => id, "index" => index} = params, socket) do
-    # 添加调试日志
-    IO.puts("处理矩阵行删除: id=#{id}, index=#{index}, params=#{inspect(params)}")
-    
-    # 从editing_item_ids中找到对应的表单项
-    form_items = socket.assigns.form_items
-    item = Enum.find(form_items, fn item -> item.id == id end)
-    
-    if item do
-      # 获取当前所有行
-      current_rows = item.matrix_rows || ["问题1", "问题2", "问题3"]
-      index = String.to_integer(index)
-      
-      # 确保至少保留一行
-      if length(current_rows) > 1 do
-        # 删除指定行
-        updated_rows = List.delete_at(current_rows, index)
-        updated_item = Map.put(item, :matrix_rows, updated_rows)
-        
-        # 更新表单项列表中的项目
-        updated_form_items = Enum.map(form_items, fn 
-          i when i.id == id -> updated_item
-          i -> i
-        end)
-        
-        # 如果当前正在编辑这个项目，也更新current_item
-        socket = 
-          if socket.assigns.current_item && socket.assigns.current_item.id == id do
-            assign(socket, :current_item, updated_item)
-          else
-            socket
-          end
-        
-        {:noreply, assign(socket, :form_items, updated_form_items)}
-      else
-        {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # 兼容老的调用方式
   @impl true
   def handle_event("remove_matrix_row", %{"index" => index}, socket) do
     current_item = socket.assigns.current_item
     
-    if current_item do
-      # 获取当前所有行
-      current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
-      index = String.to_integer(index)
-      
-      # 确保至少保留一行
-      if length(current_rows) > 1 do
-        # 删除指定行
-        updated_rows = List.delete_at(current_rows, index)
-        updated_item = Map.put(current_item, :matrix_rows, updated_rows)
-        
-        {:noreply, assign(socket, :current_item, updated_item)}
-      else
-        {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  @impl true
-  def handle_event("add_matrix_column", %{"id" => id}, socket) do
-    # 从editing_item_ids中找到对应的表单项
-    form_items = socket.assigns.form_items
-    item = Enum.find(form_items, fn item -> item.id == id end)
+    # 获取当前所有行
+    current_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
+    index = String.to_integer(index)
     
-    if item do
-      # 获取当前所有列
-      current_columns = item.matrix_columns || ["选项A", "选项B", "选项C"]
-      next_idx = length(current_columns)
-      column_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
-      
-      # 添加新列
-      updated_item = Map.put(item, :matrix_columns, current_columns ++ ["选项#{column_letter}"])
-      
-      # 更新表单项列表中的项目
-      updated_form_items = Enum.map(form_items, fn 
-        i when i.id == id -> updated_item
-        i -> i
-      end)
-      
-      # 如果当前正在编辑这个项目，也更新current_item
-      socket = 
-        if socket.assigns.current_item && socket.assigns.current_item.id == id do
-          assign(socket, :current_item, updated_item)
-        else
-          socket
-        end
-      
-      {:noreply, assign(socket, :form_items, updated_form_items)}
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # 兼容老的调用方式
-  @impl true
-  def handle_event("add_matrix_column", _params, socket) do
-    current_item = socket.assigns.current_item
-    
-    if current_item do
-      # 获取当前所有列
-      current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
-      next_idx = length(current_columns)
-      column_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
-      
-      # 添加新列
-      updated_item = Map.put(current_item, :matrix_columns, current_columns ++ ["选项#{column_letter}"])
+    # 确保至少保留一行
+    if length(current_rows) > 1 do
+      # 删除指定行
+      updated_rows = List.delete_at(current_rows, index)
+      updated_item = Map.put(current_item, :matrix_rows, updated_rows)
       
       {:noreply, assign(socket, :current_item, updated_item)}
     else
@@ -905,65 +731,35 @@ defmodule MyAppWeb.FormLive.Edit do
   end
   
   @impl true
-  def handle_event("remove_matrix_column", %{"id" => id, "index" => index}, socket) do
-    # 从editing_item_ids中找到对应的表单项
-    form_items = socket.assigns.form_items
-    item = Enum.find(form_items, fn item -> item.id == id end)
+  def handle_event("add_matrix_column", _params, socket) do
+    current_item = socket.assigns.current_item
     
-    if item do
-      # 获取当前所有列
-      current_columns = item.matrix_columns || ["选项A", "选项B", "选项C"]
-      index = String.to_integer(index)
-      
-      # 确保至少保留一列
-      if length(current_columns) > 1 do
-        # 删除指定列
-        updated_columns = List.delete_at(current_columns, index)
-        updated_item = Map.put(item, :matrix_columns, updated_columns)
-        
-        # 更新表单项列表中的项目
-        updated_form_items = Enum.map(form_items, fn 
-          i when i.id == id -> updated_item
-          i -> i
-        end)
-        
-        # 如果当前正在编辑这个项目，也更新current_item
-        socket = 
-          if socket.assigns.current_item && socket.assigns.current_item.id == id do
-            assign(socket, :current_item, updated_item)
-          else
-            socket
-          end
-        
-        {:noreply, assign(socket, :form_items, updated_form_items)}
-      else
-        {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
+    # 获取当前所有列
+    current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
+    next_idx = length(current_columns)
+    column_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
+    
+    # 添加新列
+    updated_item = Map.put(current_item, :matrix_columns, current_columns ++ ["选项#{column_letter}"])
+    
+    {:noreply, assign(socket, :current_item, updated_item)}
   end
   
-  # 兼容老的调用方式
   @impl true
   def handle_event("remove_matrix_column", %{"index" => index}, socket) do
     current_item = socket.assigns.current_item
     
-    if current_item do
-      # 获取当前所有列
-      current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
-      index = String.to_integer(index)
+    # 获取当前所有列
+    current_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
+    index = String.to_integer(index)
+    
+    # 确保至少保留一列
+    if length(current_columns) > 1 do
+      # 删除指定列
+      updated_columns = List.delete_at(current_columns, index)
+      updated_item = Map.put(current_item, :matrix_columns, updated_columns)
       
-      # 确保至少保留一列
-      if length(current_columns) > 1 do
-        # 删除指定列
-        updated_columns = List.delete_at(current_columns, index)
-        updated_item = Map.put(current_item, :matrix_columns, updated_columns)
-        
-        {:noreply, assign(socket, :current_item, updated_item)}
-      else
-        {:noreply, socket}
-      end
+      {:noreply, assign(socket, :current_item, updated_item)}
     else
       {:noreply, socket}
     end
@@ -1202,19 +998,12 @@ defmodule MyAppWeb.FormLive.Edit do
           # 强制重新加载表单和表单项，确保所有更改都已应用
           updated_form = Forms.get_form(socket.assigns.form.id)
           
-          # 获取当前表单项ID
-          item_id = current_item.id
-          
-          # 更新编辑项目ID映射，关闭当前项目的就地编辑
-          editing_item_ids = Map.delete(socket.assigns.editing_item_ids, item_id)
-          
           {:noreply, 
             socket
             |> assign(:form, updated_form)
             |> assign(:form_items, updated_form.items)
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
-            |> assign(:editing_item_ids, editing_item_ids)
             |> assign(:item_options, [])
             |> put_flash(:info, "表单项已更新")
           }
@@ -1342,7 +1131,6 @@ defmodule MyAppWeb.FormLive.Edit do
             |> assign(:form_items, updated_form.items)
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
-            |> assign(:editing_item_ids, %{})  # 清空所有编辑状态
             |> assign(:item_options, [])
             |> put_flash(:info, "表单项已添加")
             

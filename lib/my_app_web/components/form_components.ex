@@ -378,21 +378,14 @@ defmodule MyAppWeb.FormComponents do
         on_remove_option="remove_option"
       />
   """
-  # 我们不能在这里添加公开的handle_event函数，因为它会与导入此模块的其他组件冲突
-# 改为封装在form_item_editor组件中实现矩阵行列功能
-# 需要改回原设计，让矩阵操作在LiveView主组件中处理
-
-def form_item_editor(assigns) do
-  # 注意：@myself是Phoenix.LiveView自动处理的值，不需要手动分配
-  # 这里只需使用assign_new确保other_assigns中有正确的值
-  assigns = assign_new(assigns, :myself, fn -> nil end)
+  def form_item_editor(assigns) do
     ~H"""
     <div class="bg-white rounded-lg shadow-lg p-6 mb-6" id={@id || "form-item-editor"}>
       <h3 class="text-lg font-medium mb-4" id="item-editor-title">
         <%= if @item.id, do: "编辑表单项", else: "添加新表单项" %>
       </h3>
       
-      <form id="form-item-form" phx-submit={@on_save} phx-change="form_change" phx-click-away={@on_cancel} phx-value-id={@item.id} class="space-y-4">
+      <form id="form-item-form" phx-submit={@on_save} phx-change="form_change" class="space-y-4">
         <%= if @item.id do %>
           <input type="hidden" name="item[id]" value={@item.id} />
         <% end %>
@@ -535,7 +528,7 @@ def form_item_editor(assigns) do
           <div class="pt-4 border-t border-gray-200">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
-              <button type="button" id="add-option-btn" phx-click={@on_add_option} phx-target={@myself} class="text-sm text-indigo-600 hover:text-indigo-800">
+              <button type="button" id="add-option-btn" phx-click={@on_add_option} class="text-sm text-indigo-600 hover:text-indigo-800">
                 + 添加选项
               </button>
             </div>
@@ -568,7 +561,7 @@ def form_item_editor(assigns) do
                     type="button"
                     phx-click={@on_remove_option}
                     phx-value-index={index}
-                      class="text-red-500 hover:text-red-700"
+                    class="text-red-500 hover:text-red-700"
                     title="删除选项"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -864,7 +857,7 @@ def form_item_editor(assigns) do
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block text-sm font-medium text-gray-700">行标题 (问题)</label>
-                <button type="button" phx-click="add_matrix_row" phx-value-id={@item.id} phx-target={@myself} data-item-id={@item.id} class="text-sm text-indigo-600 hover:text-indigo-800 matrix-control-btn">
+                <button type="button" phx-click="add_matrix_row" class="text-sm text-indigo-600 hover:text-indigo-800">
                   + 添加行
                 </button>
               </div>
@@ -882,11 +875,8 @@ def form_item_editor(assigns) do
                     <button 
                       type="button" 
                       phx-click="remove_matrix_row" 
-                      phx-value-id={@item.id}
                       phx-value-index={index}
-                          class="text-red-500 hover:text-red-700 matrix-control-btn"
-                      data-item-id={@item.id}
-                      data-index={index}
+                      class="text-red-500 hover:text-red-700"
                       title="删除行"
                       disabled={length(@item.matrix_rows || ["问题1", "问题2", "问题3"]) <= 1}
                     >
@@ -903,7 +893,7 @@ def form_item_editor(assigns) do
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block text-sm font-medium text-gray-700">列标题 (选项)</label>
-                <button type="button" phx-click="add_matrix_column" phx-value-id={@item.id} phx-target={@myself} data-item-id={@item.id} class="text-sm text-indigo-600 hover:text-indigo-800 matrix-control-btn">
+                <button type="button" phx-click="add_matrix_column" class="text-sm text-indigo-600 hover:text-indigo-800">
                   + 添加列
                 </button>
               </div>
@@ -921,11 +911,8 @@ def form_item_editor(assigns) do
                     <button 
                       type="button" 
                       phx-click="remove_matrix_column" 
-                      phx-value-id={@item.id}
                       phx-value-index={index}
-                          class="text-red-500 hover:text-red-700 matrix-control-btn"
-                      data-item-id={@item.id}
-                      data-index={index}
+                      class="text-red-500 hover:text-red-700"
                       title="删除列"
                       disabled={length(@item.matrix_columns || ["选项A", "选项B", "选项C"]) <= 1}
                     >
@@ -1213,7 +1200,6 @@ def form_item_editor(assigns) do
           <button
             type="button"
             phx-click={@on_cancel}
-            phx-value-id={@item.id}
             class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             取消
@@ -2056,119 +2042,5 @@ def form_item_editor(assigns) do
       <% end %>
     </div>
     """
-  end
-
-  # Matrix控件的事件处理函数 - 使用特定名称避免与已导入函数冲突
-  # 处理添加行
-  def handle_event("add_matrix_row", %{"id" => id}, socket) do
-    handle_matrix_row_add(id, socket)
-  end
-  
-  # 处理删除行
-  def handle_event("remove_matrix_row", %{"id" => id, "index" => index}, socket) do
-    handle_matrix_row_remove(id, index, socket)
-  end
-  
-  # 处理添加列
-  def handle_event("add_matrix_column", %{"id" => id}, socket) do
-    handle_matrix_column_add(id, socket)
-  end
-  
-  # 处理删除列
-  def handle_event("remove_matrix_column", %{"id" => id, "index" => index}, socket) do
-    handle_matrix_column_remove(id, index, socket)
-  end
-  
-  # 处理添加矩阵行的实际逻辑
-  defp handle_matrix_row_add(id, socket) do
-    # 获取当前表单项
-    item = socket.assigns.item
-    
-    # 确保item.id与传入的id匹配
-    if item.id == id do
-      # 获取当前所有行
-      current_rows = item.matrix_rows || ["问题1", "问题2", "问题3"]
-      next_idx = length(current_rows) + 1
-      
-      # 添加新行
-      updated_item = Map.put(item, :matrix_rows, current_rows ++ ["问题#{next_idx}"])
-      
-      {:noreply, assign(socket, :item, updated_item)}
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # 处理删除矩阵行的实际逻辑
-  defp handle_matrix_row_remove(id, index, socket) do
-    # 获取当前表单项
-    item = socket.assigns.item
-    
-    # 确保item.id与传入的id匹配
-    if item.id == id do
-      # 获取当前所有行
-      current_rows = item.matrix_rows || ["问题1", "问题2", "问题3"]
-      index = String.to_integer(index)
-      
-      # 确保至少保留一行
-      if length(current_rows) > 1 do
-        # 删除指定行
-        updated_rows = List.delete_at(current_rows, index)
-        updated_item = Map.put(item, :matrix_rows, updated_rows)
-        
-        {:noreply, assign(socket, :item, updated_item)}
-      else
-        {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # A处理添加矩阵列的实际逻辑
-  defp handle_matrix_column_add(id, socket) do
-    # 获取当前表单项
-    item = socket.assigns.item
-    
-    # 确保item.id与传入的id匹配
-    if item.id == id do
-      # 获取当前所有列
-      current_columns = item.matrix_columns || ["选项A", "选项B", "选项C"]
-      next_idx = length(current_columns)
-      column_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
-      
-      # 添加新列
-      updated_item = Map.put(item, :matrix_columns, current_columns ++ ["选项#{column_letter}"])
-      
-      {:noreply, assign(socket, :item, updated_item)}
-    else
-      {:noreply, socket}
-    end
-  end
-  
-  # 处理删除矩阵列的实际逻辑
-  defp handle_matrix_column_remove(id, index, socket) do
-    # 获取当前表单项
-    item = socket.assigns.item
-    
-    # 确保item.id与传入的id匹配
-    if item.id == id do
-      # 获取当前所有列
-      current_columns = item.matrix_columns || ["选项A", "选项B", "选项C"]
-      index = String.to_integer(index)
-      
-      # 确保至少保留一列
-      if length(current_columns) > 1 do
-        # 删除指定列
-        updated_columns = List.delete_at(current_columns, index)
-        updated_item = Map.put(item, :matrix_columns, updated_columns)
-        
-        {:noreply, assign(socket, :item, updated_item)}
-      else
-        {:noreply, socket}
-      end
-    else
-      {:noreply, socket}
-    end
   end
 end
