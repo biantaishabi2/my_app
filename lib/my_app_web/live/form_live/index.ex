@@ -43,6 +43,13 @@ defmodule MyAppWeb.FormLive.Index do
     |> assign(:page_title, "我的表单")
     |> assign(:form, nil)
   end
+  
+  defp apply_action(socket, :new, _params) do
+    socket
+    |> assign(:page_title, "新建表单")
+    |> assign(:form, nil)
+    |> assign(:show_new_form, true)
+  end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     current_user = socket.assigns.current_user

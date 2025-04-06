@@ -102,6 +102,7 @@ defmodule MyAppWeb.Router do
     live_session :form_system,
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms", FormLive.Index, :index
+      live "/forms/new", FormLive.Index, :new
       live "/forms/:id", FormLive.Show, :show
       live "/forms/:id/edit", FormLive.Edit, :edit
       live "/forms/:id/responses", FormLive.Responses, :index
