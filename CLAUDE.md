@@ -67,6 +67,45 @@
    - 当发现特定测试失败时，优先单独运行该测试进行调试
    - 使用`mix test <specific_test_file:line_number>`来运行单个测试案例
 
+## 调试技巧
+
+### 使用系统服务记录Phoenix日志
+
+为了更有效地调试Phoenix应用程序，可以使用以下方法将服务器输出重定向到日志文件：
+
+1. 创建服务脚本（例如 `my_app_service.sh`）：
+```bash
+#!/bin/bash
+cd /home/wangbo/document/wangbo/my_app
+rm -f my_app_server.log
+echo "启动Phoenix服务器: $(date)" >> my_app_server.log
+MIX_ENV=dev mix phx.server >> my_app_server.log 2>&1
+```
+
+2. 设置脚本权限并启动服务：
+```bash
+chmod +x my_app_service.sh
+nohup ./my_app_service.sh &
+```
+
+3. 监控日志输出：
+```bash
+tail -f my_app_server.log
+```
+
+这种方法使调试更容易，因为：
+- 服务器输出被保存到文件中，可以随时查看
+- 不会因为终端关闭而中断服务
+- 可以通过查看日志来识别错误和问题
+- 对于调试事件处理和数据流非常有帮助
+
+### 利用Phoenix的热重载功能
+
+Phoenix支持代码热重载，这意味着大多数代码更改会自动应用，无需重启服务器：
+- 编辑代码文件并保存
+- Phoenix会自动重新编译和重新加载更改
+- 监控日志以确认更改已应用
+
 ## 其他注意事项
 
 - 业务代码应该遵循代码库中的风格和约定

@@ -187,14 +187,45 @@ defmodule MyAppWeb.FormLive.Edit do
       _ -> :text_input
     end
     
+    # 使用当前表单类型设置默认标签
+    default_label = case item_type do
+      "radio" -> "新单选问题"
+      "checkbox" -> "新复选问题"
+      "matrix" -> "新矩阵题"
+      "dropdown" -> "新下拉菜单"
+      "rating" -> "新评分题"
+      _ -> "新问题"
+    end
+    
+    # 保留现有临时标签（如果存在），或使用默认标签
+    temp_label = socket.assigns[:temp_label] || default_label
+    
+    # 创建初始化的表单项
+    new_item = %FormItem{
+      type: type_atom, 
+      required: false, 
+      page_id: page_id,
+      label: temp_label
+    }
+    
+    # 矩阵类型的特殊处理：预设行列
+    new_item = if item_type == "matrix" || item_type == :matrix do
+      new_item
+      |> Map.put(:matrix_rows, ["问题1", "问题2", "问题3"])
+      |> Map.put(:matrix_columns, ["选项A", "选项B", "选项C"])
+      |> Map.put(:matrix_type, :single)
+    else
+      new_item
+    end
+      
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
     {:noreply, 
       socket
-      |> assign(:current_item, %FormItem{type: type_atom, required: false, page_id: page_id})
+      |> assign(:current_item, new_item)
       |> assign(:item_options, [])
       |> assign(:item_type, item_type)
       |> assign(:editing_item, true)
-      |> assign(:temp_label, "")  # 清除之前可能存在的临时标签
+      |> assign(:temp_label, temp_label)  # 保留标签值，不清除
     }
   end
 
@@ -595,6 +626,19 @@ defmodule MyAppWeb.FormLive.Edit do
           IO.puts("保存临时描述: #{description}")
           socket |> assign(:temp_description, description)
           
+        # 处理表单项的标签字段
+        is_list(target) && (target == ["form", "item", "label"] || List.last(target) == "label") ->
+          label_value = get_in(form_params, ["item", "label"]) || ""
+          IO.puts("保存表单项标签: #{label_value}")
+          
+          # 同时更新临时标签和当前项的标签
+          current_item = socket.assigns.current_item
+          updated_item = if current_item, do: Map.put(current_item, :label, label_value), else: current_item
+          
+          socket 
+          |> assign(:temp_label, label_value)
+          |> assign(:current_item, updated_item)
+          
         true -> 
           socket
       end
@@ -622,11 +666,16 @@ defmodule MyAppWeb.FormLive.Edit do
           IO.puts("保存临时描述: #{value}")
           socket 
           |> assign(:temp_description, value)
-        element_id == "edit-item-label" || element_id == "new-item-label" || String.contains?(element_id, "item-label") ->
+        element_id == "edit-item-label" || element_id == "new-item-label" || String.contains?(element_id, "item-label") || String.contains?(element_id, "label") ->
           # 存储表单项标签，并写入日志
           IO.puts("保存临时标签: #{value}")
+          # 同时更新临时标签和当前项的标签
+          current_item = socket.assigns.current_item
+          updated_item = if current_item, do: Map.put(current_item, :label, value), else: current_item
+          
           socket 
           |> assign(:temp_label, value)
+          |> assign(:current_item, updated_item)
         true -> 
           socket
       end
@@ -778,10 +827,123 @@ defmodule MyAppWeb.FormLive.Edit do
       case validate_matrix(socket, item_type) do
         {:error, error_message} ->
           {:noreply, socket |> put_flash(:error, error_message)}
-        :ok ->
+        {:ok, updated_socket} ->
+    
+    # 使用更新后的socket
+    socket = updated_socket
+    
+    # 更新current_item，确保使用最新的值
+    current_item = socket.assigns.current_item
     
     # 处理选项数据
     item_params = process_item_params(item_params)
+    
+    # 特殊处理矩阵类型的参数
+    if item_type == "matrix" || item_type == :matrix do
+      IO.puts("处理矩阵题参数: #{inspect(item_params)}")
+      
+      # 从当前项中获取现有的矩阵数据作为后备
+      current_matrix_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
+      current_matrix_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
+      
+      # 尝试从参数中获取矩阵行列数据，如果不存在则使用当前值
+      matrix_rows_param = Map.get(item_params, "matrix_rows") || Map.get(item_params, :matrix_rows)
+      matrix_columns_param = Map.get(item_params, "matrix_columns") || Map.get(item_params, :matrix_columns)
+      
+      IO.puts("处理矩阵行参数: #{inspect(matrix_rows_param)}, 类型: #{typeof(matrix_rows_param)}")
+      
+      # 处理矩阵行参数格式
+      matrix_rows = cond do
+        # 如果参数为空或不存在，使用当前值
+        is_nil(matrix_rows_param) -> 
+          IO.puts("使用当前矩阵行: #{inspect(current_matrix_rows)}")
+          current_matrix_rows
+          
+        # 如果参数是列表，直接使用
+        is_list(matrix_rows_param) -> 
+          IO.puts("使用参数列表的矩阵行: #{inspect(matrix_rows_param)}")
+          matrix_rows_param
+          
+        # 如果参数是映射(表单字段映射)，转换为列表
+        is_map(matrix_rows_param) -> 
+          rows = matrix_rows_param 
+                |> Enum.sort_by(fn {k, _} -> 
+                    case Integer.parse(to_string(k)) do
+                      {num, _} -> num
+                      :error -> 0
+                    end
+                  end)
+                |> Enum.map(fn {_, v} -> v end)
+          IO.puts("将映射转换为列表的矩阵行: #{inspect(rows)}")
+          rows
+          
+        # 其他情况，使用默认值
+        true -> 
+          IO.puts("使用默认矩阵行")
+          ["问题1", "问题2", "问题3"]
+      end
+      
+      # 防止matrix_rows为空或nil
+      matrix_rows = if is_nil(matrix_rows) || (is_list(matrix_rows) && Enum.empty?(matrix_rows)) do
+        ["问题1", "问题2", "问题3"]
+      else
+        matrix_rows
+      end
+      
+      IO.puts("处理矩阵列参数: #{inspect(matrix_columns_param)}, 类型: #{typeof(matrix_columns_param)}")
+      
+      # 处理矩阵列参数格式 (与行处理类似)
+      matrix_columns = cond do
+        is_nil(matrix_columns_param) -> 
+          IO.puts("使用当前矩阵列: #{inspect(current_matrix_columns)}")
+          current_matrix_columns
+          
+        is_list(matrix_columns_param) -> 
+          IO.puts("使用参数列表的矩阵列: #{inspect(matrix_columns_param)}")
+          matrix_columns_param
+          
+        is_map(matrix_columns_param) -> 
+          cols = matrix_columns_param 
+                |> Enum.sort_by(fn {k, _} -> 
+                    case Integer.parse(to_string(k)) do
+                      {num, _} -> num
+                      :error -> 0
+                    end
+                  end)
+                |> Enum.map(fn {_, v} -> v end)
+          IO.puts("将映射转换为列表的矩阵列: #{inspect(cols)}")
+          cols
+          
+        true -> 
+          IO.puts("使用默认矩阵列")
+          ["选项A", "选项B", "选项C"]
+      end
+      
+      # 防止matrix_columns为空或nil
+      matrix_columns = if is_nil(matrix_columns) || (is_list(matrix_columns) && Enum.empty?(matrix_columns)) do
+        ["选项A", "选项B", "选项C"]
+      else
+        matrix_columns
+      end
+      
+      # 确保矩阵类型正确设置
+      matrix_type_param = Map.get(item_params, "matrix_type") || Map.get(item_params, :matrix_type) 
+      matrix_type = cond do
+        matrix_type_param == "multiple" || matrix_type_param == :multiple -> :multiple
+        matrix_type_param == "single" || matrix_type_param == :single -> :single 
+        true -> current_item.matrix_type || :single  # 默认为单选
+      end
+      
+      IO.puts("处理后的矩阵行: #{inspect(matrix_rows)}")
+      IO.puts("处理后的矩阵列: #{inspect(matrix_columns)}")
+      IO.puts("处理后的矩阵类型: #{inspect(matrix_type)}")
+      
+      # 更新参数，确保使用字符串键
+      item_params = item_params
+        |> Map.put("matrix_rows", matrix_rows)
+        |> Map.put("matrix_columns", matrix_columns)
+        |> Map.put("matrix_type", matrix_type)
+    end
     
     if current_item.id do
       # 更新现有表单项 - 确保只有字符串键
@@ -792,6 +954,35 @@ defmodule MyAppWeb.FormLive.Edit do
           # 保留字符串键
           {k, v} -> {k, v} 
         end)
+        
+      # 确保矩阵行和列是有效的数组格式
+      clean_params = if item_type == "matrix" || item_type == :matrix do
+        # 确保矩阵行是数组格式
+        matrix_rows = Map.get(clean_params, "matrix_rows")
+        matrix_rows = cond do
+          is_nil(matrix_rows) -> ["问题1", "问题2", "问题3"]
+          is_list(matrix_rows) -> matrix_rows
+          true -> ["问题1", "问题2", "问题3"]
+        end
+        
+        # 确保矩阵列是数组格式
+        matrix_columns = Map.get(clean_params, "matrix_columns")
+        matrix_columns = cond do
+          is_nil(matrix_columns) -> ["选项A", "选项B", "选项C"]
+          is_list(matrix_columns) -> matrix_columns
+          true -> ["选项A", "选项B", "选项C"]
+        end
+        
+        IO.puts("最终矩阵行: #{inspect(matrix_rows)}, 类型: #{typeof(matrix_rows)}")
+        IO.puts("最终矩阵列: #{inspect(matrix_columns)}, 类型: #{typeof(matrix_columns)}")
+        
+        # 更新参数
+        clean_params
+        |> Map.put("matrix_rows", matrix_rows)
+        |> Map.put("matrix_columns", matrix_columns)
+      else
+        clean_params
+      end
       
       # 删除强制使用固定标签值的测试代码，使用用户输入的实际标签  
       IO.puts("使用用户输入标签值: label=#{clean_params["label"]}")
@@ -830,6 +1021,35 @@ defmodule MyAppWeb.FormLive.Edit do
           # 保留字符串键
           {k, v} -> {k, v} 
         end)
+        
+      # 确保矩阵行和列是有效的数组格式
+      clean_params = if item_type == "matrix" || item_type == :matrix do
+        # 确保矩阵行是数组格式
+        matrix_rows = Map.get(clean_params, "matrix_rows")
+        matrix_rows = cond do
+          is_nil(matrix_rows) -> ["问题1", "问题2", "问题3"]
+          is_list(matrix_rows) -> matrix_rows
+          true -> ["问题1", "问题2", "问题3"]
+        end
+        
+        # 确保矩阵列是数组格式
+        matrix_columns = Map.get(clean_params, "matrix_columns")
+        matrix_columns = cond do
+          is_nil(matrix_columns) -> ["选项A", "选项B", "选项C"]
+          is_list(matrix_columns) -> matrix_columns
+          true -> ["选项A", "选项B", "选项C"]
+        end
+        
+        IO.puts("新建项 - 最终矩阵行: #{inspect(matrix_rows)}, 类型: #{typeof(matrix_rows)}")
+        IO.puts("新建项 - 最终矩阵列: #{inspect(matrix_columns)}, 类型: #{typeof(matrix_columns)}")
+        
+        # 更新参数
+        clean_params
+        |> Map.put("matrix_rows", matrix_rows)
+        |> Map.put("matrix_columns", matrix_columns)
+      else
+        clean_params
+      end
       
       # 使用用户输入的标签或生成默认标签
       label = if Map.has_key?(clean_params, "label") && clean_params["label"] != "" do
@@ -1078,6 +1298,11 @@ defmodule MyAppWeb.FormLive.Edit do
   
   @impl true
   # 处理异步表单项添加后的事件，确保界面正确更新
+  def handle_info({:update_matrix_defaults, updated_item}, socket) do
+    IO.puts("Updating matrix defaults")
+    {:noreply, assign(socket, :current_item, updated_item)}
+  end
+  
   def handle_info(:after_item_added, socket) do
     # 重新获取最新数据
     updated_form = Forms.get_form(socket.assigns.form.id)
@@ -1151,16 +1376,41 @@ defmodule MyAppWeb.FormLive.Edit do
       matrix_rows = current_item.matrix_rows || []
       matrix_columns = current_item.matrix_columns || []
       
-      cond do
-        Enum.empty?(matrix_rows) ->
-          {:error, "矩阵控件至少需要一行，请添加行"}
-        Enum.empty?(matrix_columns) ->
-          {:error, "矩阵控件至少需要一列，请添加列"}
-        true ->
-          :ok
+      IO.puts("Matrix validation: rows=#{inspect(matrix_rows)}, columns=#{inspect(matrix_columns)}")
+      
+      # 确保行和列都有默认值
+      matrix_rows = if Enum.empty?(matrix_rows) do
+        default_rows = ["问题1", "问题2", "问题3"]
+        IO.puts("Using default rows: #{inspect(default_rows)}")
+        default_rows
+      else
+        matrix_rows
       end
+      
+      matrix_columns = if Enum.empty?(matrix_columns) do
+        default_columns = ["选项A", "选项B", "选项C"]
+        IO.puts("Using default columns: #{inspect(default_columns)}")
+        default_columns
+      else
+        matrix_columns
+      end
+      
+      # 确保原始item有行列字段
+      updated_item = current_item
+        |> Map.put(:matrix_rows, matrix_rows)
+        |> Map.put(:matrix_columns, matrix_columns)
+        |> Map.put(:matrix_type, current_item.matrix_type || :single)
+      
+      # 立即更新socket的current_item
+      socket = assign(socket, :current_item, updated_item)
+      
+      # 也异步发送更新指令，确保UI能响应
+      Process.send_after(self(), {:update_matrix_defaults, updated_item}, 50)
+      
+      # 返回更新后的socket，而不是简单的:ok
+      {:ok, socket}
     else
-      :ok
+      {:ok, socket}
     end
   end
   

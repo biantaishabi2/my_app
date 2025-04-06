@@ -857,7 +857,7 @@ defmodule MyAppWeb.FormComponents do
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block text-sm font-medium text-gray-700">行标题 (问题)</label>
-                <button type="button" phx-click="add_matrix_row" phx-target={@myself} class="text-sm text-indigo-600 hover:text-indigo-800">
+                <button type="button" phx-click="add_matrix_row" class="text-sm text-indigo-600 hover:text-indigo-800">
                   + 添加行
                 </button>
               </div>
@@ -875,7 +875,6 @@ defmodule MyAppWeb.FormComponents do
                     <button 
                       type="button" 
                       phx-click="remove_matrix_row" 
-                      phx-target={@myself}
                       phx-value-index={index}
                       class="text-red-500 hover:text-red-700"
                       title="删除行"
@@ -894,7 +893,7 @@ defmodule MyAppWeb.FormComponents do
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
                 <label class="block text-sm font-medium text-gray-700">列标题 (选项)</label>
-                <button type="button" phx-click="add_matrix_column" phx-target={@myself} class="text-sm text-indigo-600 hover:text-indigo-800">
+                <button type="button" phx-click="add_matrix_column" class="text-sm text-indigo-600 hover:text-indigo-800">
                   + 添加列
                 </button>
               </div>
@@ -912,7 +911,6 @@ defmodule MyAppWeb.FormComponents do
                     <button 
                       type="button" 
                       phx-click="remove_matrix_column" 
-                      phx-target={@myself}
                       phx-value-index={index}
                       class="text-red-500 hover:text-red-700"
                       title="删除列"
