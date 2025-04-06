@@ -425,118 +425,15 @@
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <div class="text-sm text-gray-600 mb-2">
-                        请选择您所在的地区
-                      </div>
                       
-                      <div class={"grid grid-cols-#{item.region_level || 3} gap-2"}>
-                        <div class="relative region-select-container" id={"region-province-container-#{item.id}"} phx-hook="RegionSelector">
-                          <select 
-                            id={"#{item.id}_province"}
-                            class="w-full region-select px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
-                            phx-change="region_province_change"
-                            phx-value-field-id={item.id}
-                            size="10"
-                          >
-                            <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_province")}>省/直辖市</option>
-                            
-                            <%= for province <- MyApp.Regions.get_provinces() do %>
-                              <option 
-                                value={province.name} 
-                                selected={Map.get(@form_state || %{}, "#{item.id}_province") == province.name}
-                              >
-                                <%= province.name %>
-                              </option>
-                            <% end %>
-                          </select>
-                          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500" style="height: 40px;">
-                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                        
-                        <%= if item.region_level == nil || item.region_level >= 2 do %>
-                        <div class="relative region-select-container" id={"region-city-container-#{item.id}"} phx-hook="RegionSelector">
-                          <select 
-                            id={"#{item.id}_city"}
-                            class="w-full region-select px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
-                            phx-change="region_city_change"
-                            phx-value-field-id={item.id}
-                            disabled={!Map.get(@form_state || %{}, "#{item.id}_province")}
-                            size="10"
-                          >
-                            <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_city")}>市</option>
-                            
-                            <%= if province = Map.get(@form_state || %{}, "#{item.id}_province") do %>
-                              <%= for city <- MyApp.Regions.get_cities(province) do %>
-                                <option 
-                                  value={city.name} 
-                                  selected={Map.get(@form_state || %{}, "#{item.id}_city") == city.name}
-                                >
-                                  <%= city.name %>
-                                </option>
-                              <% end %>
-                            <% end %>
-                          </select>
-                          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500" style="height: 40px;">
-                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                        <% end %>
-                        
-                        <%= if item.region_level == nil || item.region_level >= 3 do %>
-                        <div class="relative region-select-container" id={"region-district-container-#{item.id}"} phx-hook="RegionSelector">
-                          <select 
-                            id={"#{item.id}_district"}
-                            class="w-full region-select px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 border-gray-300"
-                            phx-change="region_district_change"
-                            phx-value-field-id={item.id}
-                            disabled={!Map.get(@form_state || %{}, "#{item.id}_city")}
-                            size="10"
-                          >
-                            <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}_district")}>区/县</option>
-                            
-                            <%= if province = Map.get(@form_state || %{}, "#{item.id}_province") do %>
-                              <%= if city = Map.get(@form_state || %{}, "#{item.id}_city") do %>
-                                <%= for district <- MyApp.Regions.get_districts(province, city) do %>
-                                  <option 
-                                    value={district.name} 
-                                    selected={Map.get(@form_state || %{}, "#{item.id}_district") == district.name}
-                                  >
-                                    <%= district.name %>
-                                  </option>
-                                <% end %>
-                              <% end %>
-                            <% end %>
-                          </select>
-                          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500" style="height: 40px;">
-                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                        <% end %>
-                      </div>
-                      
-                      <!-- 隐藏字段用于提交完整地区值 -->
-                      <input 
-                        type="hidden"
-                        id={item.id}
-                        name={"form[#{item.id}]"}
-                        value={@form_state["#{item.id}"] || MyAppWeb.FormLive.Submit.combine_region_value(
-                          Map.get(@form_state || %{}, "#{item.id}_province"),
-                          Map.get(@form_state || %{}, "#{item.id}_city"),
-                          Map.get(@form_state || %{}, "#{item.id}_district")
-                        )}
-                        required={item.required}
+                      <!-- 使用自定义区域选择组件 -->
+                      <MyAppWeb.Components.RegionSelect.region_select 
+                        field_id={item.id}
+                        region_level={item.region_level || 3}
+                        form_state={@form_state}
+                        errors={@errors}
+                        disabled={false}
                       />
-                      
-                      <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
-                      <% end %>
                     </div>
                     
                   <% :matrix -> %>

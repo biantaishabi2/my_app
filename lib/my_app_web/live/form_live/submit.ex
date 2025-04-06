@@ -8,6 +8,8 @@ defmodule MyAppWeb.FormLive.Submit do
   
   # 导入表单组件以使用自定义表单控件
   import MyAppWeb.FormComponents
+  # 导入地区选择组件
+  import MyAppWeb.Components.RegionSelect
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -331,9 +333,9 @@ defmodule MyAppWeb.FormLive.Submit do
     }
   end
 
-  # 地区选择事件处理器 - 处理省份变化
+  # 处理省份变化 - JavaScript钩子发送的事件
   @impl true
-  def handle_event("region_province_change", %{"field-id" => field_id, "value" => province}, socket) do
+  def handle_event("handle_province_change", %{"field_id" => field_id, "province" => province}, socket) do
     form_state = socket.assigns.form_state || %{}
     
     # 更新省份并清除城市和区县
@@ -352,28 +354,31 @@ defmodule MyAppWeb.FormLive.Submit do
     # 重新验证
     errors = validate_form_data(updated_form_state, socket.assigns.items_map)
     
+    # 获取城市列表
+    cities = MyApp.Regions.get_cities(province)
+    
     # 添加日志帮助调试
     if Mix.env() == :dev do
-      IO.puts("地区选择 - 省份变化: #{field_id} -> #{province}")
-      IO.inspect(updated_form_state, label: "更新后的表单状态")
+      IO.puts("JS地区选择 - 省份变化: #{field_id} -> #{province}")
+      IO.puts("获取到#{length(cities)}个城市")
     end
     
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
-      |> push_event("region_updated", %{field_id: field_id, level: "province"})
+      |> push_event("update_cities", %{field_id: field_id, cities: cities})
     }
   end
   
-  # 处理城市变化
+  # 处理城市变化 - JavaScript钩子发送的事件
   @impl true
-  def handle_event("region_city_change", %{"field-id" => field_id, "value" => city}, socket) do
+  def handle_event("handle_city_change", %{"field_id" => field_id, "province" => province, "city" => city}, socket) do
     form_state = socket.assigns.form_state || %{}
-    province = Map.get(form_state, "#{field_id}_province")
     
     # 更新城市并清除区县
     updated_form_state = form_state
+      |> Map.put("#{field_id}_province", province)
       |> Map.put("#{field_id}_city", city)
       |> Map.delete("#{field_id}_district")
     
@@ -387,29 +392,35 @@ defmodule MyAppWeb.FormLive.Submit do
     # 重新验证
     errors = validate_form_data(updated_form_state, socket.assigns.items_map)
     
+    # 获取区县列表
+    districts = MyApp.Regions.get_districts(province, city)
+    
     # 添加日志帮助调试
     if Mix.env() == :dev do
-      IO.puts("地区选择 - 城市变化: #{field_id} -> #{city}")
-      IO.inspect(updated_form_state, label: "更新后的表单状态")
+      IO.puts("JS地区选择 - 城市变化: #{field_id} -> #{city}")
+      IO.puts("获取到#{length(districts)}个区县")
     end
     
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
-      |> push_event("region_updated", %{field_id: field_id, level: "city"})
+      |> push_event("update_districts", %{field_id: field_id, districts: districts})
     }
   end
   
-  # 处理区县变化
+  # 处理区县变化 - JavaScript钩子发送的事件
   @impl true
-  def handle_event("region_district_change", %{"field-id" => field_id, "value" => district}, socket) do
+  def handle_event("handle_district_change", %{"field_id" => field_id, "district" => district}, socket) do
     form_state = socket.assigns.form_state || %{}
     province = Map.get(form_state, "#{field_id}_province")
     city = Map.get(form_state, "#{field_id}_city")
     
     # 更新区县
-    updated_form_state = Map.put(form_state, "#{field_id}_district", district)
+    updated_form_state = form_state
+      |> Map.put("#{field_id}_province", province)
+      |> Map.put("#{field_id}_city", city)
+      |> Map.put("#{field_id}_district", district)
     
     # 更新组合值
     updated_form_state = Map.put(
@@ -423,16 +434,33 @@ defmodule MyAppWeb.FormLive.Submit do
     
     # 添加日志帮助调试
     if Mix.env() == :dev do
-      IO.puts("地区选择 - 区县变化: #{field_id} -> #{district}")
-      IO.inspect(updated_form_state, label: "更新后的表单状态")
+      IO.puts("JS地区选择 - 区县变化: #{field_id} -> #{district}")
     end
     
     {:noreply, 
       socket
       |> assign(:form_state, updated_form_state)
       |> assign(:errors, errors)
-      |> push_event("region_updated", %{field_id: field_id, level: "district"})
     }
+  end
+  
+  # 保持原有的表单事件处理兼容性
+  @impl true
+  def handle_event("region_province_change", %{"field-id" => field_id, "value" => province}, socket) do
+    handle_event("handle_province_change", %{"field_id" => field_id, "province" => province}, socket)
+  end
+  
+  @impl true
+  def handle_event("region_city_change", %{"field-id" => field_id, "value" => city}, socket) do
+    form_state = socket.assigns.form_state || %{}
+    province = Map.get(form_state, "#{field_id}_province")
+    
+    handle_event("handle_city_change", %{"field_id" => field_id, "province" => province, "city" => city}, socket)
+  end
+  
+  @impl true
+  def handle_event("region_district_change", %{"field-id" => field_id, "value" => district}, socket) do
+    handle_event("handle_district_change", %{"field_id" => field_id, "district" => district}, socket)
   end
   
   # 处理矩阵题变化
