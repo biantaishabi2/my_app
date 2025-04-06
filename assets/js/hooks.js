@@ -6,37 +6,19 @@ Hooks.FormButtons = {
   mounted() {
     console.log("FormButtons钩子已挂载", this.el.id);
     
-    this.el.addEventListener("click", (e) => {
-      console.log("按钮被点击:", this.el.id);
+    // 提供视觉反馈但不干扰事件传播
+    this.handleEvent("phx:click", () => {
+      console.log("按钮被点击（通过phx:click）:", this.el.id);
       
       // 添加视觉反馈
-      const originalText = this.el.innerText;
-      const originalBg = this.el.style.backgroundColor;
-      
-      // 禁用按钮防止多次点击
       this.el.disabled = true;
       this.el.style.opacity = "0.7";
       
-      // 1秒后恢复，以防事件未能处理
+      // 1秒后恢复
       setTimeout(() => {
         this.el.disabled = false;
         this.el.style.opacity = "";
       }, 1000);
-      
-      // 根据不同按钮类型进行特殊处理
-      if (this.el.id === "new-form-btn") {
-        console.log("新建表单按钮被点击");
-      } else if (this.el.id === "save-new-form-btn") {
-        console.log("保存新表单按钮被点击");
-        // 对于提交按钮，不阻止默认行为，让表单正常提交
-        return true;
-      } else if (this.el.id === "cancel-new-form-btn") {
-        console.log("取消按钮被点击");
-      } else if (this.el.id.startsWith("publish-form-")) {
-        console.log("发布表单按钮被点击");
-      } else if (this.el.id.startsWith("delete-form-")) {
-        console.log("删除表单按钮被点击");
-      }
     });
   }
 };

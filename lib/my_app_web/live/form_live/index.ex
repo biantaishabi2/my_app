@@ -115,13 +115,7 @@ defmodule MyAppWeb.FormLive.Index do
   @impl true
   def handle_event("new_form", _params, socket) do
     IO.puts("===> 新表单事件被触发")
-    {:noreply, 
-      socket
-      |> assign(:show_new_form, true)
-      |> assign(:form_changeset, Forms.change_form(%Form{}))
-      |> assign(:form_values, %{})
-      |> assign(:form_errors, %{})
-    }
+    {:noreply, push_navigate(socket, to: ~p"/forms/new")}
   end
 
   @impl true 
