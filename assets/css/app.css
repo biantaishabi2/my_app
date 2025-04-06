@@ -20,6 +20,12 @@ html, body {
   min-height: 100vh;
 }
 
+/* 确保所有表单控件的标签可见 */
+.form-item label {
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
 /* 添加滚动支持 */
 .content-container {
   min-height: calc(100vh - 4rem);

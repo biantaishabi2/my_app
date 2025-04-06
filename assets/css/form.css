@@ -592,3 +592,23 @@ button#form-submit-button:active {
   position: relative;
   z-index: 10;
 }
+
+/* 确保表单选项标签正确显示 */
+.form-item-option label,
+[class*="form-radio-option"] label,
+[class*="form-checkbox-option"] label {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 40px !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  max-width: calc(100% - 30px) !important;
+  padding: 2px 4px !important;
+  color: #000 !important;
+}
+
+/* 确保下拉菜单文本正确显示 */
+select option {
+  white-space: normal;
+  word-wrap: break-word;
+}

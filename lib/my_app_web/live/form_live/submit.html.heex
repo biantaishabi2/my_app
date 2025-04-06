@@ -120,8 +120,12 @@
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
                                 phx-debounce="blur"
                               />
-                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
-                                <%= option.label %>
+                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
+                                <%= if option.label && option.label != "" do %>
+                                  <%= option.label %>
+                                <% else %>
+                                  选项<%= option.value %>
+                                <% end %>
                               </label>
                             </div>
                           <% end %>
@@ -153,6 +157,7 @@
                           <option 
                             value={option.value} 
                             selected={Map.get(@form_state || %{}, "#{item.id}") == option.value}
+                            style="white-space: normal; overflow: visible;"
                           >
                             <%= option.label %>
                           </option>
@@ -188,8 +193,12 @@
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
                                 phx-debounce="blur"
                               />
-                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700">
-                                <%= option.label %>
+                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
+                                <%= if option.label && option.label != "" do %>
+                                  <%= option.label %>
+                                <% else %>
+                                  选项<%= option.value %>
+                                <% end %>
                               </label>
                             </div>
                           <% end %>

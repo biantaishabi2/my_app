@@ -40,6 +40,35 @@ defmodule MyAppWeb.FormLive.Submit do
           # 获取当前页面的表单项
           page_items = get_page_items(form, current_page)
           
+          # 调试输出表单项和选项
+          if Mix.env() == :dev do
+            IO.puts("\n===== 表单提交页面调试信息 =====")
+            IO.puts("表单ID: #{form.id}")
+            IO.puts("表单项数量: #{length(form.items)}")
+            
+            # 检查所有表单项的选项
+            Enum.each(form.items, fn item ->
+              options_info = case item.options do
+                %Ecto.Association.NotLoaded{} -> "选项未加载"
+                nil -> "无选项"
+                options when is_list(options) -> "#{length(options)}个选项"
+                _ -> "未知选项类型"
+              end
+              
+              IO.puts("表单项: #{item.id} (#{item.label}) - 类型: #{item.type} - 选项: #{options_info}")
+              
+              # 如果有选项，输出选项信息
+              if is_list(item.options) && !Enum.empty?(item.options) do
+                Enum.each(item.options, fn option ->
+                  IO.puts("  - 选项ID: #{option.id}, 标签: #{option.label}, 值: #{option.value}")
+                end)
+              end
+            end)
+            
+            IO.puts("当前页面表单项数量: #{length(page_items)}")
+            IO.puts("===== 调试信息结束 =====\n")
+          end
+          
           # 初始化文件上传配置
           socket = 
             Enum.reduce(form.items, socket, fn item, acc ->
