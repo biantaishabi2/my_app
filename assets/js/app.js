@@ -87,9 +87,11 @@ const AllHooks = {
 
 // 初始化LiveView
 let liveSocket = new LiveSocket("/live", Socket, {
-  longPollFallbackMs: 2500,
+  // 移除 longPollFallbackMs 设置，但增加调试工具
   params: {_csrf_token: csrfToken},
-  hooks: AllHooks // 传入合并后的钩子
+  hooks: AllHooks, // 传入合并后的钩子
+  transport: Socket.WebSocket, // 强制使用 WebSocket
+  logger: (kind, msg, data) => { console.log(`${kind}: ${msg}`, data) }
 })
 
 // Show progress bar on live navigation and form submits
