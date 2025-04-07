@@ -114,96 +114,181 @@ defmodule MyAppWeb.TestUploadLive do
   @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-2xl py-8" phx-drop-target={@uploads.avatar.ref}>
-      <div class="mb-6">
-        <h1 class="text-xl font-bold mb-2">文件上传</h1>
-        <%= if @form_id && @field_id do %>
-          <p class="text-gray-600">为表单 <%= @form_id %> 的字段 <%= @field_id %> 上传文件</p>
-        <% else %>
-          <p class="text-gray-600">测试文件上传功能</p>
-        <% end %>
-      </div>
-      
-      <.form
-        for={%{}}
-        id="upload-form"
-        phx-submit="save"
-        phx-change="validate"
-      >
-        <div class="space-y-6">
-          <div>
-            <.label>选择文件</.label>
-            <div class="mt-2">
-              <.live_file_input upload={@uploads.avatar} />
-            </div>
-          </div>
-
-          <div :if={@uploads.avatar.entries != []}>
-            <h3 class="text-lg font-medium">已选择的文件:</h3>
-            <div :for={entry <- @uploads.avatar.entries} class="mt-2">
-              <div class="flex items-center gap-4">
-                <.live_img_preview entry={entry} width={60} />
-                <div>
-                  <div><%= entry.client_name %></div>
-                  <div class="text-sm text-gray-600">
-                    <%= entry.client_type %> - <%= format_bytes(entry.client_size) %>
-                  </div>
-                  <div :if={entry.progress < 100} class="text-sm text-blue-600">
-                    <%= entry.progress %>%
-                  </div>
-                  <div :if={entry.progress == 100} class="text-sm text-green-600">
-                    Ready
-                  </div>
-                </div>
-                <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} class="text-red-500">
-                  &times;
-                </button>
-              </div>
-
-              <div :for={err <- upload_errors(@uploads.avatar, entry)} class="text-red-500 text-sm mt-1">
-                <%= error_to_string(err) %>
-              </div>
-            </div>
-          </div>
-
-          <div :if={@uploads.avatar.errors != []}>
-            <div :for={err <- upload_errors(@uploads.avatar)} class="text-red-500 text-sm mt-1">
-              <%= error_to_string(err) %>
-            </div>
-          </div>
-
-          <div :if={@uploaded_files != []}>
-            <h3 class="text-lg font-medium mt-6">已上传的文件:</h3>
-            <div :for={file_info <- @uploaded_files} class="mt-2 border p-3 rounded">
-              <div class="flex items-start gap-4">
-                <%= if String.ends_with?(file_info.path, ~w(.jpg .jpeg .png .gif .webp)) do %>
-                  <img src={file_info.path} width="60" />
-                <% else %>
-                  <div class="w-[60px] h-[60px] bg-gray-200 flex items-center justify-center">
-                    <div class="text-xs text-center"><%= Path.extname(file_info.original_filename) %></div>
-                  </div>
-                <% end %>
-                <div>
-                  <div><%= file_info.original_filename %></div>
-                  <div class="text-sm text-gray-600">
-                    <%= file_info.type %> - <%= format_bytes(file_info.size) %>
-                  </div>
-                  <div class="text-sm break-all mt-1">
-                    <a href={file_info.path} target="_blank" class="text-blue-600 hover:underline">
-                      <%= file_info.path %>
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex gap-4">
-            <.button type="submit">上传文件</.button>
-            <.button type="button" phx-click="return" class="bg-gray-500">返回表单</.button>
-          </div>
+    <div class="container mx-auto p-6">
+      <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h1 class="text-2xl font-bold">文件上传</h1>
+          <%= if @form_id && @field_id do %>
+            <p class="mt-2 text-gray-600">为表单字段上传文件</p>
+          <% else %>
+            <p class="mt-2 text-gray-600">测试文件上传功能</p>
+          <% end %>
         </div>
-      </.form>
+        
+        <div class="p-6" phx-drop-target={@uploads.avatar.ref}>
+          <.form
+            for={%{}}
+            id="upload-form"
+            phx-submit="save"
+            phx-change="validate"
+          >
+            <div class="space-y-6">
+              <div>
+                <div class="flex flex-col md:flex-row md:items-end gap-4 mb-6">
+                  <div class="flex-1">
+                    <.label class="block text-sm font-medium mb-1">选择文件</.label>
+                    <div class="mt-2">
+                      <.live_file_input upload={@uploads.avatar} class="w-full text-sm text-slate-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-md file:border-0
+                        file:text-sm file:font-medium
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100" />
+                    </div>
+                  </div>
+                  <div class="md:mb-2">
+                    <.button type="submit" class="w-full md:w-auto px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      上传文件
+                    </.button>
+                  </div>
+                </div>
+                
+                <div class="text-xs text-gray-500 flex flex-col md:flex-row gap-2 md:gap-6 mb-2">
+                  <div>
+                    支持格式: JPG, JPEG, PNG, GIF, MP4, MOV, WEBP
+                  </div>
+                  <div>
+                    单个文件最大 10MB
+                  </div>
+                  <div>
+                    最多上传 5 个文件
+                  </div>
+                </div>
+              </div>
+
+              <div :if={@uploads.avatar.entries != []}>
+                <div class="border-t border-gray-200 pt-4 mb-2">
+                  <h3 class="text-lg font-medium">待上传的文件</h3>
+                  <p class="text-sm text-gray-500">点击上传按钮保存这些文件</p>
+                </div>
+                <div :for={entry <- @uploads.avatar.entries} class="mt-2 bg-gray-50 rounded-lg p-3 shadow-sm">
+                  <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-white rounded shadow-inner overflow-hidden flex items-center justify-center">
+                      <.live_img_preview entry={entry} width={64} />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-medium truncate"><%= entry.client_name %></div>
+                      <div class="text-xs text-gray-600 flex gap-3 items-center">
+                        <span><%= entry.client_type %></span>
+                        <span><%= format_bytes(entry.client_size) %></span>
+                        <div :if={entry.progress < 100} class="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div class="bg-indigo-600 h-full" style={"width: #{entry.progress}%"}></div>
+                        </div>
+                        <span :if={entry.progress < 100} class="text-xs text-indigo-600 whitespace-nowrap">
+                          <%= entry.progress %>%
+                        </span>
+                        <span :if={entry.progress == 100} class="text-xs text-green-600 whitespace-nowrap">
+                          上传准备就绪
+                        </span>
+                      </div>
+                    </div>
+                    <button type="button" phx-click="cancel-upload" phx-value-ref={entry.ref} 
+                      class="p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-red-500 transition">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div :for={err <- upload_errors(@uploads.avatar, entry)} class="text-red-500 text-xs mt-1">
+                    <%= error_to_string(err) %>
+                  </div>
+                </div>
+              </div>
+
+              <div :if={@uploads.avatar.errors != []}>
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                  <div class="flex">
+                    <div class="flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div class="ml-3">
+                      <h3 class="text-sm font-medium text-red-700">上传错误</h3>
+                      <div class="mt-1 text-xs text-red-600">
+                        <ul class="list-disc list-inside">
+                          <%= for err <- upload_errors(@uploads.avatar) do %>
+                            <li><%= error_to_string(err) %></li>
+                          <% end %>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div :if={@uploaded_files != []}>
+                <div class="border-t border-gray-200 pt-4 mb-2">
+                  <h3 class="text-lg font-medium">已上传的文件</h3>
+                  <p class="text-sm text-gray-500">这些文件已成功上传保存</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <%= for file_info <- @uploaded_files do %>
+                    <div class="bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition">
+                      <div class="flex gap-3">
+                        <div class="w-14 h-14 bg-gray-100 rounded shadow-inner overflow-hidden flex items-center justify-center">
+                          <%= if String.ends_with?(file_info.path, ~w(.jpg .jpeg .png .gif .webp)) do %>
+                            <img src={file_info.path} class="max-w-full max-h-full object-contain" />
+                          <% else %>
+                            <div class="w-full h-full flex items-center justify-center bg-gray-200">
+                              <div class="text-xs text-center font-semibold"><%= Path.extname(file_info.original_filename) %></div>
+                            </div>
+                          <% end %>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="text-sm font-medium truncate"><%= file_info.original_filename %></div>
+                          <div class="text-xs text-gray-500 truncate">
+                            <%= file_info.type %> | <%= format_bytes(file_info.size) %>
+                          </div>
+                          <a href={file_info.path} target="_blank" class="text-xs text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center mt-1">
+                            查看文件
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+                
+                <div class="mt-6 text-center bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+                  <p class="text-indigo-800 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    上传成功后，文件将与表单回答关联。点击"返回表单"按钮继续填写表单。
+                  </p>
+                </div>
+              </div>
+
+              <div class="mt-10 border-t border-gray-200 pt-4 flex justify-end">
+                <.button type="button" phx-click="return" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                  </svg>
+                  返回表单
+                </.button>
+              </div>
+            </div>
+          </.form>
+        </div>
+      </div>
     </div>
     """
   end
