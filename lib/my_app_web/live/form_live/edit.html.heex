@@ -133,18 +133,18 @@
                 <div style="font-size: 0.75rem; white-space: nowrap;">下拉菜单</div>
               </button>
               
-              <button 
-                type="button"
-                phx-click="type_changed"
+                <button 
+                  type="button"
+                  phx-click="type_changed"
                 phx-value-type="number"
                 data-test-id="item-type-number"
                 style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "number", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "number", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "number", do: "#4f46e5", else: "#1f2937"};"}
-              >
+                >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                 </svg>
                 <div style="font-size: 0.75rem; white-space: nowrap;">数字输入</div>
-              </button>
+                </button>
             </div>
           </div>
         <% end %>
@@ -205,9 +205,9 @@
                 <div style="font-size: 0.75rem; white-space: nowrap;">时间选择</div>
               </button>
               
-              <button 
-                type="button"
-                phx-click="type_changed"
+                <button 
+                  type="button"
+                  phx-click="type_changed"
                 phx-value-type="region"
                 data-test-id="item-type-region"
                 style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "region", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "region", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "region", do: "#4f46e5", else: "#1f2937"};"}
@@ -217,7 +217,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 <div style="font-size: 0.75rem; white-space: nowrap;">地区选择</div>
-              </button>
+                </button>
             </div>
           </div>
         <% end %>
@@ -265,18 +265,18 @@
                 <div style="font-size: 0.75rem; white-space: nowrap;">图片选择</div>
               </button>
               
-              <button 
-                type="button"
-                phx-click="type_changed"
+                <button 
+                  type="button"
+                  phx-click="type_changed"
                 phx-value-type="file_upload"
                 data-test-id="item-type-file_upload"
                 style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "file_upload", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "file_upload", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "file_upload", do: "#4f46e5", else: "#1f2937"};"}
-              >
+                >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <div style="font-size: 0.75rem; white-space: nowrap;">文件上传</div>
-              </button>
+                </button>
             </div>
           </div>
         <% end %>
@@ -712,7 +712,7 @@
                                     <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
                                   <% end %>
 
-                                  <%= case item.type do %>
+                                    <%= case item.type do %>
                                     <% :text_input -> %>
                                       <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #e0f2fe; color: #0369a1; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bae6fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
@@ -816,7 +816,7 @@
                                       <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                                         未知类型
                                       </span>
-                                  <% end %>
+                                    <% end %>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                   <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
@@ -935,7 +935,7 @@
               <!-- 文件信息 -->
               <div class="mt-2 flex items-center justify-between text-sm">
                 <div class="text-gray-500">
-                  <%= entry.client_name %> - <%= Number.Delimit.number_to_delimited(div(entry.client_size, 1024), precision: 0) %> KB
+                  <%= entry.client_name %> - <%= format_bytes(entry.client_size) %>
                 </div>
                 
                 <!-- 错误信息 -->

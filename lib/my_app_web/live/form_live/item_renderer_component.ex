@@ -295,10 +295,10 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                          <div class="p-2 text-center text-sm"><%= option.label %></div>
                        <% end %>
                        <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
-                         <%= if option[:image_filename] || option["image_filename"] do %>
+                         <%= if option.image_filename do %>
                            <img 
-                             src={"/uploads/#{option[:image_filename] || option["image_filename"]}"} 
-                             alt={option[:label] || option["label"]} 
+                             src={"/uploads/#{option.image_filename}"} 
+                             alt={option.label} 
                              class="h-full w-full object-contain"
                            />
                          <% else %>

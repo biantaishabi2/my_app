@@ -814,362 +814,90 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
-  def handle_event("save_item", params, socket) do
-    IO.puts("\n==== 表单项保存调试信息 ====")
-    IO.puts("参数结构: #{inspect(params)}")
-    
-    # 测试选项提取逻辑
-    debug_options_extraction(params)
-    
-    # 处理表单项标签和类型
-    item_type = socket.assigns.item_type
-    new_label = case params do
-      %{"item" => %{"label" => label}} when label != "" -> 
-        label
-      _ -> 
-        # 如果没有提供标签，使用默认值
-        case item_type do
-          "radio" -> "新单选问题"
-          "checkbox" -> "新复选问题"
-          "matrix" -> "新矩阵题"
-          _ -> "新文本问题"  
-        end
-    end
-    
-    # 确保表单项类型正确设置
-    socket = assign(socket, :item_type, item_type)
-    socket = assign(socket, :temp_label, new_label)
-    # 处理表单提交或无参数的情况
-    item_params = params["item"] || %{}
+  def handle_event("save_item", %{"item" => item_params} = params, socket) do
     form = socket.assigns.form
-    
-    # 检查是否需要选项的控件类型
-    if requires_options?(item_type) && Enum.empty?(socket.assigns.item_options) do
-      {:noreply, 
-        socket
-        |> put_flash(:error, "#{display_selected_type(item_type)}控件需要至少一个选项，请先添加选项")
-      }
-    else
-      # 检查矩阵控件是否有行和列
-      case validate_matrix(socket, item_type) do
-        {:error, error_message} ->
-          {:noreply, socket |> put_flash(:error, error_message)}
-        {:ok, updated_socket} ->
-    
-    # 使用更新后的socket
-    socket = updated_socket
-    
-    # 获取current_item，确保使用最新的值
     current_item = socket.assigns.current_item
-    
-    # 处理选项数据
-    item_params = process_item_params(item_params)
-    
-    # 特殊处理矩阵类型的参数
-    if item_type == "matrix" || item_type == :matrix do
-      IO.puts("处理矩阵题参数: #{inspect(item_params)}")
+    editing_item_id = socket.assigns.editing_item_id
+    item_options_from_socket = socket.assigns.item_options # 获取 socket 中的选项状态
+
+    # 调试参数
+    IO.puts("==== 表单项保存调试信息 ====")
+    IO.puts("传入参数结构: #{inspect(params)}")
+    IO.puts("Socket中的选项: #{inspect(item_options_from_socket)}") # 打印 socket 选项
+    # debug_options_extraction(params) # 不再需要从 params 调试
+
+    # 处理 item 参数 (类型转换, required 标准化)
+    clean_item_params = process_item_params(item_params)
+    item_type = clean_item_params["type"]
+
+    # 区分是更新还是添加
+    if current_item && (current_item.id || editing_item_id) do
+      # 更新现有表单项
+      item_id_to_update = editing_item_id || current_item.id
+      existing_item = Forms.get_form_item(item_id_to_update)
       
-      # 从当前项中获取现有的矩阵数据作为后备
-      current_matrix_rows = current_item.matrix_rows || ["问题1", "问题2", "问题3"]
-      current_matrix_columns = current_item.matrix_columns || ["选项A", "选项B", "选项C"]
-      
-      # 尝试从参数中获取矩阵行列数据，如果不存在则使用当前值
-      matrix_rows_param = Map.get(item_params, "matrix_rows") || Map.get(item_params, :matrix_rows)
-      matrix_columns_param = Map.get(item_params, "matrix_columns") || Map.get(item_params, :matrix_columns)
-      
-      IO.puts("处理矩阵行参数: #{inspect(matrix_rows_param)}, 类型: #{typeof(matrix_rows_param)}")
-      
-      # 处理矩阵行参数格式
-      matrix_rows = cond do
-        # 如果参数为空或不存在，使用当前值
-        is_nil(matrix_rows_param) -> 
-          IO.puts("使用当前矩阵行: #{inspect(current_matrix_rows)}")
-          current_matrix_rows
-          
-        # 如果参数是列表，直接使用
-        is_list(matrix_rows_param) -> 
-          IO.puts("使用参数列表的矩阵行: #{inspect(matrix_rows_param)}")
-          matrix_rows_param
-          
-        # 如果参数是映射(表单字段映射)，转换为列表
-        is_map(matrix_rows_param) -> 
-          rows = matrix_rows_param 
-                |> Enum.sort_by(fn {k, _} -> 
-                    case Integer.parse(to_string(k)) do
-                      {num, _} -> num
-                      :error -> 0
-                    end
-                  end)
-                |> Enum.map(fn {_, v} -> v end)
-          IO.puts("将映射转换为列表的矩阵行: #{inspect(rows)}")
-          rows
-          
-        # 其他情况，使用默认值
-        true -> 
-          IO.puts("使用默认矩阵行")
-          ["问题1", "问题2", "问题3"]
-      end
-      
-      # 防止matrix_rows为空或nil
-      matrix_rows = if is_nil(matrix_rows) || (is_list(matrix_rows) && Enum.empty?(matrix_rows)) do
-        ["问题1", "问题2", "问题3"]
-      else
-        matrix_rows
-      end
-      
-      IO.puts("处理矩阵列参数: #{inspect(matrix_columns_param)}, 类型: #{typeof(matrix_columns_param)}")
-      
-      # 处理矩阵列参数格式 (与行处理类似)
-      matrix_columns = cond do
-        is_nil(matrix_columns_param) -> 
-          IO.puts("使用当前矩阵列: #{inspect(current_matrix_columns)}")
-          current_matrix_columns
-          
-        is_list(matrix_columns_param) -> 
-          IO.puts("使用参数列表的矩阵列: #{inspect(matrix_columns_param)}")
-          matrix_columns_param
-          
-        is_map(matrix_columns_param) -> 
-          cols = matrix_columns_param 
-                |> Enum.sort_by(fn {k, _} -> 
-                    case Integer.parse(to_string(k)) do
-                      {num, _} -> num
-                      :error -> 0
-                    end
-                  end)
-                |> Enum.map(fn {_, v} -> v end)
-          IO.puts("将映射转换为列表的矩阵列: #{inspect(cols)}")
-          cols
-          
-        true -> 
-          IO.puts("使用默认矩阵列")
-          ["选项A", "选项B", "选项C"]
-      end
-      
-      # 防止matrix_columns为空或nil
-      matrix_columns = if is_nil(matrix_columns) || (is_list(matrix_columns) && Enum.empty?(matrix_columns)) do
-        ["选项A", "选项B", "选项C"]
-      else
-        matrix_columns
-      end
-      
-      # 确保矩阵类型正确设置
-      matrix_type_param = Map.get(item_params, "matrix_type") || Map.get(item_params, :matrix_type) 
-      matrix_type = cond do
-        matrix_type_param == "multiple" || matrix_type_param == :multiple -> :multiple
-        matrix_type_param == "single" || matrix_type_param == :single -> :single 
-        true -> current_item.matrix_type || :single  # 默认为单选
-      end
-      
-      IO.puts("处理后的矩阵行: #{inspect(matrix_rows)}")
-      IO.puts("处理后的矩阵列: #{inspect(matrix_columns)}")
-      IO.puts("处理后的矩阵类型: #{inspect(matrix_type)}")
-      
-      # 更新参数，确保使用字符串键
-      updated_params = item_params
-        |> Map.put("matrix_rows", matrix_rows)
-        |> Map.put("matrix_columns", matrix_columns)
-        |> Map.put("matrix_type", matrix_type)
-    end
-    
-    if current_item.id do
-      # 更新现有表单项 - 确保只有字符串键
-      clean_params = 
-        Map.new(item_params, fn
-          # 原子键转字符串
-          {k, v} when is_atom(k) -> {to_string(k), v}
-          # 保留字符串键
-          {k, v} -> {k, v} 
-        end)
+      if existing_item do
+        IO.puts("更新现有表单项 ID: #{item_id_to_update}")
         
-      # 确保矩阵行和列是有效的数组格式
-      clean_params = if item_type == "matrix" || item_type == :matrix do
-        # 确保矩阵行是数组格式
-        matrix_rows = Map.get(clean_params, "matrix_rows")
-        matrix_rows = cond do
-          is_nil(matrix_rows) -> ["问题1", "问题2", "问题3"]
-          is_list(matrix_rows) -> matrix_rows
-          true -> ["问题1", "问题2", "问题3"]
+        # 如果是矩阵类型，确保行列存在
+        clean_item_params = if item_type == :matrix do
+           rows = Map.get(clean_item_params, "matrix_rows") || existing_item.matrix_rows || []
+           cols = Map.get(clean_item_params, "matrix_columns") || existing_item.matrix_columns || []
+           Map.merge(clean_item_params, %{"matrix_rows" => rows, "matrix_columns" => cols})
+        else
+          clean_item_params
         end
-        
-        # 确保矩阵列是数组格式
-        matrix_columns = Map.get(clean_params, "matrix_columns")
-        matrix_columns = cond do
-          is_nil(matrix_columns) -> ["选项A", "选项B", "选项C"]
-          is_list(matrix_columns) -> matrix_columns
-          true -> ["选项A", "选项B", "选项C"]
+
+        case Forms.update_form_item(existing_item, clean_item_params) do
+          {:ok, updated_item} ->
+            IO.puts("表单项更新成功: id=#{updated_item.id}, label=#{updated_item.label}")
+            
+            # 处理选项（使用 socket 中的选项状态）
+            updated_item_with_options = process_options(updated_item, item_options_from_socket)
+            
+            # 强制重新加载表单数据
+            socket = reload_form_and_update_socket(socket, form.id, "表单项已更新")
+            
+            {:noreply,
+              socket
+              |> assign(:current_item, nil)
+              |> assign(:editing_item, false)
+              |> assign(:editing_item_id, nil) 
+              |> assign(:item_options, []) # 清空临时选项
+            }
+            
+          {:error, changeset} ->
+            IO.puts("表单项更新失败: #{inspect(changeset.errors)}")
+            error_msg = inspect(changeset.errors)
+            {:noreply, put_flash(socket, :error, "表单项更新失败: #{error_msg}")}
         end
-        
-        IO.puts("最终矩阵行: #{inspect(matrix_rows)}, 类型: #{typeof(matrix_rows)}")
-        IO.puts("最终矩阵列: #{inspect(matrix_columns)}, 类型: #{typeof(matrix_columns)}")
-        
-        # 更新参数
-        clean_params
-        |> Map.put("matrix_rows", matrix_rows)
-        |> Map.put("matrix_columns", matrix_columns)
       else
-        clean_params
-      end
-      
-      # 删除强制使用固定标签值的测试代码，使用用户输入的实际标签  
-      IO.puts("使用用户输入标签值: label=#{clean_params["label"]}")
-        
-      case Forms.update_form_item(current_item, clean_params) do
-        {:ok, updated_item} ->
-          # 如果是单选按钮、复选框或下拉菜单类型，需要添加选项
-          if updated_item.type == :radio or updated_item.type == :dropdown or updated_item.type == :checkbox do
-            IO.puts("添加选项到#{updated_item.type}类型表单项")
-            process_options(updated_item, item_params)
-          end
-          
-          # 强制重新加载表单和表单项，确保所有更改都已应用
-          updated_form = Forms.get_form(socket.assigns.form.id)
-          
-          {:noreply, 
-            socket
-            |> assign(:form, updated_form)
-            |> assign(:form_items, updated_form.items)
-            |> assign(:current_item, nil)
-            |> assign(:editing_item, false)
-            |> assign(:editing_item_id, nil)  # 清除原地编辑ID
-            |> assign(:item_options, [])
-            |> put_flash(:info, "表单项已更新")
-          }
-          
-        {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "表单项更新失败: #{inspect(changeset.errors)}")}
+        {:noreply, put_flash(socket, :error, "要更新的表单项不存在")}
       end
     else
       # 添加新表单项
-      # 准备参数 - 确保只有字符串键
-      clean_params = 
-        Map.new(item_params, fn
-          # 原子键转字符串
-          {k, v} when is_atom(k) -> {to_string(k), v}
-          # 保留字符串键
-          {k, v} -> {k, v} 
-        end)
-        
-      # 确保矩阵行和列是有效的数组格式
-      clean_params = if item_type == "matrix" || item_type == :matrix do
-        # 确保矩阵行是数组格式
-        matrix_rows = Map.get(clean_params, "matrix_rows")
-        matrix_rows = cond do
-          is_nil(matrix_rows) -> ["问题1", "问题2", "问题3"]
-          is_list(matrix_rows) -> matrix_rows
-          true -> ["问题1", "问题2", "问题3"]
-        end
-        
-        # 确保矩阵列是数组格式
-        matrix_columns = Map.get(clean_params, "matrix_columns")
-        matrix_columns = cond do
-          is_nil(matrix_columns) -> ["选项A", "选项B", "选项C"]
-          is_list(matrix_columns) -> matrix_columns
-          true -> ["选项A", "选项B", "选项C"]
-        end
-        
-        IO.puts("新建项 - 最终矩阵行: #{inspect(matrix_rows)}, 类型: #{typeof(matrix_rows)}")
-        IO.puts("新建项 - 最终矩阵列: #{inspect(matrix_columns)}, 类型: #{typeof(matrix_columns)}")
-        
-        # 更新参数
-        clean_params
-        |> Map.put("matrix_rows", matrix_rows)
-        |> Map.put("matrix_columns", matrix_columns)
-      else
-        clean_params
-      end
+      clean_params = process_item_params(item_params)
       
-      # 使用用户输入的标签或生成默认标签
-      label = if Map.has_key?(clean_params, "label") && clean_params["label"] != "" do
-        # 如果参数中有标签，使用参数中的标签
-        clean_params["label"]
-      else
-        # 否则使用临时标签或默认值
-        socket.assigns[:temp_label] || case socket.assigns.item_type do
-          "radio" -> "新单选问题"
-          _ -> "新文本问题"  
-        end
-      end
-      
-      # 打印标签信息
-      IO.puts("使用标签: #{label}, 来源: #{if Map.has_key?(clean_params, "label"), do: "表单参数", else: "临时存储或默认值"}")
-      
-      # 确保设置标签和必填属性
-      clean_params = clean_params
-        |> Map.put("label", label)
-        |> Map.put("required", Map.get(clean_params, "required", true))  # 默认为必填
-      
-      # 添加类型参数 - 确保类型总是有效值
-      clean_params = if Map.has_key?(clean_params, "type") && clean_params["type"] in [:text_input, :radio, :textarea, :checkbox, :dropdown, :rating, :number, :email, :phone, :date, :time, :region, :matrix, :image_choice, :file_upload] do
-        clean_params
-      else
-        # 从字符串转换为atom类型
-        type_atom = case socket.assigns.item_type do
-          "text_input" -> :text_input
-          "textarea" -> :textarea
-          "radio" -> :radio
-          "checkbox" -> :checkbox
-          "dropdown" -> :dropdown
-          "rating" -> :rating
-          "number" -> :number
-          "email" -> :email
-          "phone" -> :phone
-          "date" -> :date
-          "time" -> :time
-          "region" -> :region
-          "matrix" -> :matrix
-          "image_choice" -> :image_choice
-          "file_upload" -> :file_upload
-          _ -> :text_input  # 默认为文本输入
-        end
-        
-        IO.puts("标准化表单项类型为 #{inspect(type_atom)}")
-        Map.put(clean_params, "type", type_atom)
-      end
-      
-      IO.puts("添加新表单项，使用标签: #{label}, 类型: #{inspect(clean_params["type"])}, 参数: #{inspect(clean_params)}")
-      
-      # 打印当前item_type，确认类型设置正确
-      IO.puts("当前socket.assigns.item_type: #{inspect(socket.assigns.item_type)}")
-        
-      # 尝试保存表单项
-      case Forms.add_form_item(form, clean_params) do
+       case Forms.add_form_item(form, clean_params) do
         {:ok, new_item} ->
           IO.puts("成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}")
           
-          # 如果是单选按钮、复选框或下拉菜单类型，需要添加选项
-          if new_item.type == :radio or new_item.type == :dropdown or new_item.type == :checkbox do
-            IO.puts("添加选项到#{new_item.type}类型表单项")
-            process_options(new_item, item_params)
-          end
+          # 处理选项（使用 socket 中的选项状态）
+          new_item_reloaded = Forms.get_form_item(new_item.id)
+          process_options(new_item_reloaded, item_options_from_socket)
           
-          # 强制将改动提交到数据库
-          :timer.sleep(50)
+          # 强制重新加载表单数据
+          socket = reload_form_and_update_socket(socket, form.id, "表单项已添加")
             
-          # 重新加载表单项，确保获取完整数据
-          updated_form = Forms.get_form(form.id)
-          
-          # 确认表单项是否成功添加
-          item_labels = Enum.map(updated_form.items, & &1.label) |> Enum.join(", ")
-          IO.puts("更新后的表单项: #{item_labels}")
-          IO.puts("表单项数量: #{length(updated_form.items)}")
-          
-          socket = socket
-            |> assign(:form, updated_form)
-            |> assign(:form_items, updated_form.items)
+          {:noreply, 
+            socket
             |> assign(:current_item, nil)
             |> assign(:editing_item, false)
-            |> assign(:editing_item_id, nil)  # 清除原地编辑ID 
-            |> assign(:item_options, [])
-            |> put_flash(:info, "表单项已添加")
-            
-          # 强制视图重新渲染
-          Process.send_after(self(), :after_item_added, 100)
-          
-          {:noreply, socket}
+            |> assign(:editing_item_id, nil) 
+            |> assign(:item_options, []) # 清空临时选项
+          }
           
         {:error, changeset} ->
-          # 添加失败，显示错误信息
           IO.puts("添加表单项失败! 错误: #{inspect(changeset.errors)}")
           error_msg = inspect(changeset.errors)
           
@@ -1177,8 +905,6 @@ defmodule MyAppWeb.FormLive.Edit do
             socket
             |> put_flash(:error, "表单项添加失败: #{error_msg}")
           }
-      end
-    end
       end
     end
   end
@@ -1509,100 +1235,81 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   # 处理选项
-  defp process_options(item, params) do
+  defp process_options(item, options_list) do
     # 处理表单项选项
     IO.puts("\n==== 处理表单项选项 ====")
     IO.puts("表单项: #{inspect(item)}")
+    IO.puts("传入选项列表: #{inspect(options_list)}") # 打印传入的选项列表
     
-    # 先获取当前选项以备参考
-    current_options = case item.options do
-      %Ecto.Association.NotLoaded{} -> 
-        IO.puts("选项关联未加载，使用空列表")
+    # 先获取当前数据库中的选项以备参考（主要用于更新场景，判断是否需要删除旧选项）
+    current_options = case MyApp.Repo.preload(item, :options).options do
+      nil -> 
+        IO.puts("选项关联未加载或为nil，使用空列表")
         []
       options when is_list(options) -> 
-        IO.puts("选项已加载，当前有 #{length(options)} 个选项")
+        IO.puts("选项已加载，当前数据库有 #{length(options)} 个选项")
         options
-      _ -> 
-        IO.puts("其他情况，使用空列表")
-        []
     end
-    IO.puts("当前选项数量: #{length(current_options)}")
+    IO.puts("当前数据库选项数量: #{length(current_options)}")
     
-    # 从表单中获取选项 - 直接检查表单参数中的选项数据
-    item_options = Map.get(params, "options", %{})
-    
-    # 处理表单中提交的选项数据
-    extracted_options = 
-      if is_map(item_options) do
-        item_options
-        |> Enum.sort_by(fn {key, _} -> key end)  # 确保选项按顺序处理
-        |> Enum.map(fn {_, opt} -> 
-          label = Map.get(opt, "label", "")
-          value = Map.get(opt, "value", "")
-          %{"label" => label, "value" => value}
+    # 直接使用传入的 options_list 作为要保存的数据源
+    # (这个列表应该包含了从 socket assigns 传来的、可能带有 image_id 的选项)
+    options_to_save = options_list
+      |> Enum.map(fn opt ->
+          # 确保所有 key 都是字符串, 并清理可能的 nil 值
+          opt = Enum.into(opt, %{}, fn {k, v} -> {to_string(k), v} end)
+          %{ 
+            "label" => Map.get(opt, "label", ""), 
+            "value" => Map.get(opt, "value", ""),
+            "image_id" => Map.get(opt, "image_id"),
+            "image_filename" => Map.get(opt, "image_filename")
+          }
         end)
-        |> Enum.filter(fn opt -> 
-          opt["label"] != "" && opt["value"] != ""
+      |> Enum.filter(fn opt -> 
+          opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
         end)
-      else
-        []
-      end
-      
-    IO.puts("从表单提取到选项数量: #{length(extracted_options)}")
-    IO.puts("选项内容: #{inspect(extracted_options)}")
+
+    IO.puts("最终准备保存的选项数量: #{length(options_to_save)}")
+    IO.puts("最终选项内容: #{inspect(options_to_save)}")
     
-    # 如果表单中没有选项但当前有选项，保留现有选项
-    options = 
-      cond do
-        # 如果有提取到表单中的选项，使用表单数据
-        length(extracted_options) > 0 ->
-          IO.puts("使用从表单中提取的选项")
-          extracted_options
-          
-        # 如果当前已有选项，保留现有选项
-        length(current_options) > 0 ->
-          IO.puts("使用现有选项")
-          Enum.map(current_options, fn opt -> 
-            %{"label" => opt.label, "value" => opt.value}
-          end)
-          
-        # 两者都没有，使用默认选项
-        true ->
-          IO.puts("使用默认选项")
-          [
-            %{"label" => "选项A", "value" => "option_a"},
-            %{"label" => "选项B", "value" => "option_b"}
-          ]
-      end
+    # 使用 Multi 来确保原子性：先删除旧选项，再添加新选项
+    multi = Ecto.Multi.new()
     
-    IO.puts("最终使用选项数量: #{length(options)}")
-    IO.puts("最终选项内容: #{inspect(options)}")
-    
-    # 先删除现有选项（如果更新现有表单项）
-    case item.options do
-      %Ecto.Association.NotLoaded{} -> 
-        IO.puts("选项未加载，跳过删除操作")
-      options when is_list(options) and length(options) > 0 ->
-        IO.puts("删除#{length(options)}个现有选项")
-        Enum.each(options, fn option ->
-          Forms.delete_item_option(option)
-        end)
-      _ ->
-        IO.puts("没有现有选项需要删除")
-    end
-    
-    # 添加所有选项  
-    Enum.each(options, fn option_params ->
-      # 确保使用字符串键，避免混合键错误
-      {:ok, option} = Forms.add_item_option(item, option_params)
-      IO.puts("已添加选项: #{inspect(option.label)}")
+    # 1. 删除旧选项
+    multi = Enum.reduce(current_options, multi, fn option, multi_acc ->
+      IO.puts("准备删除旧选项: #{option.id}")
+      Ecto.Multi.delete(multi_acc, "delete_option_#{option.id}", option)
     end)
     
-    # 重新加载并返回更新后的项目
-    updated_item = Forms.get_form_item_with_options(item.id)
-    IO.puts("更新后的表单项: #{inspect(updated_item.id)}")
-    IO.puts("选项数量: #{length(updated_item.options || [])}")
-    updated_item
+    # 2. 添加新选项 (使用新的 options_to_save 列表)
+    multi = Enum.with_index(options_to_save, 1) 
+            |> Enum.reduce(multi, fn {option_params, index}, multi_acc ->
+                IO.puts("准备添加新选项: #{inspect(option_params)}，顺序: #{index}")
+                # 添加 order 字段
+                params_with_order = Map.put(option_params, "order", index)
+                
+                # 创建 ItemOption changeset
+                changeset = MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{form_item_id: item.id}, params_with_order)
+                
+                Ecto.Multi.insert(multi_acc, "insert_option_#{index}", changeset)
+            end)
+            
+    # 执行事务
+    case MyApp.Repo.transaction(multi) do
+      {:ok, _result_map} ->
+        IO.puts("选项事务成功")
+        # 重新加载并返回更新后的项目，确保选项已关联
+        updated_item = Forms.get_form_item_with_options(item.id)
+        IO.puts("更新后的表单项: #{inspect(updated_item.id)}")
+        IO.puts("选项数量: #{length(updated_item.options || [])}")
+        updated_item
+        
+      {:error, failed_operation, failed_value, _changes_so_far} ->
+        IO.puts("选项事务失败在操作: #{inspect(failed_operation)}")
+        IO.puts("失败原因: #{inspect(failed_value)}")
+        # 返回原始 item，或者可以考虑返回错误信息
+        item # 或者 {:error, ...}
+    end
   end
   
   # 调试函数 - 测试选项提取逻辑
@@ -1966,80 +1673,110 @@ defmodule MyAppWeb.FormLive.Edit do
   def handle_event("upload_image", _params, socket) do
     option_index = socket.assigns.current_option_index
     options = socket.assigns.item_options
+    current_item = socket.assigns.current_item
     
-    # 确保索引有效
-    if option_index >= 0 and option_index < length(options) do
-      option = Enum.at(options, option_index)
-      
-      upload_results = 
-        consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
-          # 存储图片文件，返回UploadedFile记录
-          ext = Path.extname(entry.client_name)
-          filename = "#{Ecto.UUID.generate()}#{ext}"
-          dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
-          
-          # 确保目标目录存在
-          File.mkdir_p!(Path.dirname(dest_path))
-          
-          # 复制文件到目标位置
-          File.cp!(path, dest_path)
-          
-          # 创建上传文件记录
-          form_id = socket.assigns.form.id
-          form_item_id = if socket.assigns.current_item, do: socket.assigns.current_item.id, else: nil
-          
-          # 如果选项有旧图片，尝试删除
-          if option[:image_id] || option["image_id"] do
-            old_image_id = option[:image_id] || option["image_id"]
-            Task.start(fn -> 
-              case Upload.delete_file(old_image_id) do
-                {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
-                {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
-              end
-            end)
-          end
-          
-          # 创建新的文件记录
-          case Upload.save_uploaded_file(form_id, form_item_id, %{
-            original_filename: entry.client_name,
-            filename: filename,
-            path: "/uploads/#{filename}",
-            content_type: entry.client_type,
-            size: entry.client_size
-          }) do
-            {:ok, file} -> 
-              # 返回文件信息
-              {:ok, %{id: file.id, filename: filename}}
-            
-            {:error, changeset} ->
-              IO.puts("图片文件记录创建失败: #{inspect(changeset.errors)}")
-              {:error, "图片上传失败"}
-          end
-        end)
-      
-      case upload_results do
-        [{:ok, %{id: image_id, filename: filename}}] ->
-          # 更新选项的图片信息
-          updated_option = Map.merge(option, %{
-            image_id: image_id,
-            image_filename: filename
-          })
-          
-          # 更新选项列表
-          updated_options = List.replace_at(options, option_index, updated_option)
-          
-          # 关闭图片上传模态框并更新选项列表
-          socket = socket
-            |> assign(:item_options, updated_options)
-            |> assign(:current_option_index, nil)
-            
-          {:noreply, socket}
-          
-        _ ->
-          {:noreply, put_flash(socket, :error, "图片上传处理失败")}
-      end
+    # 检查父表单项是否已保存 (有ID)
+    if is_nil(current_item) or is_nil(current_item.id) do
+      {:noreply, 
+        socket
+        |> put_flash(:error, "请先保存这个图片选择控件，然后才能上传选项图片。")
+        # 不关闭模态框，让用户看到错误
+        # |> assign(:current_option_index, nil) 
+      }
     else
-      {:noreply, socket}
+      form_item_id = current_item.id
+      form_id = socket.assigns.form.id
+      
+      # 确保索引有效
+      if option_index >= 0 and option_index < length(options) do
+        option = Enum.at(options, option_index)
+        
+        upload_results = 
+          consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
+            # 存储图片文件，返回UploadedFile记录
+            ext = Path.extname(entry.client_name)
+            filename = "#{Ecto.UUID.generate()}#{ext}"
+            dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
+            
+            # 确保目标目录存在
+            File.mkdir_p!(Path.dirname(dest_path))
+            
+            # 复制文件到目标位置
+            File.cp!(path, dest_path)
+            
+            # 如果选项有旧图片，尝试删除
+            if option[:image_id] || option["image_id"] do
+              old_image_id = option[:image_id] || option["image_id"]
+              Task.start(fn -> 
+                case Upload.delete_file(old_image_id) do
+                  {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
+                  {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
+                end
+              end)
+            end
+            
+            # 创建新的文件记录
+            case Upload.save_uploaded_file(form_id, form_item_id, %{
+              original_filename: entry.client_name,
+              filename: filename,
+              path: "/uploads/#{filename}",
+              content_type: entry.client_type,
+              size: entry.client_size
+            }) do
+              {:ok, file} -> 
+                # 返回文件信息
+                {:ok, %{id: file.id, filename: filename}}
+              
+              {:error, changeset} ->
+                # 显式返回错误原因
+                error_message = changeset.errors
+                |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+                |> Enum.join(", ")
+                IO.puts("图片文件记录创建失败: #{error_message}")
+                {:error, "图片保存失败: #{error_message}"} # 返回更具体的错误
+            end
+          end)
+        
+        case upload_results do
+          [{:ok, %{id: image_id, filename: filename}}] ->
+            # 更新选项的图片信息
+            updated_option = Map.merge(option, %{
+              image_id: image_id,
+              image_filename: filename
+            })
+            
+            # 更新选项列表
+            updated_options = List.replace_at(options, option_index, updated_option)
+            
+            # 关闭图片上传模态框并更新选项列表
+            socket = socket
+              |> assign(:item_options, updated_options)
+              |> assign(:current_option_index, nil)
+              
+            {:noreply, socket}
+            
+          [{:error, error_message}] -> # 处理从consume_uploaded_entries返回的错误
+            {:noreply, 
+              socket 
+              |> put_flash(:error, "图片上传失败: #{error_message}")
+              # 不关闭模态框
+            }
+
+          _ -> # 其他未预期的结果
+            {:noreply, 
+              socket 
+              |> put_flash(:error, "图片上传处理时发生未知错误")
+              # 不关闭模态框
+            }
+        end
+      else
+        # 索引无效
+        {:noreply, 
+          socket 
+          |> put_flash(:error, "无效的选项索引")
+          # 不关闭模态框
+        }
+      end
     end
   end
   
@@ -2049,5 +1786,16 @@ defmodule MyAppWeb.FormLive.Edit do
   defp error_to_string(:not_accepted), do: "文件类型不被接受"
   defp error_to_string(_), do: "无效的文件"
   
-  # 添加选项到表单项 - 从表单参数中提取选项并保存
+  # 格式化文件大小
+  defp format_bytes(bytes) when is_integer(bytes) do
+    cond do
+      bytes >= 1_048_576 -> # 1 MB
+        "#{Float.round(bytes / 1_048_576, 1)} MB"
+      bytes >= 1024 -> # 1 KB
+        "#{Float.round(bytes / 1024, 1)} KB"
+      true ->
+        "#{bytes} B"
+    end
+  end
+  defp format_bytes(_), do: "未知大小"
 end

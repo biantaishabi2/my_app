@@ -1073,11 +1073,11 @@ defmodule MyAppWeb.FormComponents do
                     <div class="flex items-start">
                       <!-- 图片预览区域 -->
                       <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
-                        <%= if option[:image_id] || option["image_id"] do %>
+                        <%= if option.image_id do %>
                           <!-- 显示已上传的图片 -->
                           <img 
-                            src={"/uploads/#{option[:image_filename] || option["image_filename"]}"} 
-                            alt={option[:label] || option["label"]} 
+                            src={"/uploads/#{option.image_filename}"} 
+                            alt={option.label} 
                             class="h-full w-full object-cover"
                           />
                         <% else %>
@@ -1096,7 +1096,7 @@ defmodule MyAppWeb.FormComponents do
                             <input 
                               type="text" 
                               name={"options[#{index}][label]"}
-                              value={option[:label] || option["label"]}
+                              value={option.label}
                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
                               placeholder="输入图片说明文字"
                             />
@@ -1106,7 +1106,7 @@ defmodule MyAppWeb.FormComponents do
                             <input 
                               type="text" 
                               name={"options[#{index}][value]"}
-                              value={option[:value] || option["value"]}
+                              value={option.value}
                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
                               placeholder="选项值（用于数据收集）"
                             />
@@ -1117,14 +1117,14 @@ defmodule MyAppWeb.FormComponents do
                         <input 
                           type="hidden" 
                           name={"options[#{index}][image_id]"}
-                          value={option[:image_id] || option["image_id"]}
+                          value={option.image_id}
                         />
                         
                         <!-- 隐藏字段，保存图片文件名 -->
                         <input 
                           type="hidden" 
                           name={"options[#{index}][image_filename]"}
-                          value={option[:image_filename] || option["image_filename"]}
+                          value={option.image_filename}
                         />
                         
                         <!-- 图片上传按钮 -->
@@ -1138,10 +1138,10 @@ defmodule MyAppWeb.FormComponents do
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <%= if option[:image_id] || option["image_id"], do: "更换图片", else: "选择图片" %>
+                            <%= if option.image_id, do: "更换图片", else: "选择图片" %>
                           </button>
                           
-                          <%= if option[:image_id] || option["image_id"] do %>
+                          <%= if option.image_id do %>
                             <button 
                               type="button" 
                               phx-click="remove_image_from_option" 
@@ -1546,10 +1546,10 @@ defmodule MyAppWeb.FormComponents do
               <% end %>
               
               <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
-                <%= if option[:image_filename] || option["image_filename"] do %>
+                <%= if option.image_filename do %>
                   <img 
-                    src={"/uploads/#{option[:image_filename] || option["image_filename"]}"} 
-                    alt={option[:label] || option["label"]} 
+                    src={"/uploads/#{option.image_filename}"} 
+                    alt={option.label} 
                     class="h-full w-full object-contain"
                   />
                 <% else %>
