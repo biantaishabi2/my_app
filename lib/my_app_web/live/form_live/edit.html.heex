@@ -887,72 +887,79 @@
         </button>
       </div>
       
-      <form phx-submit="upload_image" phx-change="validate_upload">
+      <% option_ref = "option-image-#{@current_option_index}" %>
+      <form phx-submit="save_item" phx-change="validate_upload">
         <div class="space-y-4">
           <!-- 上传区域 -->
-          <div 
-            class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
-            phx-drop-target={@uploads.image.ref}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            
-            <div class="mt-2">
-              <label>
-                <span class="rounded-md font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer">
-                  选择图片文件
-                </span>
-                <.live_file_input upload={@uploads.image} class="sr-only" />
-              </label>
-              <p class="text-xs text-gray-500">或拖放图片到此处</p>
-            </div>
-            
-            <!-- 文件类型提示 -->
-            <p class="mt-1 text-xs text-gray-500">
-              支持JPG、JPEG、PNG和GIF
-            </p>
-          </div>
-          
-          <!-- 上传预览 -->
-          <%= for entry <- @uploads.image.entries do %>
-            <div class="relative">
-              <!-- 上传预览 -->
-              <div class="relative border rounded-md overflow-hidden">
-                <div class="flex items-center justify-center h-40 bg-gray-50">
-                  <.live_img_preview entry={entry} class="max-h-40 max-w-full" />
-                </div>
-                
-                <!-- 上传进度 -->
-                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
-                  <div 
-                    class="h-1 bg-indigo-600" 
-                    style={"width: #{entry.progress}%"}>
-                  </div>
-                </div>
+          <%= if Map.has_key?(@uploads, option_ref) do %>
+            <div 
+              class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
+              phx-drop-target={@uploads[option_ref].ref}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              
+              <div class="mt-2">
+                <label>
+                  <span class="rounded-md font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer">
+                    选择图片文件
+                  </span>
+                  <.live_file_input upload={@uploads[option_ref]} class="sr-only" />
+                </label>
+                <p class="text-xs text-gray-500">或拖放图片到此处</p>
               </div>
               
-              <!-- 文件信息 -->
-              <div class="mt-2 flex items-center justify-between text-sm">
-                <div class="text-gray-500">
-                  <%= entry.client_name %> - <%= format_bytes(entry.client_size) %>
+              <!-- 文件类型提示 -->
+              <p class="mt-1 text-xs text-gray-500">
+                支持JPG、JPEG、PNG和GIF
+              </p>
+            </div>
+            
+            <!-- 上传预览 -->
+            <%= for entry <- @uploads[option_ref].entries do %>
+              <div class="relative">
+                <!-- 上传预览 -->
+                <div class="relative border rounded-md overflow-hidden">
+                  <div class="flex items-center justify-center h-40 bg-gray-50">
+                    <.live_img_preview entry={entry} class="max-h-40 max-w-full" />
+                  </div>
+                  
+                  <!-- 上传进度 -->
+                  <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
+                    <div 
+                      class="h-1 bg-indigo-600" 
+                      style={"width: #{entry.progress}%"}>
+                    </div>
+                  </div>
                 </div>
                 
-                <!-- 错误信息 -->
-                <%= for err <- upload_errors(@uploads.image, entry) do %>
-                  <div class="text-red-500 text-xs"><%= error_to_string(err) %></div>
-                <% end %>
-                
-                <!-- 取消按钮 -->
-                <button 
-                  type="button" 
-                  phx-click="cancel_upload" 
-                  phx-value-ref={entry.ref} 
-                  class="text-red-500 hover:text-red-700"
-                >
-                  取消
-                </button>
+                <!-- 文件信息 -->
+                <div class="mt-2 flex items-center justify-between text-sm">
+                  <div class="text-gray-500">
+                    <%= entry.client_name %> - <%= format_bytes(entry.client_size) %>
+                  </div>
+                  
+                  <!-- 错误信息 -->
+                  <%= for err <- upload_errors(@uploads[option_ref], entry) do %>
+                    <div class="text-red-500 text-xs"><%= error_to_string(err) %></div>
+                  <% end %>
+                  
+                  <!-- 取消按钮 -->
+                  <button 
+                    type="button" 
+                    phx-click="cancel_upload" 
+                    phx-value-ref={entry.ref} 
+                    class="text-red-500 hover:text-red-700"
+                  >
+                    取消
+                  </button>
+                </div>
               </div>
+            <% end %>
+          <% else %>
+            <div class="p-6 text-center bg-gray-50 rounded border border-gray-200">
+              <p class="text-gray-500">正在准备上传组件...</p>
             </div>
           <% end %>
           
@@ -969,9 +976,9 @@
             <button 
               type="submit" 
               class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
-              disabled={Enum.empty?(@uploads.image.entries)}
+              disabled={!Map.has_key?(@uploads, option_ref) || Enum.empty?(@uploads[option_ref].entries)}
             >
-              上传图片
+              保存项目
             </button>
           </div>
         </div>
