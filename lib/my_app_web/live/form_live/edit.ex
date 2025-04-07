@@ -4,63 +4,64 @@ defmodule MyAppWeb.FormLive.Edit do
   alias MyApp.Forms
   alias MyApp.Forms.FormItem
   alias MyAppWeb.FormLive.ItemRendererComponent
+  alias MyApp.Upload
+  alias MyApp.Upload.UploadedFile
   # Repo在测试环境中的直接查询中使用，但可以通过完全限定名称访问
   # alias MyApp.Repo
   # 移除未使用的ItemOption别名
   
   import Ecto.Query
   import MyAppWeb.FormComponents
-  import Phoenix.LiveView, only: [redirect: 2, put_flash: 3, push_navigate: 2]
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    current_user = socket.assigns.current_user
+    form = Forms.get_form(id)
     
-    case Forms.get_form_basic_info(id) do
-      nil ->
-        {:ok, 
-          socket
-          |> put_flash(:error, "表单不存在")
-          |> push_navigate(to: ~p"/forms")
-        }
-        
-      form ->
-        if form.user_id == current_user.id do
-          # 只初始化基本状态，不加载详细数据
-          {:ok, 
-            socket
-            |> assign(:page_title, "编辑表单")
-            |> assign(:form, form)
-            |> assign(:form_changeset, Forms.change_form(form))
-            |> assign(:editing_form_info, false)
-            |> assign(:form_items, [])  # 初始为空数组
-            |> assign(:current_item, nil)
-            |> assign(:editing_item, false)
-            |> assign(:editing_item_id, nil) 
-            |> assign(:item_options, [])
-            |> assign(:item_type, nil)
-            |> assign(:delete_item_id, nil)
-            |> assign(:show_publish_confirm, false)
-            |> assign(:all_item_types, %{basic: [], personal: [], advanced: []}) # 初始化为正确结构但内容为空
-            |> assign(:active_category, :basic)
-            |> assign(:search_term, nil)
-            |> assign(:temp_title, form.title)
-            |> assign(:temp_description, form.description)
-            |> assign(:editing_page, false)
-            |> assign(:current_page, nil)
-            |> assign(:delete_page_id, nil)
-            |> assign(:editing_conditions, false)
-            |> assign(:condition_type, :visibility)
-            |> assign(:current_condition, nil)
-            |> assign(:loading_complete, false) # 新增标记，表示数据是否加载完成
-          }
-        else
-          {:ok,
-            socket
-            |> put_flash(:error, "您没有权限编辑此表单")
-            |> redirect(to: "/forms")
-          }
-        end
+    if form do
+      # 设置表单和默认值
+      socket = socket
+        |> assign(:form, form)
+        |> assign(:form_items, form.items || [])  # 确保不会是nil
+        |> assign(:active_category, :basic)
+        |> assign(:item_type, "text_input")  # 默认类型
+        |> assign(:editing_item, false)
+        |> assign(:editing_item_id, nil)  # 用于直接在列表中编辑
+        |> assign(:current_item, nil)
+        |> assign(:loading_complete, false)
+        |> assign(:item_options, [])
+        |> assign(:editing_form_info, false)
+        |> assign(:search_term, nil)
+        |> assign(:delete_item_id, nil)
+        |> assign(:editing_page, false)
+        |> assign(:current_page, nil)
+        |> assign(:delete_page_id, nil)
+        |> assign(:show_publish_confirm, false)  # 用于发布确认
+        |> assign(:editing_conditions, false)
+        |> assign(:current_condition_item, nil)
+        |> assign(:current_condition_type, nil)
+        |> assign(:available_condition_items, [])
+        |> assign(:temp_image_upload, %{})  # 用于临时存储图片上传信息
+        |> assign(:current_option_index, nil)  # 当前正在编辑的选项索引
+
+      # 通过进程消息确保数据完全加载后再渲染
+      Process.send_after(self(), :finish_loading, 100)
+      
+      # 允许Phoenix.LiveView上传图片
+      socket = 
+        socket
+        |> allow_upload(:image, 
+            accept: ~w(.jpg .jpeg .png .gif), 
+            max_entries: 1,
+            max_file_size: 5_000_000, # 5MB
+            auto_upload: false)
+      
+      {:ok, socket}
+    else
+      {:ok, 
+        socket
+        |> put_flash(:error, "表单不存在")
+        |> redirect(to: ~p"/forms")
+      }
     end
   end
 
@@ -1899,4 +1900,157 @@ defmodule MyAppWeb.FormLive.Edit do
   end
   
   # 这些函数已经从FormComponents导入:
+  @impl true
+  def handle_event("select_image_for_option", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    
+    # 记录当前正在编辑的选项索引
+    socket = assign(socket, :current_option_index, index)
+    
+    # 准备图片上传
+    {:noreply, socket}
+  end
+  
+  @impl true
+  def handle_event("remove_image_from_option", %{"index" => index_str}, socket) do
+    index = String.to_integer(index_str)
+    options = socket.assigns.item_options
+    
+    if index >= 0 and index < length(options) do
+      # 获取要移除图片的选项
+      option = Enum.at(options, index)
+      
+      # 移除相关的图片信息
+      updated_option = option
+        |> Map.delete(:image_id)
+        |> Map.delete(:image_filename)
+      
+      # 更新选项列表
+      updated_options = List.replace_at(options, index, updated_option)
+      
+      # 如果有图片ID，尝试删除图片文件（异步，不等待结果）
+      if option[:image_id] || option["image_id"] do
+        image_id = option[:image_id] || option["image_id"]
+        Task.start(fn -> 
+          case Upload.delete_file(image_id) do
+            {:ok, _} -> IO.puts("选项图片已删除: #{image_id}")
+            {:error, reason} -> IO.puts("选项图片删除失败: #{inspect(reason)}")
+          end
+        end)
+      end
+      
+      {:noreply, assign(socket, :item_options, updated_options)}
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  # 取消图片上传模态框
+  @impl true
+  def handle_event("cancel_image_upload", _params, socket) do
+    {:noreply, assign(socket, :current_option_index, nil)}
+  end
+  
+  # 取消单个上传条目
+  @impl true
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :image, ref)}
+  end
+  
+  # 验证上传
+  @impl true
+  def handle_event("validate_upload", _params, socket) do
+    # 验证上传并更新socket
+    {:noreply, socket}
+  end
+  
+  # 处理图片上传完成事件
+  @impl true
+  def handle_event("upload_image", _params, socket) do
+    option_index = socket.assigns.current_option_index
+    options = socket.assigns.item_options
+    
+    # 确保索引有效
+    if option_index >= 0 and option_index < length(options) do
+      option = Enum.at(options, option_index)
+      
+      upload_results = 
+        consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
+          # 存储图片文件，返回UploadedFile记录
+          ext = Path.extname(entry.client_name)
+          filename = "#{Ecto.UUID.generate()}#{ext}"
+          dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
+          
+          # 确保目标目录存在
+          File.mkdir_p!(Path.dirname(dest_path))
+          
+          # 复制文件到目标位置
+          File.cp!(path, dest_path)
+          
+          # 创建上传文件记录
+          form_id = socket.assigns.form.id
+          form_item_id = if socket.assigns.current_item, do: socket.assigns.current_item.id, else: nil
+          
+          # 如果选项有旧图片，尝试删除
+          if option[:image_id] || option["image_id"] do
+            old_image_id = option[:image_id] || option["image_id"]
+            Task.start(fn -> 
+              case Upload.delete_file(old_image_id) do
+                {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
+                {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
+              end
+            end)
+          end
+          
+          # 创建新的文件记录
+          case Upload.save_uploaded_file(form_id, form_item_id, %{
+            original_filename: entry.client_name,
+            filename: filename,
+            path: "/uploads/#{filename}",
+            content_type: entry.client_type,
+            size: entry.client_size
+          }) do
+            {:ok, file} -> 
+              # 返回文件信息
+              {:ok, %{id: file.id, filename: filename}}
+            
+            {:error, changeset} ->
+              IO.puts("图片文件记录创建失败: #{inspect(changeset.errors)}")
+              {:error, "图片上传失败"}
+          end
+        end)
+      
+      case upload_results do
+        [{:ok, %{id: image_id, filename: filename}}] ->
+          # 更新选项的图片信息
+          updated_option = Map.merge(option, %{
+            image_id: image_id,
+            image_filename: filename
+          })
+          
+          # 更新选项列表
+          updated_options = List.replace_at(options, option_index, updated_option)
+          
+          # 关闭图片上传模态框并更新选项列表
+          socket = socket
+            |> assign(:item_options, updated_options)
+            |> assign(:current_option_index, nil)
+            
+          {:noreply, socket}
+          
+        _ ->
+          {:noreply, put_flash(socket, :error, "图片上传处理失败")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  # 辅助函数：将上传错误转换为友好字符串
+  defp error_to_string(:too_large), do: "文件太大"
+  defp error_to_string(:too_many_files), do: "文件数量过多"
+  defp error_to_string(:not_accepted), do: "文件类型不被接受"
+  defp error_to_string(_), do: "无效的文件"
+  
+  # 添加选项到表单项 - 从表单参数中提取选项并保存
 end

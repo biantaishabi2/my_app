@@ -1,4 +1,4 @@
-<div>
+<div class="form-editor-container">
   <!-- 表单编辑页面 -->
   <div style="display: flex; max-width: 100%; overflow-hidden;">
     <!-- 左侧控件类型选择栏 -->
@@ -711,25 +711,112 @@
                                   <%= if item.required do %>
                                     <span style="color: #ef4444; margin-left: 0.25rem;">*</span>
                                   <% end %>
-                                  <span style="margin-left: 0.5rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem;">
-                                    <%= case item.type do %>
-                                      <% :text_input -> %>文本输入
-                                      <% :textarea -> %>文本区域
-                                      <% :radio -> %>单选
-                                      <% :dropdown -> %>下拉菜单
-                                      <% :checkbox -> %>复选框
-                                      <% :number -> %>数字输入
-                                      <% :email -> %>邮箱输入
-                                      <% :phone -> %>电话号码
-                                      <% :date -> %>日期选择
-                                      <% :time -> %>时间选择
-                                      <% :region -> %>地区选择
-                                      <% :matrix -> %>矩阵题
-                                      <% :image_choice -> %>图片选择
-                                      <% :file_upload -> %>文件上传
-                                      <% _ -> %>未知类型
-                                    <% end %>
-                                  </span>
+
+                                  <%= case item.type do %>
+                                    <% :text_input -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #e0f2fe; color: #0369a1; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bae6fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        文本输入
+                                      </span>
+                                    <% :textarea -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #e0f2fe; color: #0369a1; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bae6fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                        </svg>
+                                        文本区域
+                                      </span>
+                                    <% :radio -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #ede9fe; color: #6d28d9; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #ddd6fe; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        单选按钮
+                                      </span>
+                                    <% :dropdown -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #ede9fe; color: #6d28d9; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #ddd6fe; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                                        </svg>
+                                        下拉菜单
+                                      </span>
+                                    <% :checkbox -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #ede9fe; color: #6d28d9; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #ddd6fe; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        复选框
+                                      </span>
+                                    <% :number -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #e0f2fe; color: #0369a1; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bae6fd; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                        </svg>
+                                        数字输入
+                                      </span>
+                                    <% :email -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #fef3c7; color: #b45309; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #fde68a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        电子邮箱
+                                      </span>
+                                    <% :phone -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #fef3c7; color: #b45309; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #fde68a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                        电话号码
+                                      </span>
+                                    <% :date -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #fef3c7; color: #b45309; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #fde68a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        日期选择
+                                      </span>
+                                    <% :time -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #fef3c7; color: #b45309; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #fde68a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        时间选择
+                                      </span>
+                                    <% :region -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #fef3c7; color: #b45309; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #fde68a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        地区选择
+                                      </span>
+                                    <% :matrix -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #dcfce7; color: #166534; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bbf7d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                        </svg>
+                                        矩阵问题
+                                      </span>
+                                    <% :image_choice -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #dcfce7; color: #166534; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bbf7d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        图片选择
+                                      </span>
+                                    <% :file_upload -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #dcfce7; color: #166534; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #bbf7d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 0.75rem; height: 0.75rem;">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        文件上传
+                                      </span>
+                                    <% _ -> %>
+                                      <span style="margin-left: 0.5rem; display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background-color: #f3f4f6; color: #4b5563; font-size: 0.75rem; border-radius: 0.25rem; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                        未知类型
+                                      </span>
+                                  <% end %>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                   <button type="button" phx-click="edit_item" phx-value-id={item.id} style="color: #4f46e5; background: none; border: none; cursor: pointer;" id={"edit-item-#{item.id}"}>
@@ -782,3 +869,113 @@
     </div>
   </div>
 </div>
+
+<!-- 图片上传模态框 -->
+<%= if @current_option_index != nil do %>
+  <div class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-medium text-gray-900">上传图片</h3>
+        <button 
+          type="button" 
+          phx-click="cancel_image_upload" 
+          class="text-gray-400 hover:text-gray-500"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <form phx-submit="upload_image" phx-change="validate_upload">
+        <div class="space-y-4">
+          <!-- 上传区域 -->
+          <div 
+            class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
+            phx-drop-target={@uploads.image.ref}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            
+            <div class="mt-2">
+              <label>
+                <span class="rounded-md font-medium text-indigo-600 hover:text-indigo-500 cursor-pointer">
+                  选择图片文件
+                </span>
+                <.live_file_input upload={@uploads.image} class="sr-only" />
+              </label>
+              <p class="text-xs text-gray-500">或拖放图片到此处</p>
+            </div>
+            
+            <!-- 文件类型提示 -->
+            <p class="mt-1 text-xs text-gray-500">
+              支持JPG、JPEG、PNG和GIF
+            </p>
+          </div>
+          
+          <!-- 上传预览 -->
+          <%= for entry <- @uploads.image.entries do %>
+            <div class="relative">
+              <!-- 上传预览 -->
+              <div class="relative border rounded-md overflow-hidden">
+                <div class="flex items-center justify-center h-40 bg-gray-50">
+                  <.live_img_preview entry={entry} class="max-h-40 max-w-full" />
+                </div>
+                
+                <!-- 上传进度 -->
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
+                  <div 
+                    class="h-1 bg-indigo-600" 
+                    style={"width: #{entry.progress}%"}>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 文件信息 -->
+              <div class="mt-2 flex items-center justify-between text-sm">
+                <div class="text-gray-500">
+                  <%= entry.client_name %> - <%= Number.Delimit.number_to_delimited(div(entry.client_size, 1024), precision: 0) %> KB
+                </div>
+                
+                <!-- 错误信息 -->
+                <%= for err <- upload_errors(@uploads.image, entry) do %>
+                  <div class="text-red-500 text-xs"><%= error_to_string(err) %></div>
+                <% end %>
+                
+                <!-- 取消按钮 -->
+                <button 
+                  type="button" 
+                  phx-click="cancel_upload" 
+                  phx-value-ref={entry.ref} 
+                  class="text-red-500 hover:text-red-700"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          <% end %>
+          
+          <!-- 上传按钮 -->
+          <div class="flex justify-end mt-4">
+            <button 
+              type="button" 
+              phx-click="cancel_image_upload" 
+              class="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              取消
+            </button>
+            
+            <button 
+              type="submit" 
+              class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+              disabled={Enum.empty?(@uploads.image.entries)}
+            >
+              上传图片
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+<% end %>

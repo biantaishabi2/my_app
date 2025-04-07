@@ -1062,8 +1062,141 @@ defmodule MyAppWeb.FormComponents do
               </div>
             </div>
             
+            <!-- 图片选项管理部分 -->
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">图片选项</label>
+              
+              <!-- 选项列表 -->
+              <div class="space-y-4">
+                <%= for {option, index} <- Enum.with_index(@options || []) do %>
+                  <div class="border border-gray-200 rounded-md p-3">
+                    <div class="flex items-start">
+                      <!-- 图片预览区域 -->
+                      <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
+                        <%= if option[:image_id] || option["image_id"] do %>
+                          <!-- 显示已上传的图片 -->
+                          <img 
+                            src={"/uploads/#{option[:image_filename] || option["image_filename"]}"} 
+                            alt={option[:label] || option["label"]} 
+                            class="h-full w-full object-cover"
+                          />
+                        <% else %>
+                          <!-- 显示图片占位符 -->
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        <% end %>
+                      </div>
+                      
+                      <!-- 选项详情 -->
+                      <div class="ml-4 flex-1">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">选项标签</label>
+                            <input 
+                              type="text" 
+                              name={"options[#{index}][label]"}
+                              value={option[:label] || option["label"]}
+                              class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                              placeholder="输入图片说明文字"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-xs text-gray-500 mb-1">选项值</label>
+                            <input 
+                              type="text" 
+                              name={"options[#{index}][value]"}
+                              value={option[:value] || option["value"]}
+                              class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
+                              placeholder="选项值（用于数据收集）"
+                            />
+                          </div>
+                        </div>
+                        
+                        <!-- 隐藏字段，保存图片ID -->
+                        <input 
+                          type="hidden" 
+                          name={"options[#{index}][image_id]"}
+                          value={option[:image_id] || option["image_id"]}
+                        />
+                        
+                        <!-- 隐藏字段，保存图片文件名 -->
+                        <input 
+                          type="hidden" 
+                          name={"options[#{index}][image_filename]"}
+                          value={option[:image_filename] || option["image_filename"]}
+                        />
+                        
+                        <!-- 图片上传按钮 -->
+                        <div class="mt-2 flex items-center">
+                          <button 
+                            type="button" 
+                            phx-click="select_image_for_option" 
+                            phx-value-index={index}
+                            class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <%= if option[:image_id] || option["image_id"], do: "更换图片", else: "选择图片" %>
+                          </button>
+                          
+                          <%= if option[:image_id] || option["image_id"] do %>
+                            <button 
+                              type="button" 
+                              phx-click="remove_image_from_option" 
+                              phx-value-index={index}
+                              class="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-gray-300 bg-white text-red-600 hover:bg-red-50"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              移除图片
+                            </button>
+                          <% end %>
+                        </div>
+                      </div>
+                      
+                      <!-- 删除选项按钮 -->
+                      <button 
+                        type="button" 
+                        phx-click={@on_remove_option}
+                        phx-value-index={index}
+                        class="ml-2 text-gray-500 hover:text-red-500" 
+                        aria-label="删除此选项"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+              
+              <!-- 无选项时的提示 -->
+              <%= if Enum.empty?(@options || []) do %>
+                <div class="p-4 border border-dashed border-gray-300 rounded-md text-center text-gray-500">
+                  <p>尚未添加图片选项</p>
+                  <p class="text-sm mt-1">请使用下方按钮添加图片选项</p>
+                </div>
+              <% end %>
+              
+              <!-- 添加图片选项按钮 -->
+              <button 
+                type="button" 
+                phx-click={@on_add_option}
+                class="mt-3 flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                添加图片选项
+              </button>
+            </div>
+            
             <!-- 图片选择预览 -->
-            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+            <div class="mt-6 p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
               <div class="flex flex-wrap gap-4">
                 <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
@@ -1116,9 +1249,6 @@ defmodule MyAppWeb.FormComponents do
                   <% :none -> %>不显示标题
                   <% _ -> %>图片下方
                 <% end %>
-              </div>
-              <div class="text-xs text-gray-500 mt-2">
-                注意: 实际图片上传功能将在表单提交页面实现
               </div>
             </div>
           </div>
@@ -1415,10 +1545,18 @@ defmodule MyAppWeb.FormComponents do
                 <div class="p-2 text-center bg-white text-sm"><%= option.label %></div>
               <% end %>
               
-              <div class="h-32 bg-gray-100 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
+                <%= if option[:image_filename] || option["image_filename"] do %>
+                  <img 
+                    src={"/uploads/#{option[:image_filename] || option["image_filename"]}"} 
+                    alt={option[:label] || option["label"]} 
+                    class="h-full w-full object-contain"
+                  />
+                <% else %>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                <% end %>
               </div>
               
               <%= if @field.image_caption_position == :bottom || @field.image_caption_position == nil do %>
