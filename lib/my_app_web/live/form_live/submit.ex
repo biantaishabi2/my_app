@@ -198,62 +198,136 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def handle_event("submit_form", params, socket) do
-    form_data = params["form"] || %{}
     form = socket.assigns.form
+    form_data = params["form"] || %{}
     items_map = socket.assigns.items_map
 
-    # 合并文件上传数据到表单数据中
-    form_data = Map.merge(form_data, socket.assigns.file_uploads)
+    # --- 1. 处理文件上传 (新添加的逻辑) ---
+    file_upload_items = Enum.filter(form.items, &(&1.type == :file_upload))
+    file_uploads_state = socket.assigns.file_uploads # 获取当前的 file_uploads 状态
 
-    if length(form.pages || []) > 0 do
-      # 对于多页表单，验证所有页面的数据
-      all_errors = validate_all_pages(form, form_data, items_map)
-
-      # 检查是否有错误
-      if Enum.empty?(all_errors) do
-        # 所有页面都验证通过，可以提交表单
-        submit_form_data(form, form_data, socket)
-      else
-        # 找出第一个有错误的页面
-        {error_page_idx, page_errors} = find_first_error_page(form, all_errors)
-
-        if error_page_idx == socket.assigns.current_page_idx do
-          # 如果当前页面有错误，显示这些错误
-          {:noreply,
-           socket
-           |> assign(:form_state, form_data)
-           |> assign(:errors, page_errors)
-           |> put_flash(:error, "请完成当前页面上的所有必填项")}
+    {socket, consumed_files_data, consumption_errors} = 
+      Enum.reduce(file_upload_items, {socket, %{}, []}, fn item, {acc_socket, acc_consumed, acc_errors} ->
+        upload_ref = get_upload_ref(acc_socket, item.id)
+        
+        # 如果找不到上传配置或配置无效，则跳过此项并记录错误
+        if is_nil(upload_ref) || !Map.has_key?(acc_socket.assigns.uploads, upload_ref) do
+           Logger.error("Could not find valid upload config for item #{item.id}")
+           {acc_socket, acc_consumed, acc_errors ++ [{item.id, :config_not_found}]}
         else
-          # 如果错误在其他页面上，跳转到那个页面并显示错误
-          error_page = Enum.at(form.pages, error_page_idx)
-          page_items = get_page_items(form, error_page)
+          uploads_dir = "uploads/#{form.id}/#{item.id}"
+          File.mkdir_p!(Path.join(["priv/static", uploads_dir]))
 
+          {completed_uploads, item_consumption_errors} =
+            consume_uploaded_entries(acc_socket, upload_ref, fn %{path: path}, entry ->
+              # 只有状态是 :done 的 entry 才会被这个函数处理
+              filename = "#{Ecto.UUID.generate()}-#{entry.client_name}"
+              dest_path = Path.join(["priv/static", uploads_dir, filename])
+
+              try do
+                File.cp!(path, dest_path)
+                file_info = %{
+                  name: entry.client_name,
+                  size: entry.client_size,
+                  content_type: entry.client_type,
+                  path: "/#{uploads_dir}/#{filename}" # 存储相对URL路径
+                }
+                {:ok, file_info}
+              rescue
+                e in File.Error ->
+                  Logger.error("Failed to copy uploaded file for item #{item.id}: #{inspect(e)}")
+                  {:error, {entry, :copy_failed}}
+              end
+            end)
+          
+          # 将成功处理的文件信息添加到累积结果中
+          updated_consumed = Map.put(acc_consumed, item.id, completed_uploads)
+          
+          # 累积错误
+          updated_errors = acc_errors ++ (Enum.map(item_consumption_errors, fn {entry, reason} -> {item.id, entry.client_name, reason} end))
+
+          {acc_socket, updated_consumed, updated_errors}
+        end
+      end)
+
+    # 将消费后的文件信息合并到 form_data 中，以便一起验证和保存
+    # 注意：这里假设 form_data 中的 key 是 item.id (字符串)
+    # 如果 file_upload 字段的值需要特殊处理（例如只存路径列表），需要调整这里
+    merged_form_data = Map.merge(form_data, consumed_files_data, fn _key, existing, new ->
+      # 如果已存在旧的文件列表（例如来自草稿），根据需要合并或替换
+      # 这里简单地替换为新上传的文件列表
+      new
+    end)
+
+    # --- 2. 验证所有页面的数据 (使用合并后的 form_data) ---
+    all_errors = validate_all_pages(form, merged_form_data, items_map)
+    
+    # 如果有上传处理错误，添加到验证错误中（或通过flash显示）
+    socket = 
+      if !Enum.empty?(consumption_errors) do
+        error_msg = "部分文件处理失败: " <> Enum.map_join(consumption_errors, ", ", fn {_item_id, name, reason} -> "#{name} (#{reason})" end)
+        put_flash(socket, :error, error_msg) 
+      else
+        socket
+      end
+
+    if Enum.empty?(all_errors) && Enum.empty?(consumption_errors) do
+      # --- 3. 提交表单数据 (如果验证通过且文件处理无误) ---
+      # 过滤掉辅助字段
+      filtered_form_data =
+        merged_form_data # 使用合并了文件数据的 form_data
+        |> Enum.filter(fn {key, _value} ->
+          not (is_binary(key) and
+                 (String.ends_with?(key, "_province") or
+                  String.ends_with?(key, "_city") or
+                  String.ends_with?(key, "_district")))
+        end)
+        |> Enum.into(%{})
+
+      case Responses.create_response(form.id, filtered_form_data) do
+        {:ok, _response} ->
+          if Mix.env() == :test do
+            Process.sleep(100)
+          end
           {:noreply,
            socket
-           |> assign(:form_state, form_data)
-           |> assign(:current_page_idx, error_page_idx)
-           |> assign(:current_page, error_page)
-           |> assign(:page_items, page_items)
-           |> assign(:errors, page_errors)
-           |> put_flash(:error, "请完成所有必填项才能提交表单")}
-        end
+           |> assign(:submitted, true)
+           |> put_flash(:info, "表单提交成功")
+           |> push_navigate(to: ~p"/forms")}
+        {:error, reason} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "表单提交失败: #{inspect(reason)}")}
       end
     else
-      # 对于单页表单，执行一般验证
-      errors = validate_form_data(form_data, items_map)
+      # --- 4. 处理验证错误或上传错误 ---
+      # 查找第一个有错误的页面
+      {error_page_idx, page_errors} = find_first_error_page(form, all_errors)
+      
+      # 更新页面状态
+      pages_status = socket.assigns.pages_status
+      updated_pages_status = 
+        pages_status
+        |> Map.put(error_page_idx, :error) # 标记错误页面
+        |> check_previous_pages_status(error_page_idx) # 确保错误页之前的页面状态正确
 
-      if Enum.empty?(errors) do
-        # 验证通过，提交表单
-        submit_form_data(form, form_data, socket)
-      else
-        # 验证失败，显示错误信息
-        {:noreply,
-         socket
-         |> assign(:form_state, form_data)
-         |> assign(:errors, errors)
-         |> put_flash(:error, "表单提交失败，请检查所有必填项")}
-      end
+      # 切换到第一个有错误的页面
+      current_page = Enum.at(form.pages, error_page_idx)
+      page_items = get_page_items(form, current_page)
+      
+      # 合并所有页面的错误到一个map中，以便在UI中显示
+      flat_errors = Enum.reduce(all_errors, %{}, fn {_idx, errors}, acc -> Map.merge(acc, errors) end)
+
+      {:noreply,
+       socket
+       |> assign(:form_state, merged_form_data) # 更新为包含文件数据的 state
+       |> assign(:errors, flat_errors) # 分配合并后的错误
+       |> assign(:pages_status, updated_pages_status)
+       |> assign(:current_page_idx, error_page_idx)
+       |> assign(:current_page, current_page)
+       |> assign(:page_items, page_items)
+       |> put_flash(:error, "表单包含错误，请检查后重新提交") # 添加一个通用的错误提示
+      }
     end
   end
 
@@ -611,158 +685,6 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:form_state, updated_form_state)}
   end
 
-  # 处理文件上传完成
-  @impl true
-  def handle_event("upload_files", %{"field-id" => field_id}, socket) do
-    # 从映射中获取上传引用
-    upload_ref = get_upload_ref(socket, field_id)
-    _item = socket.assigns.items_map[field_id]
-
-    # 获取当前控件的上传配置
-    _uploads = socket.assigns.uploads[upload_ref]
-
-    # 存储上传文件信息的目录
-    uploads_dir = "uploads/#{socket.assigns.form.id}/#{field_id}"
-
-    # 确保上传目录存在
-    File.mkdir_p!(Path.join(["priv/static", uploads_dir]))
-
-    # 处理每个已完成的上传
-    {completed_uploads, upload_errors} =
-      consume_uploaded_entries(socket, upload_ref, fn %{path: path}, entry ->
-        # 生成文件名 - 使用UUID避免文件名冲突
-        filename = "#{Ecto.UUID.generate()}-#{entry.client_name}"
-        dest_path = Path.join(["priv/static", uploads_dir, filename])
-
-        # 将临时文件复制到目标位置
-        File.cp!(path, dest_path)
-
-        # 返回文件的URL路径和元数据
-        file_info = %{
-          name: entry.client_name,
-          size: entry.client_size,
-          content_type: entry.client_type,
-          path: "/#{uploads_dir}/#{filename}"
-        }
-
-        {:ok, file_info}
-      end)
-
-    # 更新表单状态中的文件列表
-    file_uploads = socket.assigns.file_uploads
-    form_state = socket.assigns.form_state
-
-    # 获取字段当前的文件列表
-    current_files = Map.get(form_state, field_id, [])
-    current_uploads = Map.get(file_uploads, field_id, [])
-
-    # 添加新上传的文件到列表
-    updated_files = current_files ++ completed_uploads
-    updated_uploads = current_uploads ++ completed_uploads
-
-    # 更新状态
-    updated_form_state = Map.put(form_state, field_id, updated_files)
-    updated_file_uploads = Map.put(file_uploads, field_id, updated_uploads)
-
-    # 如果有上传错误，显示错误信息
-    socket =
-      if !Enum.empty?(upload_errors) do
-        put_flash(socket, :error, "部分文件上传失败，请重试")
-      else
-        socket
-      end
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:file_uploads, updated_file_uploads)}
-  end
-
-  # 提交表单数据的辅助函数
-  defp submit_form_data(form, form_data, socket) do
-    # 过滤掉辅助字段（如地区选择的辅助字段）
-    filtered_form_data =
-      form_data
-      |> Enum.filter(fn {key, _value} ->
-        # 过滤掉以下模式的键
-        not (is_binary(key) and
-               (String.ends_with?(key, "_province") or
-                  String.ends_with?(key, "_city") or
-                  String.ends_with?(key, "_district")))
-      end)
-      |> Enum.into(%{})
-
-    # 修正提交格式，直接传递过滤后的表单数据
-    case Responses.create_response(form.id, filtered_form_data) do
-      {:ok, _response} ->
-        # 保持响应在此进程，以便测试可以查询它
-        if :test == Mix.env() do
-          # 确保数据库事务完成
-          Process.sleep(100)
-        end
-
-        # 提交成功后，更新状态并重定向
-        {:noreply,
-         socket
-         |> assign(:submitted, true)
-         |> put_flash(:info, "表单提交成功")
-         |> push_navigate(to: ~p"/forms")}
-
-      {:error, reason} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "表单提交失败: #{inspect(reason)}")}
-    end
-  end
-
-  # 验证所有页面的数据
-  defp validate_all_pages(form, form_data, items_map) do
-    form.pages
-    |> Enum.with_index()
-    |> Enum.reduce(%{}, fn {page, idx}, all_errors ->
-      # 获取此页面的表单项
-      page_items = get_page_items(form, page)
-
-      # 验证此页面的表单项
-      page_errors = validate_page_items(form_data, page_items, items_map)
-
-      # 将此页面的错误与页面索引关联起来
-      if Enum.empty?(page_errors) do
-        all_errors
-      else
-        Map.put(all_errors, idx, page_errors)
-      end
-    end)
-  end
-
-  # 检查之前所有页面的状态
-  defp check_previous_pages_status(pages_status, current_idx) do
-    # 检查之前的页面，确保它们都标记为完成
-    Enum.reduce(0..(current_idx - 1), pages_status, fn idx, acc ->
-      case Map.get(acc, idx) do
-        :complete -> acc
-        # 设置为完成状态
-        _ -> Map.put(acc, idx, :complete)
-      end
-    end)
-  end
-
-  # 查找第一个有错误的页面
-  defp find_first_error_page(_form, all_errors) do
-    # 按页面索引排序
-    sorted_errors =
-      all_errors
-      |> Enum.sort_by(fn {idx, _} -> idx end)
-
-    # 如果没有错误，返回默认值
-    if Enum.empty?(sorted_errors) do
-      {0, %{}}
-    else
-      # 返回第一个有错误的页面
-      Enum.at(sorted_errors, 0)
-    end
-  end
-
   # 辅助函数
 
   # 构建表单项映射，以便于验证和显示
@@ -914,18 +836,16 @@ defmodule MyAppWeb.FormLive.Submit do
     end
   end
 
-  # 获取上传引用 - 从映射中获取item_id对应的upload_name，如果不存在则创建一个新的
+  # 获取上传引用 - 从映射中获取item_id对应的upload_name
   defp get_upload_ref(socket, field_id) do
     upload_names = socket.assigns.upload_names || %{}
-
     case Map.get(upload_names, field_id) do
       nil ->
-        # 如果不存在映射（很少发生，可能是热重载后），则创建一个默认名称
-        # 使用固定前缀加字段ID的哈希值
-        hash = :erlang.phash2(field_id)
-        :"file_upload_#{hash}"
-
+        # 如果找不到映射，说明状态有问题，立即抛出错误
+        raise "Upload configuration name not found in assigns for field_id: #{inspect(field_id)}. " <>
+              "This might indicate a state inconsistency (e.g., after hot-reload)."
       upload_name ->
+        # 找到了有效的 upload_name
         upload_name
     end
   end
@@ -1041,4 +961,52 @@ defmodule MyAppWeb.FormLive.Submit do
   defp translate_upload_error(:too_many_files), do: "文件数量超出限制"
   defp translate_upload_error(_), do: "上传出错" # 其他未知错误
   # --- 辅助函数结束 ---
+
+  # --- 重新添加被删除的辅助函数 ---
+
+  # 验证所有页面的数据
+  defp validate_all_pages(form, form_data, items_map) do
+    form.pages
+    |> Enum.with_index()
+    |> Enum.reduce(%{}, fn {page, idx}, all_errors ->
+      # 获取此页面的表单项
+      page_items = get_page_items(form, page)
+
+      # 验证此页面的表单项
+      page_errors = validate_page_items(form_data, page_items, items_map)
+
+      # 将此页面的错误与页面索引关联起来
+      if Enum.empty?(page_errors) do
+        all_errors
+      else
+        Map.put(all_errors, idx, page_errors)
+      end
+    end)
+  end
+
+  # 查找第一个有错误的页面
+  defp find_first_error_page(_form, all_errors) do
+    # 按页面索引排序
+    sorted_errors =
+      all_errors
+      |> Enum.sort_by(fn {idx, _} -> idx end)
+
+    # 返回第一个有错误的页面 {index, errors}
+    # 如果 all_errors 为空，此函数不应被调用（因为外部有检查）
+    Enum.at(sorted_errors, 0, {0, %{}}) # 提供默认值以防万一
+  end
+
+  # 检查之前所有页面的状态
+  defp check_previous_pages_status(pages_status, current_idx) do
+    # 检查之前的页面，确保它们都标记为完成
+    Enum.reduce(0..(current_idx - 1), pages_status, fn idx, acc ->
+      case Map.get(acc, idx) do
+        # 如果已完成，保持不变
+        :complete -> acc
+        # 否则，标记为完成 (假设向前移动意味着完成)
+        _ -> Map.put(acc, idx, :complete)
+      end
+    end)
+  end
+  # --- 重新添加结束 ---
 end

@@ -1584,7 +1584,6 @@ defmodule MyAppWeb.FormComponents do
       </div>
       
       <!-- 隐藏的文件输入框 -->
-      <form id={"#{@field.id}-upload-form"} phx-change={"validate_upload"} phx-value-field-id={@field.id} phx-submit="upload_files">
         <.live_file_input upload={@upload} class="hidden" />
         <button 
           type="button" 
@@ -1598,7 +1597,6 @@ defmodule MyAppWeb.FormComponents do
         >
           选择文件
         </button>
-      </form>
       
       <!-- 错误信息显示 -->
       <%= for err <- @upload.errors do %>
@@ -1650,15 +1648,6 @@ defmodule MyAppWeb.FormComponents do
               </li>
             <% end %>
           </ul>
-          
-          <button
-            type="button"
-            phx-click="upload_files"
-            phx-value-field-id={@field.id}
-            class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            开始上传
-          </button>
         </div>
       <% end %>
     </div>
