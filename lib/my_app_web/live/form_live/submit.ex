@@ -110,6 +110,8 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def handle_params(_params, _url, socket) do
+    # 不再需要处理URL参数中的文件信息
+    # 文件信息已经通过Upload上下文直接从数据库获取
     {:noreply, socket}
   end
 
