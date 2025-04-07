@@ -1588,8 +1588,11 @@ defmodule MyAppWeb.FormComponents do
         <.live_file_input upload={@upload} class="hidden" />
         <button 
           type="button" 
+          id={"select-files-btn-#{@field.id}"} 
           phx-click="select_files"
           phx-value-field-id={@field.id}
+          phx-hook="FileInputTrigger" 
+          data-file-input-id={@upload.ref} 
           disabled={@disabled || Enum.count(@upload.entries) >= @upload.max_entries}
           class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
         >

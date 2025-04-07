@@ -536,99 +536,14 @@
                     </div>
                     
                   <% :file_upload -> %>
-                    <%# 获取此文件上传控件的唯一上传名称和输入ID %>
-                    <% upload_name = Map.get(@upload_names, item.id) %>
-                    <% file_input_id = "file-input-#{item.id}" %>
-                  
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
-                        <%= if item.required do %>
-                          <span class="form-item-required text-red-500 required-mark">*</span>
-                        <% end %>
-                      </label>
-                      
-                      <%# 隐藏的实际文件输入控件，添加 id %>
-                      <.live_file_input 
-                        upload={@uploads[upload_name]} 
-                        id={file_input_id} 
-                        style="display: none;" 
-                        multiple={item.multiple_files}
-                      />
-                      
-                      <%# 可见的"选择文件"按钮，添加 phx-hook 和 data-file-input-id %>
-                      <button
-                        type="button"
-                        id={"select-files-btn-#{item.id}"}
-                        phx-click="select_files"
-                        phx-value-field-id={item.id}
-                        phx-hook="FileInputTrigger" 
-                        data-file-input-id={file_input_id}
-                        class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        选择文件 <%= if item.multiple_files, do: "(可多选)" %>
-                      </button>
-
-                      <%# 显示上传进度 %>
-                      <%= for entry <- @uploads[upload_name].entries do %>
-                        <div class="mt-2 p-3 border rounded-md bg-gray-50">
-                          <div class="flex justify-between items-center">
-                            <span class="text-sm font-medium text-gray-700 truncate w-4/5"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span>
-                            <button 
-                              type="button"
-                              phx-click="cancel_upload" 
-                              phx-value-field-id={item.id} 
-                              phx-value-ref={entry.ref} 
-                              aria-label="取消上传"
-                              class="text-red-500 hover:text-red-700"
-                            >
-                              &times; <%# 简单的取消按钮 %>
-                            </button>
-                          </div>
-                          <div class="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-                            <div class="bg-indigo-600 h-1.5 rounded-full" style={"width: #{entry.progress}%"}></div>
-                          </div>
-                          <%= if entry.progress == 100 do %>
-                            <span class="text-xs text-green-600">上传完成</span>
-                          <% else %>
-                            <span class="text-xs text-gray-500">正在上传... <%= entry.progress %>%</span>
-                          <% end %>
-                          <%= for err <- upload_errors(@uploads[upload_name], entry) do %>
-                            <div class="text-red-500 text-xs mt-1"><%= translate_upload_error(err) %></div>
-                          <% end %>
-                        </div>
-                      <% end %>
-
-                      <%# 显示已完成上传的文件列表 %>
-                      <%= if Map.get(@file_uploads, item.id) do %>
-                        <div class="mt-2 space-y-1">
-                          <%= for {file, index} <- Enum.with_index(Map.get(@file_uploads, item.id, [])) do %>
-                            <div class="flex items-center justify-between text-sm bg-gray-100 px-2 py-1 rounded">
-                              <a href={file.path} target="_blank" class="text-indigo-600 hover:underline truncate w-4/5">
-                                <%= file.name %> (<%= format_bytes(file.size) %>)
-                              </a>
-                              <button 
-                                type="button"
-                                phx-click="remove_file" 
-                                phx-value-field-id={item.id} 
-                                phx-value-file-index={index} 
-                                aria-label="删除文件"
-                                class="text-red-500 hover:text-red-700 ml-2"
-                              >
-                                &times;
-                              </button>
-                            </div>
-                          <% end %>
-                        </div>
-                      <% end %>
-
-                      <%= if item.description do %>
-                        <div class="text-sm text-gray-500 mt-1"><%= item.description %></div>
-                      <% end %>
-                      <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
-                      <% end %>
-                    </div>
+                    <!-- 使用新的文件上传组件 -->
+                    <.file_upload_field
+                      field={item}
+                      form_state={@form_state}
+                      error={@errors[item.id]}
+                      uploads={@uploads}
+                      upload_names={@upload_names}
+                    />
                     
                   <% :image_choice -> %>
                     <!-- 使用图片选择组件 -->
