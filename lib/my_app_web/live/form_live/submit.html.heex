@@ -539,6 +539,7 @@
                     <!-- 使用新的文件上传组件 -->
                     <.file_upload_field
                       field={item}
+                      form_id={@form.id}
                       form_state={@form_state}
                       error={@errors[item.id]}
                       uploads={@uploads}

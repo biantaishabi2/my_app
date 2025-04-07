@@ -196,70 +196,58 @@
                   </div>
                 
                 <% :file_upload -> %>
-                  <% 
-                    # 获取文件上传引用
-                    upload_ref = Map.get(@uploads || %{}, Map.get(@upload_names || %{}, item.id))
-                  %>
-                  <%= if upload_ref do %>
-                    <div class="file-upload mt-1">
-                      <div class="upload-area border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <form id={"file-upload-form-#{item.id}"} phx-change="validate" phx-submit="save" class="space-y-4">
-                          <div class="flex items-center justify-center">
-                            <label for={item.id} class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded inline-flex items-center">
-                              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                              </svg>
-                              <span>选择文件</span>
-                              <.live_file_input upload={upload_ref} style="display: none" />
-                            </label>
-                          </div>
-                          
-                          <p class="text-sm text-gray-500 mt-2">
-                            <%= if item.multiple_files do %>
-                              最多上传 <%= item.max_files || 1 %> 个文件
-                            <% else %>
-                              仅支持上传单个文件
-                            <% end %>
-                          </p>
-                          
-                          <p class="text-sm text-gray-500">
-                            <% 
-                              extensions = item.allowed_extensions || []
-                              extensions = if Enum.empty?(extensions), do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"], else: extensions
-                            %>
-                            支持格式: <%= Enum.join(extensions, ", ") %>
-                          </p>
-                        </form>
+                  <div class="border-2 border-dashed border-gray-300 rounded-md p-6">
+                    <div class="text-center">
+                      <p class="text-gray-600 mb-4">
+                        <%= if item.allowed_extensions && length(item.allowed_extensions) > 0 do %>
+                          允许的文件类型: <%= Enum.join(item.allowed_extensions, ", ") %>
+                        <% else %>
+                          允许上传任何类型的文件
+                        <% end %>
+                      </p>
+                      
+                      <p class="text-gray-600 mb-4">
+                        <%= if item.multiple_files do %>
+                          最多可上传 <%= item.max_files || 5 %> 个文件
+                        <% else %>
+                          只能上传单个文件
+                        <% end %>
                         
-                        <!-- 上传中的文件预览 -->
-                        <%= for entry <- Phoenix.LiveView.upload_entries(upload_ref) do %>
-                          <div class="mt-4 p-3 bg-gray-100 rounded flex items-center justify-between">
-                            <div class="flex items-center">
-                              <span class="truncate"><%= entry.client_name %></span>
-                              <progress class="ml-3" value={entry.progress} max="100"><%= entry.progress %>%</progress>
-                            </div>
-                            <button type="button" phx-click="cancel_upload" phx-value-ref={entry.ref} class="ml-2 text-red-500">
-                              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </div>
-                          
-                          <%= for err <- Phoenix.LiveView.upload_errors(upload_ref, entry) do %>
-                            <div class="text-red-500 text-sm mt-1"><%= error_to_string(err) %></div>
+                        <%= if item.max_file_size do %>
+                          (每个文件最大 <%= item.max_file_size %>MB)
+                        <% end %>
+                      </p>
+                    </div>
+                      
+                    <div class="flex justify-center mt-4">
+                      <a 
+                        href={"/test-upload/#{@form.id}/#{item.id}?return_to=#{URI.encode("/public/forms/#{@form.id}/submit")}"} 
+                        class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block"
+                      >
+                        <%= if @form_data && @form_data[item.id] && length(@form_data[item.id]) > 0 do %>
+                          管理已上传文件
+                        <% else %>
+                          选择并上传文件
+                        <% end %>
+                      </a>
+                    </div>
+                    
+                    <%= if @form_data && @form_data[item.id] && length(@form_data[item.id]) > 0 do %>
+                      <div class="mt-4 border-t pt-4">
+                        <h4 class="font-medium text-sm mb-2">已上传的文件:</h4>
+                        <ul class="text-sm">
+                          <%= for {file, index} <- Enum.with_index(@form_data[item.id]) do %>
+                            <li class="flex items-center gap-2 mb-2 text-gray-800">
+                              <span class="text-sm truncate flex-1">
+                                <%= file.original_filename %>
+                              </span>
+                              <a href={file.path} target="_blank" class="text-blue-600 hover:underline text-xs">查看</a>
+                            </li>
                           <% end %>
-                        <% end %>
-                        
-                        <%= for err <- Phoenix.LiveView.upload_errors(upload_ref) do %>
-                          <div class="text-red-500 text-sm mt-1"><%= error_to_string(err) %></div>
-                        <% end %>
+                        </ul>
                       </div>
-                    </div>
-                  <% else %>
-                    <div class="p-3 bg-yellow-100 text-yellow-800 rounded">
-                      文件上传控件配置错误，请联系管理员。
-                    </div>
-                  <% end %>
+                    <% end %>
+                  </div>
                 
                 <% _ -> %>
                   <div class="unsupported-field text-gray-500">

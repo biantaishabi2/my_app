@@ -1483,6 +1483,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def file_upload_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
+    assigns = assign_new(assigns, :form_id, fn -> nil end)
     
     ~H"""
     <div class="form-field form-item mb-4">
@@ -1497,11 +1498,57 @@ defmodule MyAppWeb.FormComponents do
         <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
       <% end %>
       
-      <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-        <p class="text-gray-500 mb-4">此项目需要文件上传。</p>
-        <a href="/test-upload" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block">
-          前往测试上传页面
-        </a>
+      <div class="border-2 border-dashed border-gray-300 rounded-md p-6">
+        <div class="text-center">
+          <p class="text-gray-600 mb-4">
+            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+              允许的文件类型: <%= Enum.join(@field.allowed_extensions, ", ") %>
+            <% else %>
+              允许上传任何类型的文件
+            <% end %>
+          </p>
+          
+          <p class="text-gray-600 mb-4">
+            <%= if @field.multiple_files do %>
+              最多可上传 <%= @field.max_files || 5 %> 个文件
+            <% else %>
+              只能上传单个文件
+            <% end %>
+            
+            <%= if @field.max_file_size do %>
+              (每个文件最大 <%= @field.max_file_size %>MB)
+            <% end %>
+          </p>
+        </div>
+          
+        <div class="flex justify-center mt-4">
+          <a 
+            href={"/test-upload/#{@form_id}/#{@field.id}?return_to=#{URI.encode("/forms/#{@form_id}/submit")}"} 
+            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block"
+          >
+            <%= if @form_state && @form_state[@field.id] && length(@form_state[@field.id]) > 0 do %>
+              管理已上传文件
+            <% else %>
+              选择并上传文件
+            <% end %>
+          </a>
+        </div>
+        
+        <%= if @form_state && @form_state[@field.id] && length(@form_state[@field.id]) > 0 do %>
+          <div class="mt-4 border-t pt-4">
+            <h4 class="font-medium text-sm mb-2">已上传的文件:</h4>
+            <ul class="text-sm">
+              <%= for {file, index} <- Enum.with_index(@form_state[@field.id]) do %>
+                <li class="flex items-center gap-2 mb-2 text-gray-800">
+                  <span class="text-sm truncate flex-1">
+                    <%= file.original_filename %>
+                  </span>
+                  <a href={file.path} target="_blank" class="text-blue-600 hover:underline text-xs">查看</a>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
       </div>
       
       <%= if @error do %>

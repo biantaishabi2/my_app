@@ -45,6 +45,7 @@ defmodule MyAppWeb.Router do
     get "/", PageController, :home
     get "/test-form", PageController, :test_form
     live "/test-upload", TestUploadLive
+    live "/test-upload/:form_id/:field_id", TestUploadLive
   end
 
   # Other scopes may use custom stacks.
