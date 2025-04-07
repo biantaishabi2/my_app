@@ -4,6 +4,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
   alias MyApp.Forms
   alias MyApp.Responses
+  alias MyApp.Upload
   # Phoenix.LiveView已经在use MyAppWeb, :live_view中导入了
   # 不需要重复导入Phoenix.LiveView.Upload
 
@@ -44,8 +45,8 @@ defmodule MyAppWeb.FormLive.Submit do
     form_items = Forms.list_form_items_by_form_id(id)
     current_user = session["current_user"]
 
-    # 获取已存在的上传文件信息
-    existing_files_map = Responses.list_uploaded_files_for_form_items(form.id)
+    # 获取已存在的上传文件信息 (使用Upload上下文)
+    existing_files_map = Upload.get_files_for_form(form.id)
     Logger.info("[FormLive.Submit] Existing files map for form #{form.id}: #{inspect(existing_files_map)}")
 
     # 初始化上传配置 - 简化版本
@@ -155,6 +156,16 @@ defmodule MyAppWeb.FormLive.Submit do
       case Responses.create_response(all_data, form_id, socket.assigns.current_user.id) do
         {:ok, response} ->
           Logger.info("Response created successfully: #{response.id}")
+          
+          # 关联文件到响应
+          Enum.each(files_data, fn {item_id, file_entries} ->
+            # 对于每个文件上传字段，关联其文件到响应
+            if !Enum.empty?(file_entries) do
+              Logger.info("Associating #{length(file_entries)} files for item #{item_id} with response #{response.id}")
+              Upload.associate_files_with_response(form_id, item_id, response.id)
+            end
+          end)
+          
           # 清理上传的文件信息
           socket = clear_uploaded_files_info(socket)
           {:noreply,
@@ -861,7 +872,8 @@ defmodule MyAppWeb.FormLive.Submit do
         item_id = upload_name 
                  |> Atom.to_string() 
                  |> String.replace_prefix("upload_", "") 
-                 |> String.to_integer()
+        
+        form_id = current_socket.assigns.form.id
         
         # 获取已完成的上传
         completed_entries = consume_uploaded_entries(current_socket, upload_name, fn %{path: path}, entry ->
@@ -870,7 +882,7 @@ defmodule MyAppWeb.FormLive.Submit do
             :code.priv_dir(:my_app), 
             "static", 
             "uploads", 
-            to_string(current_socket.assigns.form.id), 
+            to_string(form_id), 
             to_string(item_id)
           ])
           File.mkdir_p!(dest_dir)
@@ -883,14 +895,26 @@ defmodule MyAppWeb.FormLive.Submit do
           # 复制文件
           File.cp!(path, dest_path)
           
-          # 返回文件信息
-          %{
+          # 构建文件信息
+          file_info = %{
             original_filename: entry.client_name,
             filename: filename,
             size: entry.client_size,
-            type: entry.client_type,
-            path: "/uploads/#{current_socket.assigns.form.id}/#{item_id}/#{filename}"
+            content_type: entry.client_type,
+            path: "/uploads/#{form_id}/#{item_id}/#{filename}"
           }
+          
+          # 保存文件信息到数据库
+          case Upload.save_uploaded_file(form_id, item_id, file_info) do
+            {:ok, file} ->
+              # 返回文件信息，包含ID以便后续关联
+              Map.put(file_info, :id, file.id)
+              |> Map.put(:type, file_info.content_type) # 为了兼容旧代码，添加type字段
+            {:error, changeset} ->
+              Logger.error("Failed to save file record: #{inspect(changeset)}")
+              # 保持原来的文件信息不变，但为了兼容旧代码，添加type字段
+              Map.put(file_info, :type, file_info.content_type)
+          end
         end)
         
         # 更新数据

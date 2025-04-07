@@ -1,6 +1,8 @@
 defmodule MyAppWeb.TestUploadLive do
   use MyAppWeb, :live_view
   require Logger
+  
+  alias MyApp.Upload
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
@@ -9,9 +11,27 @@ defmodule MyAppWeb.TestUploadLive do
     
     Logger.info("Mounting TestUploadLive with form_id: #{inspect(form_id)}, field_id: #{inspect(field_id)}")
     
+    # 如果有表单ID和字段ID，尝试加载已上传的文件
+    uploaded_files = 
+      if form_id && field_id do
+        Upload.get_files_for_form_item(form_id, field_id)
+        |> Enum.map(fn file -> 
+          %{
+            id: file.id,
+            original_filename: file.original_filename,
+            filename: file.filename,
+            path: file.path,
+            size: file.size,
+            type: file.content_type
+          }
+        end)
+      else
+        []
+      end
+    
     {:ok,
      socket
-     |> assign(:uploaded_files, [])
+     |> assign(:uploaded_files, uploaded_files)
      |> assign(:form_id, form_id)
      |> assign(:field_id, field_id)
      |> assign(:return_to, Map.get(params, "return_to", "/"))
@@ -68,17 +88,42 @@ defmodule MyAppWeb.TestUploadLive do
         # 复制文件
         File.cp!(path, dest)
         
-        # 返回文件信息和URL
+        # 构建文件信息和URL
         file_url = Path.join(["/", upload_dir, filename])
         file_info = %{
           original_filename: entry.client_name,
           filename: filename,
           size: entry.client_size,
-          type: entry.client_type,
+          content_type: entry.client_type,
           path: file_url
         }
         
-        {:ok, file_info}
+        # 如果有表单ID和字段ID，保存到数据库
+        result = if form_id && field_id do
+          case Upload.save_uploaded_file(form_id, field_id, file_info) do
+            {:ok, file} -> 
+              # 将数据库ID添加到返回的文件信息中
+              Map.put(file_info, :id, file.id)
+            {:error, changeset} ->
+              Logger.error("Failed to save file record: #{inspect(changeset)}")
+              # 保持原来的文件信息不变
+              file_info
+          end
+        else
+          # 不将文件关联到任何表单
+          file_info
+        end
+        
+        # 为了保持前端字段兼容性，重命名 content_type 为 type
+        result = if Map.has_key?(result, :content_type) do
+          result
+          |> Map.put(:type, result.content_type)
+          |> Map.delete(:content_type)
+        else
+          result
+        end
+        
+        {:ok, result}
       end)
 
     {:noreply, 
@@ -96,13 +141,20 @@ defmodule MyAppWeb.TestUploadLive do
     # 将上传的文件信息编码为URL参数
     uploaded_files_param = socket.assigns.uploaded_files
     |> Enum.map(fn file -> 
-      %{
+      # 确保包含文件ID（如果存在）用于关联
+      base_info = %{
         filename: file.filename,
         original_filename: file.original_filename,
         path: file.path,
         size: file.size,
         type: file.type
       }
+      
+      if Map.has_key?(file, :id) do
+        Map.put(base_info, :id, file.id)
+      else
+        base_info
+      end
     end)
     |> Jason.encode!()
     |> Base.encode64()

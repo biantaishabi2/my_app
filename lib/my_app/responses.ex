@@ -284,33 +284,4 @@ defmodule MyApp.Responses do
     Repo.delete(response)
   end
 
-  @doc """
-  Lists all uploaded files associated with file_upload items for a given form,
-  grouped by form_item_id.
-
-  It retrieves answers for file_upload items across all responses for the form.
-  """
-  def list_uploaded_files_for_form_items(form_id) do
-    query =
-      from r in Response,
-      join: a in Answer, on: r.id == a.response_id,
-      join: fi in FormItem, on: a.form_item_id == fi.id,
-      where: r.form_id == ^form_id and fi.type == :file_upload,
-      select: {a.form_item_id, a.value} # Select item_id and the answer value map
-
-    Repo.all(query)
-    |> Enum.flat_map(fn {item_id, answer_value_map} ->
-      # Ensure "value" key exists and is a list
-      case Map.get(answer_value_map, "value") do
-        files when is_list(files) ->
-          Enum.map(files, fn file_info -> {item_id, file_info} end)
-        _ ->
-          [] # Ignore if "value" is not a list or missing
-      end
-    end)
-    |> Enum.group_by(
-         fn {item_id, _file_info} -> item_id end,
-         fn {_item_id, file_info} -> file_info end
-       )
-  end
 end 
