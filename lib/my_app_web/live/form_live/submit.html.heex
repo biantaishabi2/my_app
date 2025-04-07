@@ -537,14 +537,51 @@
                     
                   <% :file_upload -> %>
                     <!-- 使用新的文件上传组件 -->
-                    <.file_upload_field
-                      field={item}
-                      form_id={@form.id}
-                      form_state={@form_state}
-                      error={@errors[item.id]}
-                      uploads={@uploads}
-                      upload_names={@upload_names}
-                    />
+                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                      <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
+                        <%= item.label %>
+                        <%= if item.required do %>
+                          <span class="form-item-required text-red-500 required-mark">*</span>
+                        <% end %>
+                      </label>
+
+                      <!-- 显示已上传的文件列表 (从 @existing_files_map 获取) -->
+                      <%= if existing_files = Map.get(@existing_files_map || %{}, item.id) do %>
+                        <div class="mb-4 existing-files-list">
+                          <h3 class="text-sm font-medium text-gray-700 mb-2">已关联的文件：</h3>
+                          <div class="space-y-2">
+                            <%= for file_info <- existing_files do %>
+                              <%# file_info 是一个 Map, 包含 filename, path, size 等 %>
+                              <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                                <div class="flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                  <span class="text-gray-700"><%= file_info["original_filename"] || file_info["filename"] %></span>
+                                  <span class="text-xs text-gray-500">(<%= MyAppWeb.Helpers.format_file_size(file_info["size"]) %>)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <a href={file_info["path"]} target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                    查看
+                                  </a>
+                                  <!-- 这里可以添加 "移除关联" 的按钮，但需要后端支持 -->
+                                </div>
+                              </div>
+                            <% end %>
+                          </div>
+                        </div>
+                      <% end %>
+
+                      <!-- 文件上传组件 -->
+                      <.file_upload_field
+                        field={item}
+                        form_id={@form.id}
+                        form_state={@form_state}
+                        error={@errors[item.id]}
+                        uploads={@uploads}
+                        upload_names={@upload_names}
+                      />
+                    </div>
                     
                   <% :image_choice -> %>
                     <!-- 使用图片选择组件 -->

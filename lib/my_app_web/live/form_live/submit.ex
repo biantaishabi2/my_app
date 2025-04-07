@@ -44,6 +44,10 @@ defmodule MyAppWeb.FormLive.Submit do
     form_items = Forms.list_form_items_by_form_id(id)
     current_user = session["current_user"]
 
+    # 获取已存在的上传文件信息
+    existing_files_map = Responses.list_uploaded_files_for_form_items(form.id)
+    Logger.info("[FormLive.Submit] Existing files map for form #{form.id}: #{inspect(existing_files_map)}")
+
     # 初始化上传配置 - 简化版本
     {socket, upload_names} = 
       form_items
@@ -96,7 +100,8 @@ defmodule MyAppWeb.FormLive.Submit do
       changeset: MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, %{}),
       current_user: current_user,
       errors: %{},
-      submitted: false
+      submitted: false,
+      existing_files_map: existing_files_map
     })
         
     {:ok, socket, temporary_assigns: [form_items: []]}

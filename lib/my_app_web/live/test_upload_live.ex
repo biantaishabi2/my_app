@@ -91,10 +91,30 @@ defmodule MyAppWeb.TestUploadLive do
   def handle_event("return", _params, socket) do
     return_url = socket.assigns.return_to
     form_id = socket.assigns.form_id
+    field_id = socket.assigns.field_id
+    
+    # 将上传的文件信息编码为URL参数
+    uploaded_files_param = socket.assigns.uploaded_files
+    |> Enum.map(fn file -> 
+      %{
+        filename: file.filename,
+        original_filename: file.original_filename,
+        path: file.path,
+        size: file.size,
+        type: file.type
+      }
+    end)
+    |> Jason.encode!()
+    |> Base.encode64()
     
     # 如果有表单ID，构建返回到表单提交页的URL
     submit_url = if form_id do
-      "/forms/#{form_id}/submit"
+      params = %{
+        "field_id" => field_id,
+        "uploaded_files" => uploaded_files_param
+      }
+      query_string = URI.encode_query(params)
+      "/forms/#{form_id}/submit?#{query_string}"
     else
       return_url
     end
