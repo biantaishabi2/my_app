@@ -1,6 +1,10 @@
 defmodule MyAppWeb.FormComponents do
   use Phoenix.Component
-  
+  import Phoenix.LiveView.Helpers
+  import MyAppWeb.CoreComponents
+
+  embed_templates "form_components/*"
+
   # 这些导入虽然当前未直接使用，但在组件开发中可能需要
   # 保留以备将来扩展组件功能时使用
   # HTML标记处理 - 用于HTML转义和安全处理
@@ -1276,82 +1280,81 @@ defmodule MyAppWeb.FormComponents do
     
     ~H"""
     <div class="form-field form-item mb-6">
-      <fieldset>
-        <legend class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
-          <%= @field.label %>
-          <%= if @field.required do %>
-            <span class="form-item-required text-red-500">*</span>
-          <% end %>
-        </legend>
-        
-        <%= if @field.description do %>
-          <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+      <label class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+        <%= @field.label %>
+        <%= if @field.required do %>
+          <span class="form-item-required text-red-500">*</span>
         <% end %>
-        
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse rounded-lg overflow-hidden">
-            <thead>
+      </label>
+      
+      <%= if @field.description do %>
+        <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+      <% end %>
+      
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse rounded-lg overflow-hidden">
+          <thead>
+            <tr>
+              <th class="p-2 border border-gray-300 bg-gray-50"></th>
+              <%= for column <- (@field.matrix_columns || []) do %>
+                <th class="p-2 border border-gray-300 bg-gray-50 text-center">
+                  <%= column %>
+                </th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for {row, row_idx} <- Enum.with_index(@field.matrix_rows || []) do %>
               <tr>
-                <th class="p-2 border border-gray-300 bg-gray-50"></th>
-                <%= for column <- (@field.matrix_columns || []) do %>
-                  <th class="p-2 border border-gray-300 bg-gray-50 text-center">
-                    <%= column %>
-                  </th>
+                <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                <%= for {_column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
+                  <td class="p-2 border border-gray-300 text-center">
+                    <%= if @field.matrix_type == :multiple do %>
+                      <input 
+                        type="checkbox" 
+                        id={"#{@field.id}_#{row_idx}_#{col_idx}"}
+                        name={"#{@field.id}[#{row_idx}][#{col_idx}]"}
+                        value="true"
+                        checked={get_matrix_value(@form_state, @field.id, row_idx, col_idx)}
+                        phx-change="matrix_change"
+                        phx-value-field-id={@field.id}
+                        phx-value-row-idx={row_idx}
+                        phx-value-col-idx={col_idx}
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                        disabled={@disabled}
+                      />
+                    <% else %>
+                      <input 
+                        type="radio" 
+                        id={"#{@field.id}_#{row_idx}_#{col_idx}"}
+                        name={"#{@field.id}[#{row_idx}]"}
+                        value={col_idx}
+                        checked={get_matrix_value(@form_state, @field.id, row_idx) == col_idx}
+                        phx-change="matrix_change"
+                        phx-value-field-id={@field.id}
+                        phx-value-row-idx={row_idx}
+                        phx-value-col-idx={col_idx}
+                        required={@field.required}
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                        disabled={@disabled}
+                      />
+                    <% end %>
+                  </td>
                 <% end %>
               </tr>
-            </thead>
-            <tbody>
-              <%= for {row, row_idx} <- Enum.with_index(@field.matrix_rows || []) do %>
-                <tr>
-                  <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
-                  <%= for {_column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
-                    <td class="p-2 border border-gray-300 text-center">
-                      <%= if @field.matrix_type == :multiple do %>
-                        <input 
-                          type="checkbox" 
-                          id={"#{@field.id}_#{row_idx}_#{col_idx}"}
-                          name={"#{@field.id}[#{row_idx}][#{col_idx}]"}
-                          value="true"
-                          checked={get_matrix_value(@form_state, @field.id, row_idx, col_idx)}
-                          phx-change="matrix_change"
-                          phx-value-field-id={@field.id}
-                          phx-value-row-idx={row_idx}
-                          phx-value-col-idx={col_idx}
-                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
-                          disabled={@disabled}
-                        />
-                      <% else %>
-                        <input 
-                          type="radio" 
-                          id={"#{@field.id}_#{row_idx}_#{col_idx}"}
-                          name={"#{@field.id}[#{row_idx}]"}
-                          value={col_idx}
-                          checked={get_matrix_value(@form_state, @field.id, row_idx) == col_idx}
-                          phx-change="matrix_change"
-                          phx-value-field-id={@field.id}
-                          phx-value-row-idx={row_idx}
-                          phx-value-col-idx={col_idx}
-                          required={@field.required}
-                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
-                          disabled={@disabled}
-                        />
-                      <% end %>
-                    </td>
-                  <% end %>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- 隐藏的输入字段，用于存储矩阵值 -->
-        <input type="hidden" id={@field.id} name={@field.id} 
-          value={Jason.encode!(Map.get(@form_state || %{}, @field.id) || %{})} />
-        
-        <%= if @error do %>
-          <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
-        <% end %>
-      </fieldset>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- 隐藏的输入字段，用于存储矩阵值 -->
+      <% matrix_value = Map.get(@form_state || %{}, @field.id) || %{} %>
+      <% json_value = Phoenix.HTML.html_escape(Jason.encode!(matrix_value)) %>
+      <input type="hidden" id={@field.id} name={@field.id} value={json_value} />
+      
+      <%= if @error do %>
+        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+      <% end %>
     </div>
     """
   end
@@ -1480,13 +1483,10 @@ defmodule MyAppWeb.FormComponents do
   """
   def file_upload_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    assigns = assign_new(assigns, :uploads, fn -> nil end)
-    # 添加上传名称映射
-    assigns = assign_new(assigns, :upload_names, fn -> Map.get(assigns[:context] || %{}, :upload_names, %{}) end)
     
     ~H"""
-    <div class="form-field form-item mb-6">
-      <label class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
+    <div class="form-field form-item mb-4">
+      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
         <%= @field.label %>
         <%= if @field.required do %>
           <span class="form-item-required text-red-500">*</span>
@@ -1497,243 +1497,19 @@ defmodule MyAppWeb.FormComponents do
         <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
       <% end %>
       
-      <%= if @uploads do %>
-        <% upload_ref = get_upload_ref_for_component(@uploads, @field.id, @upload_names) %>
-        <%= if upload_ref && Map.has_key?(@uploads, upload_ref) do %>
-          <%= render_file_upload_ui(@field, @uploads[upload_ref], @form_state, @disabled) %>
-        <% else %>
-          <%= render_simple_file_upload_ui(@field, @disabled) %>
-        <% end %>
-      <% else %>
-        <%= render_simple_file_upload_ui(@field, @disabled) %>
-      <% end %>
-      
-      <!-- 已上传的文件列表 -->
-      <%= if Map.get(@form_state, @field.id) && !Enum.empty?(Map.get(@form_state, @field.id, [])) do %>
-        <div class="mt-4">
-          <h4 class="text-sm font-medium text-gray-700 mb-2">已上传的文件:</h4>
-          <ul class="space-y-2">
-            <%= for {file, index} <- Enum.with_index(Map.get(@form_state, @field.id, [])) do %>
-              <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
-                <span class="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <a href={file.path} target="_blank" class="text-indigo-600 hover:underline">
-                    <%= file.name || "文件 #{index + 1}" %>
-                  </a>
-                  <%= if file.size do %>
-                    <span class="ml-2 text-xs text-gray-500">
-                      (<%= format_file_size(file.size) %>)
-                    </span>
-                  <% end %>
-                </span>
-                <%= unless @disabled do %>
-                  <button
-                    type="button"
-                    phx-click="remove_file"
-                    phx-value-field-id={@field.id}
-                    phx-value-file-index={index}
-                    class="text-red-500 hover:text-red-700"
-                    title="删除文件"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                <% end %>
-              </li>
-            <% end %>
-          </ul>
-        </div>
-      <% end %>
+      <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
+        <p class="text-gray-500 mb-4">此项目需要文件上传。</p>
+        <a href="/test-upload" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block">
+          前往测试上传页面
+        </a>
+      </div>
       
       <%= if @error do %>
-        <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
+        <div class="text-red-500 text-sm mt-1 error-message"><%= @error %></div>
       <% end %>
     </div>
     """
   end
-  
-  # 渲染带上传功能的文件上传UI
-  defp render_file_upload_ui(field, upload, form_state, disabled) do
-    assigns = %{field: field, upload: upload, form_state: form_state, disabled: disabled}
-    
-    ~H"""
-    <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center" 
-         phx-drop-target={@upload.ref}
-         id={"#{@field.id}-upload-dropzone"}>
-      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-      </svg>
-      <div class="mt-2 text-sm text-gray-600">
-        点击或拖拽文件到此区域上传
-      </div>
-      <div class="mt-1 text-xs text-gray-500">
-        <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
-          支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
-        <% else %>
-          支持所有文件格式
-        <% end %>
-      </div>
-      <div class="mt-1 text-xs text-gray-500">
-        最大文件大小: <%= @field.max_file_size || 5 %> MB
-        <%= if @field.multiple_files do %>
-          , 最多 <%= @field.max_files || 3 %> 个文件
-        <% end %>
-      </div>
-      
-      <!-- 隐藏的文件输入框 -->
-        <.live_file_input upload={@upload} class="hidden" />
-        <button 
-          type="button" 
-          id={"select-files-btn-#{@field.id}"} 
-          phx-click="select_files"
-          phx-value-field-id={@field.id}
-          phx-hook="FileInputTrigger" 
-          data-file-input-id={@upload.ref} 
-          disabled={@disabled || Enum.count(@upload.entries) >= @upload.max_entries}
-          class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
-        >
-          选择文件
-        </button>
-      
-      <!-- 错误信息显示 -->
-      <%= for err <- @upload.errors do %>
-        <div class="text-red-500 text-sm mt-1">
-          <%= error_to_string(err) %>
-        </div>
-      <% end %>
-      
-      <!-- 上传中的文件列表 -->
-      <%= if Enum.any?(@upload.entries) do %>
-        <div class="mt-4">
-          <h4 class="text-sm font-medium text-gray-700 mb-2">准备上传的文件:</h4>
-          <ul class="space-y-2">
-            <%= for entry <- @upload.entries do %>
-              <li class="flex items-center justify-between p-2 bg-gray-50 rounded-md text-sm">
-                <span class="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <%= entry.client_name %>
-                  <span class="ml-2 text-xs text-gray-500">
-                    (<%= format_file_size(entry.client_size) %>)
-                  </span>
-                  
-                  <!-- 上传进度显示 -->
-                  <%= if entry.progress > 0 do %>
-                    <span class="ml-2 text-xs text-gray-500">
-                      <%= Float.round(entry.progress, 1) %>%
-                    </span>
-                    <div class="w-16 h-1 ml-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div class="h-full bg-indigo-500" style={"width: #{entry.progress}%"}></div>
-                    </div>
-                  <% end %>
-                </span>
-                
-                <!-- 取消上传按钮 -->
-                <button
-                  type="button"
-                  phx-click="cancel_upload"
-                  phx-value-field-id={@field.id}
-                  phx-value-ref={entry.ref}
-                  class="text-red-500 hover:text-red-700"
-                  title="取消上传"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-              </li>
-            <% end %>
-          </ul>
-        </div>
-      <% end %>
-    </div>
-    """
-  end
-  
-  # 渲染简单的文件上传UI（无实际上传功能）
-  defp render_simple_file_upload_ui(field, disabled) do
-    assigns = %{field: field, disabled: disabled}
-    
-    ~H"""
-    <!-- 非LiveView环境下的简单预览 -->
-    <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-      </svg>
-      <div class="mt-2 text-sm text-gray-600">
-        点击或拖拽文件到此区域上传
-      </div>
-      <div class="mt-1 text-xs text-gray-500">
-        <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
-          支持格式: <%= Enum.join(@field.allowed_extensions, ", ") %>
-        <% else %>
-          支持所有文件格式
-        <% end %>
-      </div>
-      <div class="mt-1 text-xs text-gray-500">
-        最大文件大小: <%= @field.max_file_size || 5 %> MB
-        <%= if @field.multiple_files do %>
-          , 最多 <%= @field.max_files || 3 %> 个文件
-        <% end %>
-      </div>
-      <button 
-        type="button"
-        disabled={@disabled}
-        class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400"
-      >
-        选择文件
-      </button>
-    </div>
-    """
-  end
-  
-  # 辅助函数：获取上传引用（用于组件）
-  defp get_upload_ref_for_component(uploads, field_id, upload_names) do
-    # 首先尝试从upload_names映射中获取
-    upload_ref = Map.get(upload_names, field_id)
-    
-    # 如果没有映射关系，则尝试使用旧方式（向后兼容）
-    if upload_ref && Map.has_key?(uploads, upload_ref) do
-      upload_ref
-    else
-      # 回退到旧方式，使用field_id_uploader的形式
-      legacy_ref = String.to_atom("#{field_id}_uploader")
-      if Map.has_key?(uploads, legacy_ref) do
-        legacy_ref
-      else
-        # 尝试查找任何以field_id开头的上传引用
-        uploads
-        |> Map.keys()
-        |> Enum.find(nil, fn key -> 
-          key_str = Atom.to_string(key)
-          String.starts_with?(key_str, "file_upload_")
-        end)
-      end
-    end
-  end
-  
-  # 将上传错误转换为字符串
-  defp error_to_string(:too_large), do: "文件太大"
-  defp error_to_string(:too_many_files), do: "选择的文件太多"
-  defp error_to_string(:not_accepted), do: "文件类型不被接受"
-  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
-  defp error_to_string(err), do: "上传错误: #{inspect(err)}"
-  
-  # 辅助函数：格式化文件大小
-  defp format_file_size(size_bytes) when is_integer(size_bytes) do
-    cond do
-      size_bytes < 1024 -> "#{size_bytes} B"
-      size_bytes < 1024 * 1024 -> "#{Float.round(size_bytes / 1024, 1)} KB"
-      size_bytes < 1024 * 1024 * 1024 -> "#{Float.round(size_bytes / 1024 / 1024, 1)} MB"
-      true -> "#{Float.round(size_bytes / 1024 / 1024 / 1024, 1)} GB"
-    end
-  end
-  defp format_file_size(_), do: "未知大小"
-  
 
   @doc """
   渲染文本区域字段组件
@@ -2058,6 +1834,46 @@ defmodule MyAppWeb.FormComponents do
         <div class="text-gray-500 text-xs mt-1">请输入11位手机号码</div>
       <% end %>
     </div>
+    """
+  end
+
+  defp uploaded_files_list(assigns) do
+    ~H"""
+    <%= if @field.entries != [] do %>
+      <div class="space-y-2">
+        <%= for entry <- @field.entries do %>
+          <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg text-sm">
+            <div class="flex items-center gap-2">
+              <.live_img_preview entry={entry} class="h-8 w-8 object-cover rounded" />
+              <div>
+                <p class="font-medium"><%= entry.client_name %></p>
+                <p class="text-xs text-base-content/70">
+                  <%= entry.client_size |> MyAppWeb.Helpers.format_file_size() %>
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <progress value={entry.progress} max="100" class="progress progress-primary w-24">
+                <%= entry.progress %>%
+              </progress>
+              <%= unless @disabled do %>
+                <button
+                  type="button"
+                  phx-click="cancel-upload"
+                  phx-value-ref={entry.ref}
+                  class="btn btn-ghost btn-sm btn-square"
+                >
+                  <.icon name="hero-x-mark" class="h-5 w-5" />
+                </button>
+              <% end %>
+            </div>
+          </div>
+          <%= for err <- upload_errors(@field, entry) do %>
+            <p class="text-sm text-error"><%= err %></p>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
     """
   end
 end

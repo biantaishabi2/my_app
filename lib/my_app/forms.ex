@@ -1142,4 +1142,21 @@ defmodule MyApp.Forms do
       end)
     end
   end
+
+  @doc """
+  列出指定表单的所有表单项，按order字段排序。
+  
+  ## 示例
+  
+      iex> list_form_items_by_form_id(form_id)
+      [%FormItem{}, ...]
+  
+  """
+  def list_form_items_by_form_id(form_id) do
+    FormItem
+    |> where([i], i.form_id == ^form_id)
+    |> order_by([i], i.order)
+    |> Repo.all()
+    |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
+  end
 end

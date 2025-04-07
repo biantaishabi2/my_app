@@ -44,6 +44,7 @@ defmodule MyAppWeb.Router do
 
     get "/", PageController, :home
     get "/test-form", PageController, :test_form
+    live "/test-upload", TestUploadLive
   end
 
   # Other scopes may use custom stacks.
@@ -107,6 +108,7 @@ defmodule MyAppWeb.Router do
       live "/forms/:id/edit", FormLive.Edit, :edit
       live "/forms/:id/responses", FormLive.Responses, :index
       live "/forms/:form_id/responses/:id", FormLive.Responses, :show
+      live "/forms/:id/show/edit", FormLive.Show, :edit
     end
   end
   

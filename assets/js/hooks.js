@@ -181,7 +181,8 @@ Hooks.RegionSelectProvince = {
   // 处理服务器响应
   handleEvent(event, payload) {
     if (event === "update_cities") {
-      const { field_id, cities } = payload;
+      const field_id = payload.field_id;
+      const cities = payload.cities;
       const citySelect = document.getElementById(`${field_id}_city`);
       if (!citySelect) return;
       
@@ -192,9 +193,11 @@ Hooks.RegionSelectProvince = {
       this.addOption(citySelect, "", "市", true, true);
       
       // 添加城市选项
-      cities.forEach(city => {
-        this.addOption(citySelect, city.name, city.name);
-      });
+      if (cities && Array.isArray(cities)) {
+        cities.forEach(city => {
+          this.addOption(citySelect, city.name, city.name);
+        });
+      }
       
       // 启用城市选择
       citySelect.disabled = false;
