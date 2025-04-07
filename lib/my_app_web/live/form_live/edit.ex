@@ -43,9 +43,6 @@ defmodule MyAppWeb.FormLive.Edit do
         |> assign(:temp_image_upload, %{})  # 用于临时存储图片上传信息
         |> assign(:current_option_index, nil)  # 当前正在编辑的选项索引
 
-      # 通过进程消息确保数据完全加载后再渲染
-      Process.send_after(self(), :finish_loading, 100)
-      
       # 允许Phoenix.LiveView上传图片
       socket = 
         socket
