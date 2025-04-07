@@ -375,4 +375,51 @@ Hooks.FileInputTrigger = {
   }
 };
 
+// 新增：文件上传拖放区域钩子
+Hooks.FileUploadDropzone = {
+  mounted() {
+    console.log("FileUploadDropzone钩子已挂载", this.el.id);
+    this.setupDragAndDrop();
+  },
+
+  setupDragAndDrop() {
+    const dropzone = this.el;
+    
+    // 阻止浏览器默认拖放行为
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    // 处理拖放状态的视觉反馈
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, () => {
+        dropzone.classList.add('dragover', 'active-drag');
+      }, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, () => {
+        dropzone.classList.remove('dragover', 'active-drag');
+      }, false);
+    });
+    
+    // 处理文件拖放
+    dropzone.addEventListener('drop', (e) => {
+      if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+      
+      // 如果有关联的上传按钮，则模拟点击
+      const uploadLink = dropzone.querySelector('.file-upload-button');
+      if (uploadLink) {
+        uploadLink.click();
+      }
+    }, false);
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+};
+
 export default Hooks;

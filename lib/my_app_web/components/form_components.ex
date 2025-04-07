@@ -1486,8 +1486,8 @@ defmodule MyAppWeb.FormComponents do
     assigns = assign_new(assigns, :form_id, fn -> nil end)
     
     ~H"""
-    <div class="form-field form-item mb-4">
-      <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
+    <div class="form-field form-item mb-6 file-upload-container">
+      <label for={@field.id} class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
         <%= @field.label %>
         <%= if @field.required do %>
           <span class="form-item-required text-red-500">*</span>
@@ -1495,37 +1495,45 @@ defmodule MyAppWeb.FormComponents do
       </label>
       
       <%= if @field.description do %>
-        <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
+        <div class="text-sm text-gray-500 mb-3"><%= @field.description %></div>
       <% end %>
       
-      <div class="border-2 border-dashed border-gray-300 rounded-md p-6">
-        <div class="text-center">
-          <p class="text-gray-600 mb-4">
-            <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
-              允许的文件类型: <%= Enum.join(@field.allowed_extensions, ", ") %>
-            <% else %>
-              允许上传任何类型的文件
-            <% end %>
-          </p>
+      <div class="file-upload-dropzone" id={"dropzone-#{@field.id}"} phx-hook="FileUploadDropzone">
+        <svg xmlns="http://www.w3.org/2000/svg" class="file-upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        
+        <h3 class="file-upload-text">点击上传或拖放文件</h3>
+        
+        <p class="file-upload-hint">
+          <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
+            <span class="font-medium">允许的文件类型:</span> <%= Enum.join(@field.allowed_extensions, ", ") %>
+          <% else %>
+            允许上传任何类型的文件
+          <% end %>
+        </p>
+        
+        <p class="file-upload-hint">
+          <%= if @field.multiple_files do %>
+            <span class="font-medium">最多可上传:</span> <%= @field.max_files || 5 %> 个文件
+          <% else %>
+            只能上传单个文件
+          <% end %>
           
-          <p class="text-gray-600 mb-4">
-            <%= if @field.multiple_files do %>
-              最多可上传 <%= @field.max_files || 5 %> 个文件
-            <% else %>
-              只能上传单个文件
-            <% end %>
-            
-            <%= if @field.max_file_size do %>
-              (每个文件最大 <%= @field.max_file_size %>MB)
-            <% end %>
-          </p>
-        </div>
+          <%= if @field.max_file_size do %>
+            <span class="file-size-badge">每个文件最大 <%= @field.max_file_size %>MB</span>
+          <% end %>
+        </p>
           
         <div class="flex justify-center mt-4">
           <a 
             href={"/test-upload/#{@form_id}/#{@field.id}?return_to=#{URI.encode("/forms/#{@form_id}/submit")}"} 
-            class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block"
+            class="file-upload-button"
+            id={"upload-button-#{@field.id}"}
           >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
             <%= if @form_state && @form_state[@field.id] && length(@form_state[@field.id]) > 0 do %>
               管理已上传文件
             <% else %>
@@ -1535,15 +1543,34 @@ defmodule MyAppWeb.FormComponents do
         </div>
         
         <%= if @form_state && @form_state[@field.id] && length(@form_state[@field.id]) > 0 do %>
-          <div class="mt-4 border-t pt-4">
-            <h4 class="font-medium text-sm mb-2">已上传的文件:</h4>
-            <ul class="text-sm">
+          <div class="file-list-container">
+            <h4 class="file-list-header">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+              </svg>
+              已上传的文件
+            </h4>
+            <ul class="file-list">
               <%= for {file, index} <- Enum.with_index(@form_state[@field.id]) do %>
-                <li class="flex items-center gap-2 mb-2 text-gray-800">
-                  <span class="text-sm truncate flex-1">
+                <li class="file-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="file-item-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                  </svg>
+                  <span class="file-item-name">
                     <%= file.original_filename %>
                   </span>
-                  <a href={file.path} target="_blank" class="text-blue-600 hover:underline text-xs">查看</a>
+                  <span class="file-item-size">
+                    <%= MyAppWeb.Helpers.format_file_size(file.size) %>
+                  </span>
+                  <div class="file-item-actions">
+                    <a href={file.path} target="_blank" class="file-action-button">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                      </svg>
+                      查看
+                    </a>
+                  </div>
                 </li>
               <% end %>
             </ul>
@@ -1552,7 +1579,12 @@ defmodule MyAppWeb.FormComponents do
       </div>
       
       <%= if @error do %>
-        <div class="text-red-500 text-sm mt-1 error-message"><%= @error %></div>
+        <div class="file-upload-error">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          <%= @error %>
+        </div>
       <% end %>
     </div>
     """
