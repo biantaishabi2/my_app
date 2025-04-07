@@ -257,29 +257,41 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("edit_item", %{"id" => id}, socket) do
-    item = Enum.find(socket.assigns.form_items, fn item -> item.id == id end)
+    form_items = socket.assigns.form_items
+    current_item = Enum.find(form_items, &(&1.id == id))
     
-    if item do
-      options = case item.options do
-        nil -> []
-        opts -> opts
-      end
+    if current_item do
+      IO.puts("开始编辑表单项 ID: #{id}, 类型: #{inspect(current_item.type)}")
+      # 获取当前项的选项，如果关联未加载，则设为空列表
+      item_options = if Ecto.assoc_loaded?(current_item.options), do: current_item.options, else: []
       
-      IO.puts("开始编辑表单项 ID: #{id}, 类型: #{item.type}")
-      
-      # 改为设置editing_item_id而不是editing_item=true
-      {:noreply, 
-        socket
-        |> assign(:current_item, item)
-        |> assign(:item_options, options)
-        |> assign(:item_type, to_string(item.type))
-        |> assign(:editing_item_id, id)  # 设置当前正在原地编辑的表单项ID
-        |> assign(:temp_label, item.label)
-      }
-    else
-      {:noreply, put_flash(socket, :error, "表单项不存在")}
-    end
+      # --- 新增: 为每个选项动态配置 allow_upload --- 
+      # 假设最多允许 20 个选项带图片，可以根据需要调整
+      max_options_with_images = 20 
+      socket = 
+        Enum.reduce(0..(max_options_with_images - 1), socket, fn index, acc_socket ->
+          upload_ref = String.to_atom("option_image_#{index}")
+          allow_upload(acc_socket, upload_ref, 
+            accept: ~w(.jpg .jpeg .png .gif), 
+            max_entries: 1, 
+            max_file_size: 5 * 1024 * 1024 # 5MB 示例限制
+          )
+        end)
+      # --- 结束新增 ---\n\n      socket = socket\n      |> assign(:editing_item_id, item_id)\n      |> assign(:current_item, current_item)\n      |> assign(:item_options, item_options)\n      |> assign(:current_option_index, nil) # 重置选项操作索引\n      |> assign(:pending_image_updates, %{}) # 清除旧的待定更新（如果之前使用了此方案）\n\n      {:noreply, push_patch(socket, to: \"#\", replace: true)} # 使用 push_patch 强制更新 URL 或触发重绘可能有助于状态同步\n    else\n      # 处理未找到表单项的情况\n      {:noreply, put_flash(socket, :error, \"未找到要编辑的表单项\")}\n    end\n  end\n\n  # ... 其他 handle_event 定义 ...\n\n  # 修改 upload_image：不再消费文件，仅用于可能的 UI 反馈\ndef handle_event(\"upload_image\", %{\"ref\" => upload_ref_str}, socket) do\n    # 注意：这里不再接收 entry ref，而是整个 upload ref 字符串，例如 \"option_image_0\"\n    # 这个事件处理器现在的主要目标是，如果需要，可以在上传完成后提供即时反馈\n    # 但根据 LiveView 文档模式，实际的文件消费应该在 save_item 中进行\n    # 如果前端 JS Hook 可以处理好预览，这个事件可能不再必要\n\n    # 示例：仍然尝试推送事件给前端更新UI （需要JS Hook配合）\n    # 注意：此时我们无法直接获取 image_id/filename，因为文件还未被 consume\n    # 这个 push_event 可能需要调整或移除，取决于前端如何处理\n    # 获取索引\n    with [\"option_image_\", index_str] <- String.split(upload_ref_str, \"_\", parts: 2),\n         {option_index, \"\"} <- Integer.parse(index_str) do\n           \n      # 此处无法获取 image_id/filename, 可能需要前端 hook 在上传完成后自行处理预览\n      # socket = push_event(socket, \"option_image_uploaded_placeholder\", %{index: option_index})\n      IO.puts(\"[Debug upload_image triggered for ref: \#{upload_ref_str}] - No consumption here.\")\n      # {:noreply, socket}\n      {:noreply, assign(socket, :current_option_index, nil)} # 确保清除操作索引\n    else\n      _ -> \n        IO.puts(\"[Error] Could not parse index from upload_ref in upload_image: \#{upload_ref_str}\")\n        {:noreply, socket}\n    end\nend\n\n# --- 移除之前的 upload_image 定义 (包含 consume_uploaded_entries) --- \n# def handle_event(\"upload_image\", _params, socket) do ... end\n\n\n# ... 其他代码 ...
+    
+    socket = socket
+      |> assign(:editing_item_id, id)
+      |> assign(:current_item, current_item)
+      |> assign(:item_options, item_options)
+      |> assign(:current_option_index, nil) # 重置选项操作索引
+      |> assign(:pending_image_updates, %{}) # 清除旧的待定更新（如果之前使用了此方案）
+    
+    {:noreply, push_patch(socket, to: "#", replace: true)} # 使用 push_patch 强制更新 URL 或触发重绘可能有助于状态同步
+  else
+    # 处理未找到表单项的情况
+    {:noreply, put_flash(socket, :error, "未找到要编辑的表单项")}
   end
+end
 
   @impl true
   def handle_event("cancel_edit_item", _params, socket) do
@@ -799,7 +811,14 @@ defmodule MyAppWeb.FormLive.Edit do
     # 使用字母A/B/C/D等作为选项标签
     next_idx = length(current_options)
     option_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
-    new_option = %{id: Ecto.UUID.generate(), label: "选项#{option_letter}", value: "option_#{String.downcase(option_letter)}"}
+    # 确保新选项包含所有必要的键，特别是图片相关的键设为 nil
+    new_option = %{
+      id: Ecto.UUID.generate(), 
+      label: "选项#{option_letter}", 
+      value: "option_#{String.downcase(option_letter)}",
+      image_id: nil, 
+      image_filename: nil
+    }
     
     {:noreply, assign(socket, :item_options, current_options ++ [new_option])}
   end
@@ -815,15 +834,25 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("save_item", %{"item" => item_params} = params, socket) do
+    # --- Debugging: Inspect state at start of save_item ---
+    IO.puts("[Debug save_item start] Received item_options: #{inspect socket.assigns.item_options}")
+    current_item_at_start = socket.assigns.current_item
+    current_item_options_at_start = if current_item_at_start, do: Map.get(current_item_at_start, :options), else: "current_item is nil"
+    IO.puts("[Debug save_item start] Received current_item.options: #{inspect current_item_options_at_start}")
+    # --- End Debugging ---
+    
     form = socket.assigns.form
     current_item = socket.assigns.current_item
     editing_item_id = socket.assigns.editing_item_id
-    item_options_from_socket = socket.assigns.item_options # 获取 socket 中的选项状态
+    # item_options_from_socket = socket.assigns.item_options # 不再直接使用 :item_options assign
+    # 尝试从 current_item 获取选项，如果 current_item 不存在或没有选项，则默认为空列表
+    options_from_current_item = current_item && Map.get(current_item, :options) || []
 
     # 调试参数
     IO.puts("==== 表单项保存调试信息 ====")
     IO.puts("传入参数结构: #{inspect(params)}")
-    IO.puts("Socket中的选项: #{inspect(item_options_from_socket)}") # 打印 socket 选项
+    # IO.puts("Socket中的选项 (:item_options): #{inspect(item_options_from_socket)}")
+    IO.puts("Socket中的选项 (:current_item.options): #{inspect(options_from_current_item)}") # 打印 current_item 的选项
     # debug_options_extraction(params) # 不再需要从 params 调试
 
     # 处理 item 参数 (类型转换, required 标准化)
@@ -852,8 +881,14 @@ defmodule MyAppWeb.FormLive.Edit do
           {:ok, updated_item} ->
             IO.puts("表单项更新成功: id=#{updated_item.id}, label=#{updated_item.label}")
             
-            # 处理选项（使用 socket 中的选项状态）
-            updated_item_with_options = process_options(updated_item, item_options_from_socket)
+            # --- 新增：强制从数据库重新加载最新的选项 --- 
+            fresh_item_with_options = Forms.get_form_item_with_options(updated_item.id)
+            options_to_process = fresh_item_with_options.options || []
+            IO.puts("从数据库重新加载选项进行处理: #{inspect(options_to_process)}")
+            # --- 结束新增 ---
+            
+            # 处理选项（使用刚从数据库加载的最新选项）
+            updated_item_with_final_options = process_options(updated_item, options_to_process)
             
             # 强制重新加载表单数据
             socket = reload_form_and_update_socket(socket, form.id, "表单项已更新")
@@ -882,9 +917,14 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, new_item} ->
           IO.puts("成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}")
           
-          # 处理选项（使用 socket 中的选项状态）
-          new_item_reloaded = Forms.get_form_item(new_item.id)
-          process_options(new_item_reloaded, item_options_from_socket)
+          # --- 新增：强制从数据库重新加载新项的选项 (虽然刚添加通常为空，但保持逻辑一致) ---
+          fresh_item_with_options = Forms.get_form_item_with_options(new_item.id)
+          options_to_process = fresh_item_with_options.options || []
+          IO.puts("从数据库重新加载新项的选项进行处理: #{inspect(options_to_process)}")
+          # --- 结束新增 ---
+
+          # 处理选项（使用刚从数据库加载的最新选项）
+          process_options(new_item, options_to_process)
           
           # 强制重新加载表单数据
           socket = reload_form_and_update_socket(socket, form.id, "表单项已添加")
@@ -1252,20 +1292,20 @@ defmodule MyAppWeb.FormLive.Edit do
     end
     IO.puts("当前数据库选项数量: #{length(current_options)}")
     
-    # 直接使用传入的 options_list 作为要保存的数据源
-    # (这个列表应该包含了从 socket assigns 传来的、可能带有 image_id 的选项)
+    # 直接使用传入的 options_list (来自 socket.assigns.item_options)
+    # 提取需要的字段来构建用于保存的参数 Map 列表
     options_to_save = options_list
       |> Enum.map(fn opt ->
-          # 确保所有 key 都是字符串, 并清理可能的 nil 值
-          opt = Enum.into(opt, %{}, fn {k, v} -> {to_string(k), v} end)
-          %{ 
-            "label" => Map.get(opt, "label", ""), 
-            "value" => Map.get(opt, "value", ""),
-            "image_id" => Map.get(opt, "image_id"),
-            "image_filename" => Map.get(opt, "image_filename")
+          # 从 ItemOption 结构体中直接提取字段
+          %{
+            "label" => opt.label || "", 
+            "value" => opt.value || "",
+            "image_id" => opt.image_id, # image_id 可能为 nil
+            "image_filename" => opt.image_filename # image_filename 可能为 nil
           }
         end)
       |> Enum.filter(fn opt -> 
+          # 过滤掉完全空的选项（除非它有关联的图片）
           opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
         end)
 
@@ -1633,12 +1673,12 @@ defmodule MyAppWeb.FormLive.Edit do
       updated_options = List.replace_at(options, index, updated_option)
       
       # 如果有图片ID，尝试删除图片文件（异步，不等待结果）
-      if option[:image_id] || option["image_id"] do
-        image_id = option[:image_id] || option["image_id"]
+      if option.image_id do
+        old_image_id = option.image_id
         Task.start(fn -> 
-          case Upload.delete_file(image_id) do
-            {:ok, _} -> IO.puts("选项图片已删除: #{image_id}")
-            {:error, reason} -> IO.puts("选项图片删除失败: #{inspect(reason)}")
+          case Upload.delete_file(old_image_id) do
+            {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
+            {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
           end
         end)
       end
@@ -1668,116 +1708,12 @@ defmodule MyAppWeb.FormLive.Edit do
     {:noreply, socket}
   end
   
-  # 处理图片上传完成事件
-  @impl true
-  def handle_event("upload_image", _params, socket) do
-    option_index = socket.assigns.current_option_index
-    options = socket.assigns.item_options
-    current_item = socket.assigns.current_item
-    
-    # 检查父表单项是否已保存 (有ID)
-    if is_nil(current_item) or is_nil(current_item.id) do
-      {:noreply, 
-        socket
-        |> put_flash(:error, "请先保存这个图片选择控件，然后才能上传选项图片。")
-        # 不关闭模态框，让用户看到错误
-        # |> assign(:current_option_index, nil) 
-      }
-    else
-      form_item_id = current_item.id
-      form_id = socket.assigns.form.id
-      
-      # 确保索引有效
-      if option_index >= 0 and option_index < length(options) do
-        option = Enum.at(options, option_index)
-        
-        upload_results = 
-          consume_uploaded_entries(socket, :image, fn %{path: path}, entry ->
-            # 存储图片文件，返回UploadedFile记录
-            ext = Path.extname(entry.client_name)
-            filename = "#{Ecto.UUID.generate()}#{ext}"
-            dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
-            
-            # 确保目标目录存在
-            File.mkdir_p!(Path.dirname(dest_path))
-            
-            # 复制文件到目标位置
-            File.cp!(path, dest_path)
-            
-            # 如果选项有旧图片，尝试删除
-            if option[:image_id] || option["image_id"] do
-              old_image_id = option[:image_id] || option["image_id"]
-              Task.start(fn -> 
-                case Upload.delete_file(old_image_id) do
-                  {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
-                  {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
-                end
-              end)
-            end
-            
-            # 创建新的文件记录
-            case Upload.save_uploaded_file(form_id, form_item_id, %{
-              original_filename: entry.client_name,
-              filename: filename,
-              path: "/uploads/#{filename}",
-              content_type: entry.client_type,
-              size: entry.client_size
-            }) do
-              {:ok, file} -> 
-                # 返回文件信息
-                {:ok, %{id: file.id, filename: filename}}
-              
-              {:error, changeset} ->
-                # 显式返回错误原因
-                error_message = changeset.errors
-                |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
-                |> Enum.join(", ")
-                IO.puts("图片文件记录创建失败: #{error_message}")
-                {:error, "图片保存失败: #{error_message}"} # 返回更具体的错误
-            end
-          end)
-        
-        case upload_results do
-          [{:ok, %{id: image_id, filename: filename}}] ->
-            # 更新选项的图片信息
-            updated_option = Map.merge(option, %{
-              image_id: image_id,
-              image_filename: filename
-            })
-            
-            # 更新选项列表
-            updated_options = List.replace_at(options, option_index, updated_option)
-            
-            # 关闭图片上传模态框并更新选项列表
-            socket = socket
-              |> assign(:item_options, updated_options)
-              |> assign(:current_option_index, nil)
-              
-            {:noreply, socket}
-            
-          [{:error, error_message}] -> # 处理从consume_uploaded_entries返回的错误
-            {:noreply, 
-              socket 
-              |> put_flash(:error, "图片上传失败: #{error_message}")
-              # 不关闭模态框
-            }
-
-          _ -> # 其他未预期的结果
-            {:noreply, 
-              socket 
-              |> put_flash(:error, "图片上传处理时发生未知错误")
-              # 不关闭模态框
-            }
-        end
-      else
-        # 索引无效
-        {:noreply, 
-          socket 
-          |> put_flash(:error, "无效的选项索引")
-          # 不关闭模态框
-        }
-      end
-    end
+  # 简化版的 upload_image：不再消费文件，仅可能用于 UI 反馈触发
+  def handle_event("upload_image", %{"ref" => upload_ref_str}, socket) do
+    # 这个事件可能不再需要后端处理，除非你想在这里 push_event
+    # 如果前端 JS Hook 通过监听 @uploads 变化来更新预览，这里可以什么都不做
+    IO.puts("[Debug upload_image event triggered for ref: #{upload_ref_str}] - No server-side consumption.")
+    {:noreply, assign(socket, :current_option_index, nil)} # 仍然清除操作索引
   end
   
   # 辅助函数：将上传错误转换为友好字符串
