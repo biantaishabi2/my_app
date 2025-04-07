@@ -12,6 +12,7 @@ defmodule MyAppWeb.FormLive.Edit do
   
   import Ecto.Query
   import MyAppWeb.FormComponents
+  # Phoenix.LiveView.Upload 的函数已经通过 use MyAppWeb, :live_view 导入
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -1260,16 +1261,18 @@ defmodule MyAppWeb.FormLive.Edit do
     
     # 遍历所有选项，处理其中待上传的图片
     Enum.map(options, fn option ->
+      # 获取选项索引（直接使用列表位置）
       option_index = Enum.find_index(options, fn opt -> opt.id == option.id end)
       option_ref = "option-image-#{option_index}"
       
-      # 检查该选项是否有上传项
-      case socket.assigns.uploads[option_ref] do
-        %{entries: entries} when entries != [] ->
+      # 检查该选项是否有上传引用和待上传项
+      if upload = socket.assigns.uploads[option_ref] do
+        if upload.entries != [] do
           # 有图片等待上传，消耗上传项
           IO.puts("处理选项 #{option_index} 的图片上传")
           
-          upload_results = consume_uploaded_entries(socket, option_ref, fn %{path: path}, entry ->
+          # 使用 Phoenix.LiveView 提供的 consume_uploaded_entries 函数
+          upload_results = Phoenix.LiveView.consume_uploaded_entries(socket, option_ref, fn %{path: path}, entry ->
             # 存储图片文件
             ext = Path.extname(entry.client_name)
             filename = "#{Ecto.UUID.generate()}#{ext}"
@@ -1323,10 +1326,13 @@ defmodule MyAppWeb.FormLive.Edit do
               IO.puts("选项 #{option_index} 图片处理失败或无上传")
               option
           end
-          
-        _ ->
-          # 没有等待上传的图片，返回原始选项
+        else
+          # 有上传引用但没有文件
           option
+        end
+      else
+        # 没有上传引用，返回原始选项
+        option
       end
     end)
   end
@@ -1710,7 +1716,7 @@ defmodule MyAppWeb.FormLive.Edit do
     
     # 为此选项准备上传引用
     option_ref = "option-image-#{index}"
-    socket = allow_upload(socket, option_ref, 
+    socket = Phoenix.LiveView.allow_upload(socket, option_ref, 
       accept: ~w(.jpg .jpeg .png .gif),
       max_entries: 1,
       max_file_size: 5_000_000
@@ -1768,7 +1774,7 @@ defmodule MyAppWeb.FormLive.Edit do
     option_ref = "option-image-#{option_index}"
     
     # 使用正确的upload key取消上传
-    {:noreply, cancel_upload(socket, option_ref, ref)}
+    {:noreply, Phoenix.LiveView.cancel_upload(socket, option_ref, ref)}
   end
   
   # 验证上传
@@ -1790,7 +1796,7 @@ defmodule MyAppWeb.FormLive.Edit do
       option_ref = "option-image-#{option_index}"
       
       # 创建并配置该选项的上传引用
-      socket = allow_upload(socket, option_ref, 
+      socket = Phoenix.LiveView.allow_upload(socket, option_ref, 
         accept: ~w(.jpg .jpeg .png .gif),
         max_entries: 1,
         max_file_size: 5_000_000
