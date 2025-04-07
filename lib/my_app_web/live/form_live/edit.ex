@@ -866,11 +866,9 @@ defmodule MyAppWeb.FormLive.Edit do
           {:ok, updated_item} ->
             IO.puts("表单项更新成功: id=#{updated_item.id}, label=#{updated_item.label}")
             
-            # 处理所有选项的图片上传
-            options_with_images = process_option_images(socket, item_options, updated_item.id, form.id)
-            
-            # 处理选项（使用我们处理过图片的选项）
-            process_options(updated_item, options_with_images)
+            # 直接使用当前选项状态，不需要再处理图片上传
+            # 因为每个选项的图片已经在apply_upload_to_option中处理过了
+            process_options(updated_item, item_options)
             
             # 强制重新加载表单数据
             socket = reload_form_and_update_socket(socket, form.id, "表单项已更新")
@@ -900,11 +898,9 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, new_item} ->
           IO.puts("成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}")
           
-          # 处理所有选项的图片上传
-          options_with_images = process_option_images(socket, item_options, new_item.id, form.id)
-          
-          # 处理选项（使用我们处理过图片的选项）
-          process_options(new_item, options_with_images)
+          # 直接使用当前选项状态，不需要再处理图片上传
+          # 因为每个选项的图片已经在apply_upload_to_option中处理过了
+          process_options(new_item, item_options)
           
           # 强制重新加载表单数据
           socket = reload_form_and_update_socket(socket, form.id, "表单项已添加")
@@ -1804,6 +1800,126 @@ defmodule MyAppWeb.FormLive.Edit do
       
       # 更新模态框状态
       {:noreply, socket}
+    else
+      # 索引无效
+      {:noreply, 
+        socket 
+        |> put_flash(:error, "无效的选项索引")
+        |> assign(:current_option_index, nil) # 关闭模态框
+      }
+    end
+  end
+  
+  @impl true
+  def handle_event("apply_upload_to_option", _params, socket) do
+    option_index = socket.assigns.current_option_index
+    options = socket.assigns.item_options
+    current_item = socket.assigns.current_item
+    
+    # 确保索引有效
+    if option_index >= 0 and option_index < length(options) do
+      option = Enum.at(options, option_index)
+      option_ref = "option-image-#{option_index}"
+      
+      # 检查是否有图片可上传
+      if upload = socket.assigns.uploads[option_ref] do
+        if upload.entries != [] do
+          form_id = socket.assigns.form.id
+          # 如果表单项还没有保存，则使用临时ID
+          form_item_id = if current_item && current_item.id, do: current_item.id, else: "temp_#{Ecto.UUID.generate()}"
+          
+          # 处理图片上传
+          upload_results = Phoenix.LiveView.consume_uploaded_entries(socket, option_ref, fn %{path: path}, entry ->
+            # 存储图片文件
+            ext = Path.extname(entry.client_name)
+            filename = "#{Ecto.UUID.generate()}#{ext}"
+            dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
+            
+            # 确保目标目录存在
+            File.mkdir_p!(Path.dirname(dest_path))
+            
+            # 复制文件到目标位置
+            File.cp!(path, dest_path)
+            
+            # 如果选项有旧图片，尝试删除
+            if option.image_id do
+              old_image_id = option.image_id
+              Task.start(fn -> 
+                case Upload.delete_file(old_image_id) do
+                  {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
+                  {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
+                end
+              end)
+            end
+            
+            # 创建新的文件记录
+            case Upload.save_uploaded_file(form_id, form_item_id, %{
+              original_filename: entry.client_name,
+              filename: filename,
+              path: "/uploads/#{filename}",
+              content_type: entry.client_type,
+              size: entry.client_size
+            }) do
+              {:ok, file} -> 
+                {:ok, %{id: file.id, filename: filename}}
+              
+              {:error, changeset} ->
+                error_message = changeset.errors
+                |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+                |> Enum.join(", ")
+                IO.puts("图片文件记录创建失败: #{error_message}")
+                {:error, "图片保存失败: #{error_message}"}
+            end
+          end)
+          
+          # 根据上传结果更新选项
+          case upload_results do
+            [{:ok, %{id: image_id, filename: filename}}] ->
+              # 更新选项的图片信息
+              updated_option = Map.merge(option, %{
+                image_id: image_id,
+                image_filename: filename
+              })
+              
+              # 更新选项列表
+              updated_options = List.replace_at(options, option_index, updated_option)
+              
+              # 同时更新 current_item 中的选项
+              updated_current_item = if current_item do
+                %{current_item | options: updated_options}
+              else
+                current_item
+              end
+              
+              IO.puts("选项 #{option_index} 图片上传成功并应用到选项预览")
+              
+              # 关闭图片上传模态框并更新状态
+              {:noreply, 
+                socket
+                |> assign(:item_options, updated_options)
+                |> assign(:current_item, updated_current_item)
+                |> assign(:current_option_index, nil) # 关闭模态框
+                |> put_flash(:info, "图片上传成功！")
+              }
+              
+            _ ->
+              {:noreply, 
+                socket 
+                |> put_flash(:error, "图片上传或保存失败")
+              }
+          end
+        else
+          {:noreply, 
+            socket 
+            |> put_flash(:error, "请先选择要上传的图片")
+          }
+        end
+      else
+        {:noreply, 
+          socket 
+          |> put_flash(:error, "上传组件未准备好")
+        }
+      end
     else
       # 索引无效
       {:noreply, 
