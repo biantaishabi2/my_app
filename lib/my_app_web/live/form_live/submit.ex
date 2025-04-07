@@ -156,8 +156,6 @@ defmodule MyAppWeb.FormLive.Submit do
          |> assign(:submitted, false)
          # 存储已上传文件的信息
          |> assign(:file_uploads, %{})
-         # 存储item_id到upload_name的映射
-         |> assign(:upload_names, %{})
          # 分页相关状态
          |> assign(:current_page_idx, current_page_idx)
          |> assign(:current_page, current_page)
@@ -1021,4 +1019,26 @@ defmodule MyAppWeb.FormLive.Submit do
     # 只验证当前页面的表单项
     validate_form_data(form_data, page_items_map)
   end
+
+  # --- 新增辅助函数 ---
+  defp format_bytes(nil), do: "0 B"
+  defp format_bytes(bytes) when is_integer(bytes) and bytes >= 0 do
+    cond do
+      bytes >= 1_000_000_000 ->
+        "#{Float.round(bytes / 1_000_000_000, 1)} GB"
+      bytes >= 1_000_000 ->
+        "#{Float.round(bytes / 1_000_000, 1)} MB"
+      bytes >= 1_000 ->
+        "#{Float.round(bytes / 1_000, 1)} KB"
+      true ->
+        "#{bytes} B"
+    end
+  end
+  defp format_bytes(_), do: "N/A" # 处理非预期输入
+
+  defp translate_upload_error(:too_large), do: "文件过大"
+  defp translate_upload_error(:not_accepted), do: "不支持的文件类型"
+  defp translate_upload_error(:too_many_files), do: "文件数量超出限制"
+  defp translate_upload_error(_), do: "上传出错" # 其他未知错误
+  # --- 辅助函数结束 ---
 end

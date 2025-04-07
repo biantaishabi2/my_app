@@ -350,4 +350,26 @@ Hooks.RegionSelectDistrict = {
   }
 };
 
+// 新增：用于触发隐藏文件输入的Hook
+Hooks.FileInputTrigger = {
+  mounted() {
+    const fileInputId = this.el.dataset.fileInputId;
+    if (!fileInputId) {
+      console.error("FileInputTrigger: data-file-input-id attribute is missing on", this.el);
+      return;
+    }
+    console.log(`FileInputTrigger mounted for button [${this.el.id || 'no id'}], targeting input #${fileInputId}`);
+
+    this.el.addEventListener("click", (e) => {
+      const fileInput = document.getElementById(fileInputId);
+      if (fileInput) {
+        console.log(`FileInputTrigger: Triggering click on #${fileInputId}`);
+        fileInput.click(); // 触发隐藏文件输入的点击
+      } else {
+        console.error(`FileInputTrigger: Could not find file input with ID: #${fileInputId}`);
+      }
+    });
+  }
+};
+
 export default Hooks;
