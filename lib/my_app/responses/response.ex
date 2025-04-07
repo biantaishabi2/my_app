@@ -17,8 +17,8 @@ defmodule MyApp.Responses.Response do
 
     # No timestamps() here, submitted_at serves that purpose primarily
     # Add inserted_at/updated_at if needed for internal tracking
-    field :inserted_at, :utc_datetime, read_after_writes: true
-    field :updated_at, :utc_datetime, read_after_writes: true
+    field :inserted_at, :utc_datetime_usec, read_after_writes: true
+    field :updated_at, :utc_datetime_usec, read_after_writes: true
   end
 
   @doc false

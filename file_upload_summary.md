@@ -1,35 +1,49 @@
-# File Upload and Image Choice Control Implementation Summary
+# 文件上传模块实现摘要
 
-## Completed Tasks
+## 已完成任务
 
-1. Backend Model Implementation:
-   - Added fields for file_upload (allowed_extensions, max_file_size, multiple_files, max_files)
-   - Added fields for image_choice (selection_type, image_caption_position)
-   - Implemented validation rules for both control types
-   - Updated database schema with migration
+1. **后端架构设计与实现**:
+   - 设计并实现 `Upload` 上下文模块，独立管理文件上传业务逻辑
+   - 创建 `UploadedFile` 模型，用于持久化存储文件元数据
+   - 添加文件上传控件相关字段 (allowed_extensions, max_file_size, multiple_files, max_files)
+   - 实现数据库表迁移，创建 `uploaded_files` 表
+   - 实现文件与表单、表单项、表单回答的关联机制
 
-2. Frontend Components Implementation:
-   - Created file_upload_field component with drag-and-drop support
-   - Implemented image_choice_field component with different caption positions
-   - Added form editor UI for configuring the controls
-   - Added preview displays for both controls
+2. **前端组件实现**:
+   - 创建 `file_upload_field` 组件，支持拖放上传
+   - 优化文件上传用户界面，包括预览和进度显示
+   - 实现专用的文件上传测试页面 (TestUploadLive)
+   - 实现文件信息在表单页面的展示和管理
 
-3. File Upload Functionality:
-   - Implemented LiveView uploads configuration
-   - Added file validation (type, size, count)
-   - Created file storage system in priv/static/uploads
-   - Added UI for tracking upload progress
+3. **文件上传核心功能**:
+   - 基于 Phoenix.LiveView.Upload 实现文件上传处理
+   - 实现文件验证（类型、大小、数量）
+   - 创建基于表单ID和字段ID的文件存储目录结构
+   - 实现文件上传后立即保存到数据库的功能
+   - 实现文件与表单回答的关联功能
 
-4. Documentation Updates:
-   - Updated implementation plan to track progress
-   - Updated TDD plan to include test coverage
+4. **测试驱动开发**:
+   - 完成所有关键API的测试用例编写
+   - 所有测试用例通过，验证功能完整性
+   - 更新测试计划文档，跟踪测试覆盖情况
 
-## Next Steps
+## 下一步工作
 
-1. Form Builder Integration:
-   - Add the controls to the form item editor sidebar
-   - Implement image upload for image_choice options
+1. **功能优化**:
+   - 重构表单提交页面，使用新的Upload上下文模块
+   - 完善测试上传页面，使用新的API直接保存文件信息
+   - 实现文件预览功能增强，支持更多文件类型
 
-2. Testing:
-   - Add comprehensive tests for file uploads
-   - Test edge cases like file size limits and type restrictions
+2. **安全与效率提升**:
+   - 实现文件访问权限控制
+   - 优化大文件上传性能
+   - 添加文件清理功能，定期删除未关联的临时文件
+
+3. **UI体验改进**:
+   - 优化文件上传和管理界面
+   - 添加文件上传进度显示增强
+   - 实现文件批量操作功能（批量删除、下载等）
+
+## 技术实现细节
+
+上传文件的存储路径采用 `/priv/static/uploads/{form_id}/{form_item_id}/{uuid}.{ext}` 结构，文件信息同时保存在数据库中，通过 `Upload` 上下文模块提供统一的文件管理API，确保数据一致性和完整性。
