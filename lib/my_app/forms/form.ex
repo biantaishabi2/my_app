@@ -9,9 +9,9 @@ defmodule MyApp.Forms.Form do
     field :description, :string
     # Use Ecto.Enum for status later if preferred
     field :status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
-    
+
     belongs_to :user, MyApp.Accounts.User, foreign_key: :user_id, type: :id
-    
+
     # 添加默认页面关联
     belongs_to :default_page, MyApp.Forms.FormPage
 
@@ -31,4 +31,4 @@ defmodule MyApp.Forms.Form do
     |> foreign_key_constraint(:default_page_id)
     # Add other validations as needed
   end
-end 
+end

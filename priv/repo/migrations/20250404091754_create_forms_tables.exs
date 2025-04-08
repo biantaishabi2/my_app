@@ -7,39 +7,17 @@ defmodule MyApp.Repo.Migrations.CreateFormsTables do
       add :title, :string, null: false
       add :description, :text # Changed to :text for potentially longer descriptions
       add :status, :string, null: false, default: "draft" # Using string for enum, ensure consistency with schema
+      add :form_template_id, references(:form_templates, on_delete: :restrict), null: false
+      add :form_data, :map, default: %{}, null: false
+      add :created_by_id, references(:users, on_delete: :nothing)
+      add :updated_by_id, references(:users, on_delete: :nothing)
 
       timestamps()
     end
 
-    create table(:form_items, primary_key: false) do
-      add :id, :binary_id, primary_key: true
-      add :label, :string, null: false
-      add :type, :string, null: false # Using string for enum
-      add :order, :integer, null: false
-      add :required, :boolean, default: false, null: false
-      add :validation_rules, :map, default: %{} # Maps to JSONB usually
-      add :form_id, references(:forms, type: :binary_id, on_delete: :delete_all), null: false
-
-      timestamps()
-    end
-    # Index for efficient lookup of items by form
-    create index(:form_items, [:form_id])
-    # Optional: Index for ordering items within a form
-    # create index(:form_items, [:form_id, :order])
-
-    create table(:item_options, primary_key: false) do
-      add :id, :binary_id, primary_key: true
-      add :label, :string, null: false
-      add :value, :string, null: false
-      add :order, :integer, null: false
-      add :form_item_id, references(:form_items, type: :binary_id, on_delete: :delete_all), null: false
-
-      timestamps()
-    end
-    # Index for efficient lookup of options by item
-    create index(:item_options, [:form_item_id])
-    # Optional: Index for ordering options within an item
-    # create index(:item_options, [:form_item_id, :order])
-
+    create index(:forms, [:form_template_id])
+    create index(:forms, [:created_by_id])
+    create index(:forms, [:updated_by_id])
+    create index(:forms, [:status])
   end
 end

@@ -200,19 +200,33 @@ defmodule MyApp.FormTemplates.FormTemplate do
   defp evaluate_simple_condition(%{operator: operator, left: left, right: right}, form_data) do
     # 获取左侧操作数的值
     left_value = case left do
-      %{type: "field", name: field_name} -> Map.get(form_data, field_name)
-      %{type: "value", value: value} -> value
-      %{"type" => "field", "name" => field_name} -> Map.get(form_data, field_name)
-      %{"type" => "value", "value" => value} -> value
+      %{type: "field", name: field_name} -> 
+        Map.get(form_data, field_name, "")
+      %{type: "value", value: value} -> 
+        value
+      %{"type" => "field", "name" => field_name} -> 
+        Map.get(form_data, field_name, "")
+      %{"type" => "value", "value" => value} -> 
+        value
+      _ -> ""
     end
     
     # 获取右侧操作数的值
     right_value = case right do
-      %{type: "field", name: field_name} -> Map.get(form_data, field_name)
-      %{type: "value", value: value} -> value
-      %{"type" => "field", "name" => field_name} -> Map.get(form_data, field_name)
-      %{"type" => "value", "value" => value} -> value
+      %{type: "field", name: field_name} -> 
+        Map.get(form_data, field_name, "")
+      %{type: "value", value: value} -> 
+        value
+      %{"type" => "field", "name" => field_name} -> 
+        Map.get(form_data, field_name, "")
+      %{"type" => "value", "value" => value} -> 
+        value
+      _ -> ""
     end
+    
+    # 确保left_value和right_value不是nil
+    left_value = left_value || ""
+    right_value = right_value || ""
     
     # 根据操作符比较值
     case operator do
@@ -250,12 +264,21 @@ defmodule MyApp.FormTemplates.FormTemplate do
         rescue
           _ -> false
         end
+      "contains" -> 
+        if is_binary(left_value) and is_binary(right_value) do
+          String.contains?(left_value, right_value)
+        else
+          false
+        end
       _ -> false
     end
   end
   
   # 评估复合条件
   defp evaluate_compound_condition(operator, conditions, form_data) do
+    # 确保条件是个列表
+    conditions = if is_list(conditions), do: conditions, else: []
+    
     # 评估每个子条件
     results = Enum.map(conditions, fn condition -> evaluate_condition(condition, form_data) end)
     
