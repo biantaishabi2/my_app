@@ -231,24 +231,63 @@ defmodule MyAppWeb.FormLive.Edit do
       label: temp_label
     }
     
-    # 矩阵类型的特殊处理：预设行列
-    new_item = if item_type == "matrix" || item_type == :matrix do
-      new_item
-      |> Map.put(:matrix_rows, ["问题1", "问题2", "问题3"])
-      |> Map.put(:matrix_columns, ["选项A", "选项B", "选项C"])
-      |> Map.put(:matrix_type, :single)
-    else
-      new_item
+    # 根据控件类型设置默认属性
+    new_item = cond do
+      item_type == "matrix" || item_type == :matrix ->
+        new_item
+        |> Map.put(:matrix_rows, ["问题1", "问题2", "问题3"])
+        |> Map.put(:matrix_columns, ["选项A", "选项B", "选项C"])
+        |> Map.put(:matrix_type, :single)
+      # 图片选择类型的特殊处理：预设选择类型和标题位置
+      item_type == "image_choice" || item_type == :image_choice ->
+        new_item
+        |> Map.put(:selection_type, :single)
+        |> Map.put(:image_caption_position, :bottom)
+      true ->
+        new_item
     end
       
     IO.puts("添加新表单项，使用顶部编辑区域")
+    
+    # 准备选项数据
+    initial_options = cond do
+      # 为图片选择题添加默认选项
+      item_type == "image_choice" || item_type == :image_choice ->
+        # 创建两个示例选项
+        [
+          %{
+            id: Ecto.UUID.generate(), 
+            label: "示例图片A", 
+            value: "option_a",
+            image_id: nil, 
+            image_filename: nil
+          },
+          %{
+            id: Ecto.UUID.generate(), 
+            label: "示例图片B", 
+            value: "option_b",
+            image_id: nil, 
+            image_filename: nil
+          }
+        ]
+      
+      # 为选项类控件添加默认选项（单选、复选、下拉）
+      item_type in ["radio", "checkbox", "dropdown"] || item_type in [:radio, :checkbox, :dropdown] ->
+        [
+          %{id: Ecto.UUID.generate(), label: "选项A", value: "option_a"},
+          %{id: Ecto.UUID.generate(), label: "选项B", value: "option_b"}
+        ]
+        
+      # 其他控件类型没有默认选项
+      true -> []
+    end
     
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
     # 注意：设置editing_item=true但不设置editing_item_id，使用顶部编辑区域
     {:noreply, 
       socket
       |> assign(:current_item, new_item)
-      |> assign(:item_options, [])
+      |> assign(:item_options, initial_options)  # 使用根据控件类型生成的初始选项
       |> assign(:item_type, item_type)
       |> assign(:editing_item, true)
       |> assign(:editing_item_id, nil)  # 明确设置为nil，确保使用顶部编辑区域
@@ -1895,9 +1934,9 @@ defmodule MyAppWeb.FormLive.Edit do
           
           # 根据上传结果更新选项
           case upload_results do
-            [{:ok, %{id: image_id, filename: filename}}] ->
+            [%{id: image_id, filename: filename}] -> # 直接匹配 Map 列表
               IO.puts("成功获取图片信息: ID=#{image_id}, 文件名=#{filename}")
-              
+
               # 更新选项的图片信息
               updated_option = Map.merge(option, %{
                 image_id: image_id,

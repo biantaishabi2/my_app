@@ -147,4 +147,22 @@ defmodule MyApp.Upload do
     )
     |> Enum.group_by(& &1.form_item_id)
   end
+  
+  @doc """
+  Get a single uploaded file by ID.
+
+  ## Parameters
+    - id: The ID of the file to get
+
+  ## Examples
+      iex> get_file(id)
+      %UploadedFile{}
+
+      iex> get_file(bad_id)
+      nil
+  """
+  def get_file(id) when is_binary(id) do
+    Repo.get(UploadedFile, id)
+  end
+  def get_file(_), do: nil
 end

@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormLive.ItemRendererComponent do
   use Phoenix.Component
+  alias MyApp.Upload
 
   @doc """
   Renders a single form item based on its type and the display mode.
@@ -295,9 +296,11 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                          <div class="p-2 text-center text-sm"><%= option.label %></div>
                        <% end %>
                        <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
-                         <%= if option.image_filename do %>
+                         <%= if option.image_id do %>
+                           <% # 直接通过ID获取上传的文件 %>
+                           <% image_file = Upload.get_file(option.image_id) %>
                            <img 
-                             src={"/uploads/#{option.image_filename}"} 
+                             src={if image_file, do: "/static#{image_file.path}", else: "/static/uploads/#{option.image_filename || ""}"} 
                              alt={option.label} 
                              class="h-full w-full object-contain"
                            />
