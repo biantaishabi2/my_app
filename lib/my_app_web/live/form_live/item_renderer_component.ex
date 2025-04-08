@@ -226,7 +226,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
           <%# TODO: Add rendering for :region, :matrix, :image_choice, :file_upload %>
           <% :region -> %>
              <%# Extracted from old commit - Region Preview %>
-             <div class={"space-y-2 #{is_preview && 'opacity-60 pointer-events-none'}"}>
+             <div class={"space-y-2 #{is_preview && "opacity-60 pointer-events-none"}"}>
                <div class="flex gap-2">
                  <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white" disabled>
                    <option><%= item.default_province || "省/直辖市" %></option>
@@ -249,7 +249,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
 
           <% :matrix -> %>
             <%# Extracted and adapted from old commit - Matrix Preview %>
-            <div class={"space-y-2 #{is_preview && 'opacity-60 pointer-events-none'}"}>
+            <div class={"space-y-2 #{is_preview && "opacity-60 pointer-events-none"}"}>
               <div class="overflow-x-auto">
                 <table class="w-full border-collapse border border-gray-300">
                   <thead>
@@ -286,8 +286,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             </div>
 
           <% :image_choice -> %>
-            <%# 图片选择控件预览 %>
-             <div class={"space-y-2 #{is_preview && 'opacity-60 pointer-events-none'}"}>
+            <div class={"space-y-2 #{is_preview && "opacity-60 pointer-events-none"}"}>
                <div class="flex flex-wrap gap-4">
                  <%= if Enum.any?(item.options || []) do %>
                    <%= for option <- Enum.take(item.options || [], min(2, length(item.options || []))) do %>
@@ -295,16 +294,22 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                        <%= if item.image_caption_position == :top do %>
                          <div class="p-2 text-center text-sm"><%= option.label %></div>
                        <% end %>
+                       
+                       <div class="bg-red-500 text-white p-1 text-xs">
+                         图片ID: <%= option.image_id %> | 
+                         图片名: <%= option.image_filename %>
+                       </div>
+                       
                        <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
-                         <%= if option.image_id do %>
-                           <% # 直接通过ID获取上传的文件 %>
-                           <% image_file = Upload.get_file(option.image_id) %>
-                           <img 
-                             src={if image_file, do: "/static#{image_file.path}", else: "/static/uploads/#{option.image_filename || ""}"} 
-                             alt={option.label} 
+                         <%= if option.image_filename do %>
+                           <%# 直接使用 image_filename 显示图片 %>
+                           <img
+                             src={"/uploads/#{option.image_filename}"}
+                             alt={option.label}
                              class="h-full w-full object-contain"
                            />
                          <% else %>
+                           <%# 没有图片filename，显示占位符 %>
                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                            </svg>
@@ -332,7 +337,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                      <%= if item.image_caption_position == :top do %>
                        <div class="p-2 text-center text-sm">示例图片选项</div>
                      <% end %>
-                     <div class="h-32 bg-gray-100 flex items-center justify-center">
+                     <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                        </svg>
@@ -360,7 +365,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
 
           <% :file_upload -> %>
              <%# Extracted from old commit - File Upload Preview (Placeholder) %>
-             <div class={"space-y-2 #{is_preview && 'opacity-60 pointer-events-none'}"}>
+             <div class={"space-y-2 #{is_preview && "opacity-60 pointer-events-none"}"}>
                 <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
                   <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />

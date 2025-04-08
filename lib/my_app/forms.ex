@@ -83,9 +83,11 @@ defmodule MyApp.Forms do
       # 一次性预加载所有相关联的数据 - 合并查询减少数据库往返
       pages: {
         from(p in FormPage, order_by: p.order), 
-        [items: {from(i in FormItem, order_by: i.order), [:options]}]
+        # 预加载 items, options, 以及 options 关联的 image
+        [items: {from(i in FormItem, order_by: i.order), [options: [:image]]}]
       },
-      items: {from(i in FormItem, order_by: i.order), [:options]},
+      # 同样预加载顶层 items 的 options 和 image
+      items: {from(i in FormItem, order_by: i.order), [options: [:image]]},
       default_page: []
     ])
   end
@@ -708,10 +710,12 @@ defmodule MyApp.Forms do
       pages: {
         from(p in FormPage, order_by: p.order),
         [items: {from(i in FormItem, order_by: i.order), 
-                [:options]}]
+                # 预加载 options 及其关联的 image
+                [options: [:image]]}]
       },
       default_page: [],
-      items: {from(i in FormItem, order_by: i.order), [:options]}
+      # 预加载 items 及其 options 和 options 关联的 image
+      items: {from(i in FormItem, order_by: i.order), [options: [:image]]}
     ])
   end
   
