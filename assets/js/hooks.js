@@ -314,10 +314,14 @@ Hooks.RegionSelectCity = {
   }
 };
 
-// 拖拽排序钩子 (表单模板编辑)
+// 拖拽排序钩子 (表单模板编辑) - 支持桌面和移动设备
 Hooks.Sortable = {
   mounted() {
     console.log("Sortable钩子已挂载", this.el.id);
+    
+    // 检测是否为移动设备
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    console.log("设备检测:", isMobile ? "移动设备" : "桌面设备");
     
     // 记录项目变化
     let itemsChanged = false;
@@ -346,127 +350,271 @@ Hooks.Sortable = {
     };
     
     // 找到所有子项目
-    const items = Array.from(this.el.children).filter(child => !child.classList.contains('text-gray-500'));
+    const getItems = () => Array.from(this.el.children).filter(child => !child.classList.contains('text-gray-500'));
     
-    // 确保每个项目有 data-id 属性和拖拽能力
-    items.forEach((item) => {
-      if (!item.getAttribute('data-id')) {
-        console.warn('Sortable项目缺少data-id属性:', item);
-        // 尝试从ID中提取
-        const itemId = item.id && item.id.replace('item-', '');
-        if (itemId) {
-          item.setAttribute('data-id', itemId);
-        }
-      }
-      
-      // 只有非空项目才需要拖拽
-      if (!item.classList.contains('text-gray-500')) {
-        // 确保可拖拽
-        item.setAttribute('draggable', 'true');
+    // 初始化排序按钮 - 为移动设备添加上下移动按钮
+    const setupMobileControls = () => {
+      getItems().forEach((item) => {
+        // 如果已经有移动控件，不重复添加
+        if (item.querySelector('.mobile-item-controls')) return;
         
-        // 设置鼠标样式
-        const handle = item.querySelector('.drag-handle');
-        if (handle) {
-          handle.style.cursor = 'move';
-        } else {
-          item.style.cursor = 'move';
-        }
-      }
-    });
-    
-    // 跟踪被拖拽的元素
-    let draggedItem = null;
-    
-    // 添加拖拽事件监听器
-    this.el.addEventListener('dragstart', (e) => {
-      // 获取目标元素 (可能是handle或整个项目)
-      const target = e.target.closest('[draggable="true"]');
-      if (!target) return;
-      
-      draggedItem = target;
-      
-      // 设置拖放效果和数据
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', target.getAttribute('data-id') || '');
-      
-      // 延迟添加视觉效果，以确保拖拽开始
-      setTimeout(() => {
-        draggedItem.classList.add('dragging');
-      }, 0);
-    });
-    
-    this.el.addEventListener('dragend', () => {
-      if (draggedItem) {
-        // 清理视觉反馈
-        draggedItem.classList.remove('dragging');
-        removePlaceholder();
-        clearDragIndicators();
-        
-        // 如果项目顺序改变，则通知服务器
-        if (itemsChanged) {
-          this.pushOrderChangesToServer();
-          itemsChanged = false;
-        }
-        
-        draggedItem = null;
-      }
-    });
-    
-    this.el.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      
-      if (!draggedItem) return;
-      
-      // 找到当前鼠标悬停的项目 (不包括占位符)
-      const hoverItem = e.target.closest('[draggable="true"]');
-      if (!hoverItem || hoverItem === draggedItem || hoverItem.id === 'drag-placeholder') return;
-      
-      // 清除所有指示器
-      clearDragIndicators();
-      
-      // 确定放置位置 (在目标之前或之后)
-      const hoverRect = hoverItem.getBoundingClientRect();
-      const hoverMiddle = (hoverRect.bottom - hoverRect.top) / 2;
-      const relativeMousePos = e.clientY - hoverRect.top;
-      const moveAfter = relativeMousePos > hoverMiddle;
-      
-      // 添加视觉指示
-      if (moveAfter) {
-        hoverItem.classList.add('drag-over-bottom');
-      } else {
-        hoverItem.classList.add('drag-over-top');
-      }
-      
-      // 根据放置位置重新排序
-      if ((moveAfter && hoverItem.nextElementSibling !== draggedItem) || 
-          (!moveAfter && hoverItem.previousElementSibling !== draggedItem)) {
-        
-        if (moveAfter) {
-          // 放置在目标之后
-          if (hoverItem.nextElementSibling) {
-            this.el.insertBefore(draggedItem, hoverItem.nextElementSibling);
-          } else {
-            this.el.appendChild(draggedItem);
+        // 确保有 data-id 属性
+        if (!item.getAttribute('data-id')) {
+          const itemId = item.id && item.id.replace('item-', '');
+          if (itemId) {
+            item.setAttribute('data-id', itemId);
           }
-        } else {
-          // 放置在目标之前
-          this.el.insertBefore(draggedItem, hoverItem);
         }
         
+        // 找到操作按钮区域，通常在控件右上角
+        let actionArea = item.querySelector('.flex.gap-2, .flex.justify-between');
+        
+        if (!actionArea) {
+          // 如果找不到现有按钮区，创建一个
+          actionArea = document.createElement('div');
+          actionArea.className = 'flex gap-2';
+          const itemContent = item.querySelector('div');
+          if (itemContent) {
+            itemContent.appendChild(actionArea);
+          } else {
+            item.appendChild(actionArea);
+          }
+        }
+        
+        // 创建移动控件容器
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'mobile-item-controls flex gap-1';
+        
+        // 创建上移按钮
+        const upButton = document.createElement('button');
+        upButton.type = 'button';
+        upButton.className = 'move-up-button text-blue-600 px-1';
+        upButton.innerHTML = '↑';
+        upButton.title = '上移';
+        upButton.style.fontSize = '1.2rem';
+        upButton.style.lineHeight = '1';
+        
+        // 创建下移按钮
+        const downButton = document.createElement('button');
+        downButton.type = 'button';
+        downButton.className = 'move-down-button text-blue-600 px-1';
+        downButton.innerHTML = '↓';
+        downButton.title = '下移';
+        downButton.style.fontSize = '1.2rem';
+        downButton.style.lineHeight = '1';
+        
+        // 添加按钮到容器
+        controlsContainer.appendChild(upButton);
+        controlsContainer.appendChild(downButton);
+        
+        // 在删除按钮前插入移动控件
+        const deleteButton = actionArea.querySelector('[phx-click="delete_item"]');
+        if (deleteButton) {
+          actionArea.insertBefore(controlsContainer, deleteButton);
+        } else {
+          actionArea.appendChild(controlsContainer);
+        }
+        
+        // 添加事件处理
+        upButton.addEventListener('click', () => this.moveItem(item, 'up'));
+        downButton.addEventListener('click', () => this.moveItem(item, 'down'));
+      });
+    };
+    
+    // 更新移动控件状态 (禁用顶部项的上移和底部项的下移)
+    const updateMobileControls = () => {
+      const items = getItems();
+      items.forEach((item, index) => {
+        const upButton = item.querySelector('.move-up-button');
+        const downButton = item.querySelector('.move-down-button');
+        
+        if (upButton) {
+          upButton.disabled = index === 0;
+          upButton.style.opacity = index === 0 ? '0.3' : '1';
+        }
+        
+        if (downButton) {
+          downButton.disabled = index === items.length - 1;
+          downButton.style.opacity = index === items.length - 1 ? '0.3' : '1';
+        }
+      });
+    };
+    
+    // 移动项目 (用于移动设备)
+    this.moveItem = (item, direction) => {
+      if (!item) return;
+      
+      const items = getItems();
+      const index = items.indexOf(item);
+      if (index === -1) return;
+      
+      if (direction === 'up' && index > 0) {
+        // 上移：与前一个项目交换位置
+        this.el.insertBefore(item, items[index - 1]);
+        itemsChanged = true;
+      } else if (direction === 'down' && index < items.length - 1) {
+        // 下移：与后一个项目交换位置
+        if (items[index + 1].nextElementSibling) {
+          this.el.insertBefore(item, items[index + 1].nextElementSibling);
+        } else {
+          this.el.appendChild(item);
+        }
         itemsChanged = true;
       }
-    });
+      
+      // 如果顺序改变，通知服务器
+      if (itemsChanged) {
+        this.pushOrderChangesToServer();
+        itemsChanged = false;
+        // 更新控件状态
+        setTimeout(updateMobileControls, 50);
+      }
+    };
     
-    this.el.addEventListener('drop', (e) => {
-      e.preventDefault();
-      // 清理视觉指示
-      clearDragIndicators();
-      removePlaceholder();
-    });
+    // 为移动设备设置触控拖拽功能
+    if (isMobile) {
+      setupMobileControls();
+      updateMobileControls();
+      
+      // 监听DOM变化，为新添加的元素设置移动控件
+      const observer = new MutationObserver((mutations) => {
+        let needsUpdate = false;
+        
+        mutations.forEach(mutation => {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            needsUpdate = true;
+          }
+        });
+        
+        if (needsUpdate) {
+          setupMobileControls();
+          updateMobileControls();
+        }
+      });
+      
+      observer.observe(this.el, { childList: true, subtree: true });
+    } else {
+      // 桌面设备使用原始拖放功能
+      let draggedItem = null;
+      const items = getItems();
+      
+      // 确保每个项目有拖拽能力
+      items.forEach((item) => {
+        if (!item.getAttribute('data-id')) {
+          console.warn('Sortable项目缺少data-id属性:', item);
+          // 尝试从ID中提取
+          const itemId = item.id && item.id.replace('item-', '');
+          if (itemId) {
+            item.setAttribute('data-id', itemId);
+          }
+        }
+        
+        // 只有非空项目才需要拖拽
+        if (!item.classList.contains('text-gray-500')) {
+          // 确保可拖拽
+          item.setAttribute('draggable', 'true');
+          
+          // 设置鼠标样式
+          const handle = item.querySelector('.drag-handle');
+          if (handle) {
+            handle.style.cursor = 'move';
+          } else {
+            item.style.cursor = 'move';
+          }
+        }
+      });
+      
+      // 添加拖拽事件监听器
+      this.el.addEventListener('dragstart', (e) => {
+        // 获取目标元素 (可能是handle或整个项目)
+        const target = e.target.closest('[draggable="true"]');
+        if (!target) return;
+        
+        draggedItem = target;
+        
+        // 设置拖放效果和数据
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', target.getAttribute('data-id') || '');
+        
+        // 延迟添加视觉效果，以确保拖拽开始
+        setTimeout(() => {
+          draggedItem.classList.add('dragging');
+        }, 0);
+      });
+      
+      this.el.addEventListener('dragend', () => {
+        if (draggedItem) {
+          // 清理视觉反馈
+          draggedItem.classList.remove('dragging');
+          removePlaceholder();
+          clearDragIndicators();
+          
+          // 如果项目顺序改变，则通知服务器
+          if (itemsChanged) {
+            this.pushOrderChangesToServer();
+            itemsChanged = false;
+          }
+          
+          draggedItem = null;
+        }
+      });
+      
+      this.el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        if (!draggedItem) return;
+        
+        // 找到当前鼠标悬停的项目 (不包括占位符)
+        const hoverItem = e.target.closest('[draggable="true"]');
+        if (!hoverItem || hoverItem === draggedItem || hoverItem.id === 'drag-placeholder') return;
+        
+        // 清除所有指示器
+        clearDragIndicators();
+        
+        // 确定放置位置 (在目标之前或之后)
+        const hoverRect = hoverItem.getBoundingClientRect();
+        const hoverMiddle = (hoverRect.bottom - hoverRect.top) / 2;
+        const relativeMousePos = e.clientY - hoverRect.top;
+        const moveAfter = relativeMousePos > hoverMiddle;
+        
+        // 添加视觉指示
+        if (moveAfter) {
+          hoverItem.classList.add('drag-over-bottom');
+        } else {
+          hoverItem.classList.add('drag-over-top');
+        }
+        
+        // 根据放置位置重新排序
+        if ((moveAfter && hoverItem.nextElementSibling !== draggedItem) || 
+            (!moveAfter && hoverItem.previousElementSibling !== draggedItem)) {
+          
+          if (moveAfter) {
+            // 放置在目标之后
+            if (hoverItem.nextElementSibling) {
+              this.el.insertBefore(draggedItem, hoverItem.nextElementSibling);
+            } else {
+              this.el.appendChild(draggedItem);
+            }
+          } else {
+            // 放置在目标之前
+            this.el.insertBefore(draggedItem, hoverItem);
+          }
+          
+          itemsChanged = true;
+        }
+      });
+      
+      this.el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        // 清理视觉指示
+        clearDragIndicators();
+        removePlaceholder();
+      });
+    }
     
     // 处理空列表特殊情况
-    if (items.length === 0) {
+    if (getItems().length === 0) {
       const emptyMessage = this.el.querySelector('.text-gray-500.italic');
       if (emptyMessage) {
         emptyMessage.style.pointerEvents = 'none';
