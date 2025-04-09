@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormTemplateLive do
   use MyAppWeb, :live_view
+  import MyAppWeb.FormLive.ItemRendererComponent
 
   alias MyApp.Forms
   alias MyApp.FormTemplates.FormTemplate
@@ -248,101 +249,7 @@ defmodule MyAppWeb.FormTemplateLive do
                           <% end %>
                         </label>
 
-                        <%= case item.type do %>
-                          <% :text_input -> %>
-                            <input
-                              type="text"
-                              id={item.id}
-                              name={"form[#{item.id}]"}
-                              placeholder={item.placeholder || "请输入..."}
-                              class="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 form-input"
-                              disabled
-                            />
-
-                          <% :number -> %>
-                            <input
-                              type="number"
-                              id={item.id}
-                              name={"form[#{item.id}]"}
-                              class="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 form-input"
-                              disabled
-                            />
-
-                          <% :radio -> %>
-                            <div class="space-y-2 radio-field-options">
-                              <%= for option <- item.options || [] do %>
-                                <div class="flex items-center radio-option">
-                                  <input
-                                    type="radio"
-                                    id={"#{item.id}_#{option.value}"}
-                                    name={"form[#{item.id}]"}
-                                    value={option.value}
-                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                                    disabled
-                                  />
-                                  <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block">
-                                    <%= option.label %>
-                                  </label>
-                                </div>
-                              <% end %>
-                            </div>
-
-                          <% :dropdown -> %>
-                            <select
-                              id={item.id}
-                              name={"form[#{item.id}]"}
-                              class="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 form-input"
-                              disabled
-                            >
-                              <option value="" disabled selected>请选择...</option>
-                              <%= for option <- item.options || [] do %>
-                                <option value={option.value}><%= option.label %></option>
-                              <% end %>
-                            </select>
-
-                          <% :checkbox -> %>
-                            <div class="space-y-2">
-                              <%= for option <- item.options || [] do %>
-                                <div class="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    id={"#{item.id}_#{option.value}"}
-                                    name={"form[#{item.id}][]"}
-                                    value={option.value}
-                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                                    disabled
-                                  />
-                                  <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block">
-                                    <%= option.label %>
-                                  </label>
-                                </div>
-                              <% end %>
-                            </div>
-
-                          <% :date -> %>
-                            <div class="relative">
-                              <input
-                                type="date"
-                                id={item.id}
-                                name={"form[#{item.id}]"}
-                                class="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 form-input"
-                                disabled
-                              />
-                            </div>
-
-                          <% :rating -> %>
-                            <div class="flex items-center">
-                              <%= for _i <- 1..5 do %>
-                                <span class="text-2xl mx-1 cursor-pointer text-gray-300">★</span>
-                              <% end %>
-                              <span class="ml-2 text-gray-500">请评分</span>
-                            </div>
-
-                          <% _ -> %>
-                            <div class="text-gray-500 text-sm">
-                              <%= item.type %> 类型控件 (预览模式)
-                            </div>
-                        <% end %>
+                        <MyAppWeb.FormLive.ItemRendererComponent.render_item item={item} mode={:edit_preview} />
 
                         <%= if item.description do %>
                           <div class="text-sm text-gray-500 mt-1"><%= item.description %></div>

@@ -166,8 +166,17 @@ defmodule MyApp.FormTemplates.FormTemplate do
     """
   end
   
-  # 评估条件是否满足
-  defp evaluate_condition(condition, form_data) do
+  @doc """
+  评估条件是否满足。
+
+  ## 参数
+    - condition: 条件定义，格式为 %{operator: op, left: left, right: right} 或复合条件
+    - form_data: 表单数据，格式为 %{"field_name" => "value"}
+
+  ## 返回值
+    条件评估结果，true 表示满足条件，false 表示不满足
+  """
+  def evaluate_condition(condition, form_data) do
     cond do
       # 简单条件（如：字段 == 值）
       is_map_key(condition, :operator) && is_map_key(condition, :left) && is_map_key(condition, :right) ->
