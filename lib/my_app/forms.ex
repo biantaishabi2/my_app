@@ -29,12 +29,12 @@ defmodule MyApp.Forms do
   def create_form(attrs \\ %{}) do
     # 检查是否已经提供了form_template_id
     has_template_id = Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
-    
+
     # 如果没有关联模板，首先创建一个默认模板
     {final_attrs, template_result} = if not has_template_id do
       # 提取用户ID用于创建模板
       user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
-      
+
       if user_id do
         case MyApp.FormTemplates.create_default_template(%{user_id: user_id}) do
           {:ok, template} ->
@@ -52,12 +52,12 @@ defmodule MyApp.Forms do
       # 已经有模板ID，不需要创建
       {attrs, nil}
     end
-    
+
     # 创建表单
     result = %Form{}
     |> Form.changeset(final_attrs)
     |> Repo.insert()
-    
+
     # 记录日志（如果有模板创建结果）
     if template_result do
       case template_result do
@@ -67,7 +67,7 @@ defmodule MyApp.Forms do
           IO.puts("尝试创建默认模板失败: #{inspect(reason)}")
       end
     end
-    
+
     result
   end
 
@@ -1201,5 +1201,26 @@ defmodule MyApp.Forms do
     |> order_by([i], i.order)
     |> Repo.all()
     |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
+  end
+
+  @doc """
+  Gets a single form by its associated form_template_id.
+
+  Raises `Ecto.NoResultsError` if the Form does not exist.
+
+  ## Examples
+
+      iex> get_form_by_template_id!(template_id)
+      %Form{}
+
+      iex> get_form_by_template_id!(non_existent_template_id)
+      ** (Ecto.NoResultsError)
+
+  """
+  def get_form_by_template_id!(template_id) do
+    # 构建查询，根据 form_template_id 查找 Form
+    query = from(f in Form, where: f.form_template_id == ^template_id)
+    # 执行查询并确保只返回一个结果，如果找不到则抛出异常
+    Repo.one!(query)
   end
 end

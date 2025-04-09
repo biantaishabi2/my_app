@@ -5,38 +5,39 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   # 导入FormLive.Edit中的函数，特别是process_options
   import MyAppWeb.FormLive.Edit, only: [process_options: 2]
   alias MyApp.FormTemplates
+  alias MyApp.Forms # 添加缺失的别名
   alias MyApp.Forms.FormItem
 
   @impl true
-  def mount(%{"id" => template_id}, _session, socket) do
-    # 加载模板，如果找不到会抛出 Ecto.NoResultsError，由框架处理
-    template = FormTemplates.get_template!(template_id)
+  def mount(%{"id" => id}, _session, socket) do
+    # 加载表单模板 (id 是 template_id)
+    template = FormTemplates.get_template!(id) # 改回使用 FormTemplates
 
-    # 检查 template.structure 是否为 nil，如果是，则使用空列表
-    structure = template.structure || []
+    # 使用新函数，根据 template.id 查找对应的 Form 记录
+    form = Forms.get_form_by_template_id!(template.id)
 
-    # 确保 structure 是一个列表 (以防数据库中存了非列表数据)
-    structure = if is_list(structure), do: structure, else: []
+    # 现在使用正确的 form.id 加载表单及其所有预加载数据
+    form_with_data = Forms.get_form_with_full_preload(form.id)
+    form_items = form_with_data.items || [] # 提取表单项列表
 
-    socket =
-      socket
+    socket = socket
       |> assign(:template, template)
-      |> assign(:structure, structure)
-      |> assign(:editing_item_id, nil) # 用于控制编辑 Modal
-      |> assign(:page_title, "编辑模板结构: #{template.name}") # 设置页面标题
-      |> assign(:active_category, :basic) # 默认选中基础控件分类
-      |> assign(:item_type, "text_input") # 默认控件类型
-      |> assign(:editing_item, false) # 是否正在编辑控件
-      |> assign(:current_item, nil) # 当前编辑的控件
-      |> assign(:item_options, []) # 控件选项
-      |> assign(:search_term, nil) # 搜索关键词
-      |> assign(:delete_item_id, nil) # 要删除的控件ID
-      |> assign(:active_tab, "structure") # 当前激活的标签页：structure, conditions, decoration
-      |> assign(:tab_title, "结构设计") # 当前标签页的标题
-      |> assign(:editing_logic_item_id, nil) # 当前正在编辑逻辑的表单项ID
-      |> assign(:logic_type, nil) # 逻辑类型：跳转、显示、隐藏等
-      |> assign(:logic_target_id, nil) # 逻辑跳转目标ID
-      |> assign(:logic_condition, nil) # 条件设置
+      |> assign(:structure, template.structure || [])
+      |> assign(:form_items, form_items) # 使用从 form_with_data 加载的 items
+      |> assign(:editing_item_id, nil)
+      |> assign(:item_type, "text_input")
+      |> assign(:search_term, nil)
+      |> assign(:tab_title, "结构设计")
+      |> assign(:active_tab, "structure") # 添加：默认激活结构设计标签页
+      |> assign(:active_category, :basic)   # 添加：默认激活基础控件类别
+      |> assign(:delete_item_id, nil) # 添加：初始化 delete_item_id
+      |> assign(:editing_logic_item_id, nil) # 添加：初始化逻辑编辑项ID
+      |> assign(:logic_type, nil)            # 添加：初始化逻辑类型
+      |> assign(:logic_target_id, nil)       # 添加：初始化逻辑目标ID
+      |> assign(:logic_condition, nil)       # 添加：初始化逻辑条件
+
+    # 打印加载的表单项及其选项 (来自 form_with_data)
+    IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
 
     {:ok, socket}
   end
@@ -45,22 +46,22 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("update_structure_order", %{"ordered_ids" => ordered_ids}, socket) do
     # 获取当前模板和结构
     %{template: template, structure: current_structure} = socket.assigns
-    
+
     # 根据新的顺序重新排列结构项
     reordered_structure = reorder_structure_items(current_structure, ordered_ids)
-    
+
     # 保存更新后的模板
     case FormTemplates.update_template(template, %{structure: reordered_structure}) do
       {:ok, updated_template} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> assign(:template, updated_template)
           |> assign(:structure, updated_template.structure)
           |> put_flash(:info, "模板结构顺序已更新")
         }
-        
+
       {:error, _changeset} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> put_flash(:error, "无法更新模板结构顺序")
         }
@@ -71,25 +72,25 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("save_structure", _params, socket) do
     # 获取当前模板和结构
     %{template: template, structure: current_structure} = socket.assigns
-    
+
     # 保存当前结构（重用现有顺序，无需重排）
     case FormTemplates.update_template(template, %{structure: current_structure}) do
       {:ok, updated_template} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> assign(:template, updated_template)
           |> assign(:structure, updated_template.structure)
           |> put_flash(:info, "模板结构已保存")
         }
-        
+
       {:error, _changeset} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> put_flash(:error, "无法保存模板结构")
         }
     end
   end
-  
+
   @impl true
   def handle_event("change_tab", %{"tab" => tab}, socket) do
     # 标签页之间切换
@@ -98,14 +99,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "conditions" => "条件逻辑",
       "decoration" => "页面装饰"
     }
-    
-    {:noreply, 
+
+    {:noreply,
       socket
       |> assign(:active_tab, tab)
       |> assign(:tab_title, Map.get(tab_titles, tab, "模板编辑"))
     }
   end
-  
+
   @impl true
   def handle_event("next_tab", _params, socket) do
     # 移动到下一个标签页
@@ -115,11 +116,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "decoration" -> "structure" # 循环回到第一个标签
       _ -> "structure"
     end
-    
+
     # 执行标签变更
     handle_event("change_tab", %{"tab" => next_tab}, socket)
   end
-  
+
   @impl true
   def handle_event("prev_tab", _params, socket) do
     # 移动到上一个标签页
@@ -129,55 +130,55 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "decoration" -> "conditions"
       _ -> "structure"
     end
-    
+
     # 执行标签变更
     handle_event("change_tab", %{"tab" => prev_tab}, socket)
   end
-  
+
   # 添加从FormLive.Edit复用的事件处理函数
-  
+
   @impl true
   def handle_event("change_category", %{"category" => category}, socket) do
     # 将类别字符串转为原子
     category_atom = String.to_existing_atom(category)
-    
-    {:noreply, 
+
+    {:noreply,
       socket
       |> assign(:active_category, category_atom)
       |> assign(:search_term, nil) # 切换类别时清空搜索
     }
   end
-  
+
   @impl true
   def handle_event("search_item_types", %{"search" => search_term}, socket) do
     filtered_types = if search_term == "" do
       nil # 空搜索恢复正常类别显示
     else
-      ["text_input", "textarea", "radio", "checkbox", "dropdown", "rating", 
-      "number", "email", "phone", "date", "time", "region", "matrix", 
+      ["text_input", "textarea", "radio", "checkbox", "dropdown", "rating",
+      "number", "email", "phone", "date", "time", "region", "matrix",
       "image_choice", "file_upload"]
-      |> Enum.filter(fn type -> 
-        String.contains?(type, search_term) || 
+      |> Enum.filter(fn type ->
+        String.contains?(type, search_term) ||
         String.contains?(display_selected_type(type), search_term)
       end)
     end
-    
-    {:noreply, 
+
+    {:noreply,
       socket
       |> assign(:search_term, filtered_types)
     }
   end
-  
+
   @impl true
   def handle_event("type_changed", %{"type" => type}, socket) do
     # 清除高亮状态，重置current_item，确保切换类型时不保留之前输入框的高亮状态
-    {:noreply, 
-      socket 
+    {:noreply,
+      socket
       |> assign(:item_type, type)
       |> assign(:current_item, %FormItem{})
       |> assign(:temp_label, nil)}
   end
-  
+
   @impl true
   def handle_event("add_item", _params, socket) do
     # 使用当前选择的控件类型
@@ -200,7 +201,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "file_upload" -> :file_upload
       _ -> :text_input
     end
-    
+
     # 使用当前表单类型设置默认标签
     default_label = case item_type do
       "radio" -> "新单选问题"
@@ -210,7 +211,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "rating" -> "新评分题"
       _ -> "新问题"
     end
-    
+
     # 准备要添加到模板结构的新项目
     new_item = %{
       "id" => Ecto.UUID.generate(),
@@ -219,102 +220,102 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       "required" => false,
       "description" => ""
     }
-    
+
     # 根据控件类型设置特定属性
     new_item = cond do
       item_type == "matrix" ->
-        new_item 
+        new_item
         |> Map.put("matrix_rows", ["问题1", "问题2", "问题3"])
         |> Map.put("matrix_columns", ["选项A", "选项B", "选项C"])
         |> Map.put("matrix_type", "single")
-      
+
       item_type == "image_choice" ->
         new_item
         |> Map.put("selection_type", "single")
         |> Map.put("image_caption_position", "bottom")
-      
+
       item_type in ["radio", "checkbox", "dropdown"] ->
         new_item
         |> Map.put("options", [
           %{"id" => Ecto.UUID.generate(), "label" => "选项A", "value" => "option_a"},
           %{"id" => Ecto.UUID.generate(), "label" => "选项B", "value" => "option_b"}
         ])
-        
+
       true -> new_item
     end
-    
+
     # 添加新项目到结构中
     updated_structure = socket.assigns.structure ++ [new_item]
-    
+
     # 保存更新后的模板结构
     case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
       {:ok, updated_template} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> assign(:template, updated_template)
           |> assign(:structure, updated_template.structure)
           |> put_flash(:info, "已添加新控件")
         }
-        
+
       {:error, _changeset} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> put_flash(:error, "无法添加新控件")
         }
     end
   end
-  
+
   @impl true
   def handle_event("delete_item", %{"id" => id}, socket) do
     # 设置当前选择的表单项以便确认删除
     {:noreply, assign(socket, :delete_item_id, id)}
   end
-  
+
   @impl true
   def handle_event("confirm_delete", _params, socket) do
     id = socket.assigns.delete_item_id
-    
+
     # 从结构中移除指定ID的项目
     updated_structure = Enum.reject(socket.assigns.structure, fn item ->
       Map.get(item, "id") == id
     end)
-    
+
     # 保存更新后的模板结构
     case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
       {:ok, updated_template} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> assign(:template, updated_template)
           |> assign(:structure, updated_template.structure)
           |> assign(:delete_item_id, nil)
           |> put_flash(:info, "控件已删除")
         }
-        
+
       {:error, _changeset} ->
-        {:noreply, 
+        {:noreply,
           socket
           |> assign(:delete_item_id, nil)
           |> put_flash(:error, "无法删除控件")
         }
     end
   end
-  
+
   @impl true
   def handle_event("cancel_delete", _params, socket) do
     {:noreply, assign(socket, :delete_item_id, nil)}
   end
-  
+
   @impl true
   def handle_event("open_logic_editor", %{"id" => item_id}, socket) do
     # 获取当前标签页
     current_tab = socket.assigns.active_tab
-    
+
     # 查找要编辑的项目
     item = Enum.find(socket.assigns.structure, fn item -> item["id"] == item_id end)
-    
+
     # 获取当前项目的逻辑（如果有的话）
     existing_logic = Map.get(item, "logic", nil)
-    
+
     # 如果不在条件逻辑标签页，先切换到该标签页
     socket = if current_tab != "conditions" do
       # 设置标签页标题
@@ -323,16 +324,16 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         "conditions" => "条件逻辑",
         "decoration" => "页面装饰"
       }
-      
+
       socket
       |> assign(:active_tab, "conditions")
       |> assign(:tab_title, Map.get(tab_titles, "conditions", "条件逻辑"))
     else
       socket
     end
-    
+
     # 打开逻辑编辑器
-    {:noreply, 
+    {:noreply,
       socket
       |> assign(:editing_logic_item_id, item_id)
       |> assign(:logic_type, Map.get(existing_logic || %{}, "type", "jump"))
@@ -340,11 +341,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_condition, Map.get(existing_logic || %{}, "condition", nil))
     }
   end
-  
+
   @impl true
   def handle_event("close_logic_editor", _params, socket) do
     # 关闭逻辑编辑器
-    {:noreply, 
+    {:noreply,
       socket
       |> assign(:editing_logic_item_id, nil)
       |> assign(:logic_type, nil)
@@ -352,11 +353,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_condition, nil)
     }
   end
-  
+
   @impl true
   def handle_event("save_logic", %{"logic" => logic_params}, socket) do
     item_id = socket.assigns.editing_logic_item_id
-    
+
     # 仅在编辑项目存在时处理
     if item_id do
       # 查找并更新对应的表单项
@@ -371,18 +372,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               "value" => logic_params["condition_value"]
             }
           }
-          
+
           # 将逻辑添加到表单项
           Map.put(item, "logic", logic)
         else
           item
         end
       end)
-      
+
       # 保存更新后的模板结构
       case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
         {:ok, updated_template} ->
-          {:noreply, 
+          {:noreply,
             socket
             |> assign(:template, updated_template)
             |> assign(:structure, updated_template.structure)
@@ -392,9 +393,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             |> assign(:logic_condition, nil)
             |> put_flash(:info, "逻辑规则已保存")
           }
-          
+
         {:error, _changeset} ->
-          {:noreply, 
+          {:noreply,
             socket
             |> put_flash(:error, "无法保存逻辑规则")
           }
@@ -403,7 +404,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       {:noreply, socket}
     end
   end
-  
+
   @impl true
   def handle_event("change_logic_type", %{"type" => logic_type}, socket) do
     {:noreply, assign(socket, :logic_type, logic_type)}
@@ -416,13 +417,13 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       <!-- 模板编辑页面 -->
       <div style="display: flex; max-width: 100%; overflow-hidden;">
         <!-- 左侧控件类型选择栏 - 仅在结构设计标签页显示 -->
-        <div style={"flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 4rem); #{if @active_tab != "structure", do: "display: none;"}"}> 
+        <div style={"flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 4rem); #{if @active_tab != "structure", do: "display: none;"}"}>
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">控件类型</h2>
-          
+
           <!-- 分类标签 -->
           <div style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;" data-test-id="form-item-category-selector">
-            <button 
-              phx-click="change_category" 
+            <button
+              phx-click="change_category"
               phx-value-category="basic"
               data-category="basic"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :basic, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :basic, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
@@ -432,8 +433,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </svg>
               基础控件
             </button>
-            <button 
-              phx-click="change_category" 
+            <button
+              phx-click="change_category"
               phx-value-category="personal"
               data-category="personal"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :personal, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :personal, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
@@ -443,8 +444,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </svg>
               个人信息
             </button>
-            <button 
-              phx-click="change_category" 
+            <button
+              phx-click="change_category"
               phx-value-category="advanced"
               data-category="advanced"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :advanced, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :advanced, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
@@ -455,13 +456,13 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               高级控件
             </button>
           </div>
-          
+
           <!-- 控件类型搜索 -->
           <div style="margin-bottom: 1rem;">
             <div style="position: relative;">
-              <input 
-                type="text" 
-                placeholder="搜索控件类型..." 
+              <input
+                type="text"
+                placeholder="搜索控件类型..."
                 style="width: 100%; padding: 0.5rem 0.75rem; padding-left: 2rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem;"
                 phx-keyup="search_item_types"
                 phx-key="Enter"
@@ -474,7 +475,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </div>
             </div>
           </div>
-          
+
           <!-- 渲染控件类型列表 -->
           <%= if is_nil(@search_term) do %>
             <!-- 分类显示 -->
@@ -482,7 +483,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               <div style="margin-bottom: 1rem;">
                 <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">基础控件</h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                  <button 
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="text_input"
@@ -494,8 +495,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">文本输入</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="textarea"
@@ -507,8 +508,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">文本区域</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="radio"
@@ -520,8 +521,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">单选按钮</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="checkbox"
@@ -533,8 +534,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">复选框</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="dropdown"
@@ -546,8 +547,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">下拉菜单</div>
                   </button>
-                  
-                    <button 
+
+                    <button
                       type="button"
                       phx-click="type_changed"
                     phx-value-type="number"
@@ -562,12 +563,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 </div>
               </div>
             <% end %>
-            
+
             <%= if @active_category == :personal do %>
               <div style="margin-bottom: 1rem;">
                 <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">个人信息控件</h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                  <button 
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="email"
@@ -579,8 +580,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">电子邮箱</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="phone"
@@ -592,8 +593,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">电话号码</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="date"
@@ -605,8 +606,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">日期选择</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="time"
@@ -618,8 +619,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">时间选择</div>
                   </button>
-                  
-                    <button 
+
+                    <button
                       type="button"
                       phx-click="type_changed"
                     phx-value-type="region"
@@ -635,12 +636,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 </div>
               </div>
             <% end %>
-            
+
             <%= if @active_category == :advanced do %>
               <div style="margin-bottom: 1rem;">
                 <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">高级控件</h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                  <button 
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="rating"
@@ -652,8 +653,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">评分控件</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="matrix"
@@ -665,8 +666,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">矩阵问题</div>
                   </button>
-                  
-                  <button 
+
+                  <button
                     type="button"
                     phx-click="type_changed"
                     phx-value-type="image_choice"
@@ -678,8 +679,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">图片选择</div>
                   </button>
-                  
-                    <button 
+
+                    <button
                       type="button"
                       phx-click="type_changed"
                     phx-value-type="file_upload"
@@ -705,7 +706,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               <% else %>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                   <%= for type <- @search_term do %>
-                    <button 
+                    <button
                       type="button"
                       phx-click="type_changed"
                       phx-value-type={type}
@@ -718,10 +719,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               <% end %>
             </div>
           <% end %>
-          
+
           <!-- 添加控件按钮 -->
           <div style="margin-top: 1rem;">
-            <button 
+            <button
               type="button"
               id="add-new-form-item-button"
               phx-click="add_item"
@@ -735,13 +736,13 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             </button>
           </div>
         </div>
-        
+
         <!-- 右侧内容区域 -->
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 模板标题和操作区 -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h1 style="font-size: 1.5rem; font-weight: 700;"><%= @template.name || "未命名模板" %></h1>
-            
+
             <div style="display: flex; gap: 0.75rem;">
               <.link
                 patch={~p"/forms"}
@@ -749,8 +750,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               >
                 返回表单列表
               </.link>
-              
-              <button 
+
+              <button
                 type="button"
                 phx-click="save_structure"
                 style="display: inline-flex; justify-content: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: none;"
@@ -763,7 +764,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           <!-- 标签页导航 -->
           <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem;">
             <div style="display: flex; gap: 0.5rem;">
-              <button 
+              <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="structure"
@@ -771,7 +772,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               >
                 结构设计
               </button>
-              <button 
+              <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="conditions"
@@ -779,7 +780,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               >
                 条件逻辑
               </button>
-              <button 
+              <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="decoration"
@@ -789,7 +790,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </button>
             </div>
           </div>
-          
+
           <!-- 标签页导航按钮 -->
           <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
             <button
@@ -840,14 +841,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </div>
             </div>
           <% end %>
-          
+
           <!-- 标签页内容区域 -->
           <%= case @active_tab do %>
             <% "structure" -> %>
               <!-- 模板结构列表 -->
               <div class="form-card">
                 <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">模板结构设计</h2>
-                
+
                 <div id="structure-list" phx-hook="Sortable" class="space-y-4">
                   <%= if Enum.empty?(@structure) do %>
                     <div style="text-align: center; padding: 3rem 0;">
@@ -861,49 +862,93 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </div>
                   <% else %>
                     <%= for element <- @structure do %>
-                      <% 
+                      <%
                         elem_id = Map.get(element, "id", "unknown")
-                        elem_type = Map.get(element, "type", "unknown")
-                        elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
-                        elem_required = Map.get(element, "required", false)
-                        elem_description = Map.get(element, "description")
-                        
-                        # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
-                        form_item = %{
-                          id: elem_id,
-                          type: safe_to_atom(elem_type),
-                          label: elem_label,
-                          required: elem_required,
-                          description: elem_description,
-                          placeholder: Map.get(element, "placeholder"),
-                          options: format_options(Map.get(element, "options", [])),
-                          min: Map.get(element, "min"),
-                          max: Map.get(element, "max"),
-                          step: Map.get(element, "step"),
-                          max_rating: Map.get(element, "max_rating", 5),
-                          min_date: Map.get(element, "min_date"),
-                          max_date: Map.get(element, "max_date"),
-                          min_time: Map.get(element, "min_time"),
-                          max_time: Map.get(element, "max_time"),
-                          time_format: Map.get(element, "time_format", "24h"),
-                          show_format_hint: Map.get(element, "show_format_hint"),
-                          format_display: Map.get(element, "format_display"),
-                          matrix_rows: Map.get(element, "matrix_rows"),
-                          matrix_columns: Map.get(element, "matrix_columns"),
-                          matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
-                          image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
-                          selection_type: safe_selection_type(Map.get(element, "selection_type")),
-                          multiple_files: Map.get(element, "multiple_files"),
-                          max_files: Map.get(element, "max_files"),
-                          max_file_size: Map.get(element, "max_file_size"),
-                          allowed_extensions: Map.get(element, "allowed_extensions"),
-                          region_level: Map.get(element, "region_level"),
-                          default_province: Map.get(element, "default_province")
-                        }
+                        # 优先从 @form_items 中查找数据库记录
+                        db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+
+                        # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                        form_item = if db_item do
+                          # 使用来自数据库的 item 数据 (Map 形式以兼容 ItemRendererComponent)
+                          %{
+                            id: db_item.id,
+                            type: db_item.type,
+                            label: db_item.label,
+                            required: db_item.required,
+                            description: db_item.description,
+                            placeholder: db_item.placeholder,
+                            # !!! 关键改动：直接使用数据库预加载的 options (已经是 %MyApp.Forms.ItemOption{} 列表) !!!
+                            options: db_item.options,
+                            min: db_item.min,
+                            max: db_item.max,
+                            step: db_item.step,
+                            max_rating: db_item.max_rating,
+                            min_date: db_item.min_date,
+                            max_date: db_item.max_date,
+                            min_time: db_item.min_time,
+                            max_time: db_item.max_time,
+                            time_format: db_item.time_format,
+                            show_format_hint: db_item.show_format_hint,
+                            format_display: db_item.format_display,
+                            matrix_rows: db_item.matrix_rows,
+                            matrix_columns: db_item.matrix_columns,
+                            matrix_type: db_item.matrix_type,
+                            image_caption_position: db_item.image_caption_position,
+                            selection_type: db_item.selection_type,
+                            multiple_files: db_item.multiple_files,
+                            max_files: db_item.max_files,
+                            max_file_size: db_item.max_file_size,
+                            allowed_extensions: db_item.allowed_extensions,
+                            region_level: db_item.region_level,
+                            default_province: db_item.default_province
+                          }
+                        else
+                          # 回退：使用模板结构中的数据 (记录警告)
+                          Logger.warning("FormTemplateEditorLive: Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data.")
+                          elem_type_str = Map.get(element, "type", "text_input")
+                          %{
+                            id: elem_id,
+                            type: safe_to_atom(elem_type_str), # 确保是 atom
+                            label: Map.get(element, "label") || "未命名元素",
+                            required: Map.get(element, "required", false),
+                            description: Map.get(element, "description"),
+                            placeholder: Map.get(element, "placeholder"),
+                            # !!! 回退时仍需格式化，确保 options 是 Map 列表 !!!
+                            options: format_options_for_component(Map.get(element, "options", [])),
+                            min: Map.get(element, "min"),
+                            max: Map.get(element, "max"),
+                            step: Map.get(element, "step"),
+                            max_rating: Map.get(element, "max_rating", 5),
+                            min_date: Map.get(element, "min_date"),
+                            max_date: Map.get(element, "max_date"),
+                            min_time: Map.get(element, "min_time"),
+                            max_time: Map.get(element, "max_time"),
+                            time_format: Map.get(element, "time_format", "24h"),
+                            show_format_hint: Map.get(element, "show_format_hint"),
+                            format_display: Map.get(element, "format_display"),
+                            matrix_rows: Map.get(element, "matrix_rows"),
+                            matrix_columns: Map.get(element, "matrix_columns"),
+                            matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
+                            image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                            selection_type: safe_selection_type(Map.get(element, "selection_type")),
+                            multiple_files: Map.get(element, "multiple_files"),
+                            max_files: Map.get(element, "max_files"),
+                            max_file_size: Map.get(element, "max_file_size"),
+                            allowed_extensions: Map.get(element, "allowed_extensions"),
+                            region_level: Map.get(element, "region_level"),
+                            default_province: Map.get(element, "default_province")
+                          }
+                        end
+
+                        # 从构建好的 form_item 中获取显示所需的变量
+                        elem_type = to_string(form_item.type)
+                        elem_label = form_item.label
+                        elem_required = form_item.required
+                        elem_description = form_item.description
                       %>
-                      <div 
-                        id={"item-#{elem_id}"} 
-                        data-id={elem_id} 
+                      <div
+                        id={"item-#{elem_id}"}
+                        data-id={elem_id}
                         class="p-3 border rounded bg-white shadow-sm form-card"
                       >
                         <div class="flex justify-between items-center">
@@ -932,26 +977,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               </div>
                             </div>
                           </div>
-                          
+
                           <div class="flex gap-2">
                             <button type="button" phx-click="delete_item" phx-value-id={elem_id} style="color: #ef4444; background: none; border: none; cursor: pointer;">
                               删除
                             </button>
                           </div>
                         </div>
-                        
+
                         <%= if elem_description do %>
                           <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
                         <% end %>
-                        
+
                         <!-- 逻辑编辑面板 - 仅在选中时显示 -->
                         <%= if @editing_logic_item_id == elem_id do %>
                           <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
                             <div class="flex justify-between items-center mb-3">
                               <h3 class="font-medium text-blue-800">设置题目逻辑</h3>
-                              <button 
-                                type="button" 
-                                phx-click="close_logic_editor" 
+                              <button
+                                type="button"
+                                phx-click="close_logic_editor"
                                 class="text-gray-500 hover:text-gray-800"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -959,7 +1004,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                 </svg>
                               </button>
                             </div>
-                            
+
                             <form phx-submit="save_logic" class="space-y-3">
                               <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
@@ -972,15 +1017,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
                                 </div>
                               </div>
-                              
+
                               <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
                                 <div class="flex flex-col gap-2">
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="jump" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="jump"
                                       checked={@logic_type == "jump"}
                                       phx-click="change_logic_type"
                                       phx-value-type="jump"
@@ -989,10 +1034,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">跳转到指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="show" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="show"
                                       checked={@logic_type == "show"}
                                       phx-click="change_logic_type"
                                       phx-value-type="show"
@@ -1001,10 +1046,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">显示指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="hide" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="hide"
                                       checked={@logic_type == "hide"}
                                       phx-click="change_logic_type"
                                       phx-value-type="hide"
@@ -1013,10 +1058,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">隐藏指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="end" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="end"
                                       checked={@logic_type == "end"}
                                       phx-click="change_logic_type"
                                       phx-value-type="end"
@@ -1026,12 +1071,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   </label>
                                 </div>
                               </div>
-                              
+
                               <%= if @logic_type in ["jump", "show", "hide"] do %>
                                 <div>
                                   <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
-                                  <select 
-                                    name="logic[target_id]" 
+                                  <select
+                                    name="logic[target_id]"
                                     class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                   >
                                     <option value="">-- 请选择题目 --</option>
@@ -1045,16 +1090,16 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   </select>
                                 </div>
                               <% end %>
-                              
+
                               <div class="pt-2 flex justify-end">
-                                <button 
+                                <button
                                   type="button"
                                   phx-click="close_logic_editor"
                                   class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
                                   取消
                                 </button>
-                                <button 
+                                <button
                                   type="submit"
                                   class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
@@ -1064,8 +1109,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             </form>
                           </div>
                         <% end %>
-                        
+
                         <div class="mt-3 border-t pt-3">
+                          <%# !!! 关键改动：传递构建好的 form_item 给渲染组件 !!! %>
                           <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
                         </div>
                       </div>
@@ -1073,12 +1119,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   <% end %>
                 </div>
               </div>
-              
+
             <% "conditions" -> %>
               <!-- 条件逻辑标签页内容 -->
               <div class="form-card">
                 <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">条件逻辑设置</h2>
-                
+
                 <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
                   <h3 class="text-md font-medium text-blue-800 mb-2">使用说明</h3>
                   <p class="text-sm text-blue-700 mb-2">
@@ -1094,7 +1140,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     点击每个题目右侧的<span class="font-semibold">「添加逻辑」</span>或<span class="font-semibold">「编辑逻辑」</span>按钮来设置条件规则。
                   </p>
                 </div>
-                
+
                 <!-- 模板结构列表 - 与结构设计标签页相似，但带逻辑按钮 -->
                 <!-- 模板结构列表展示 -->
                 <div id="logic-structure-list" class="space-y-4">
@@ -1110,46 +1156,90 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </div>
                   <% else %>
                     <%= for element <- @structure do %>
-                      <% 
+                      <%
                         elem_id = Map.get(element, "id", "unknown")
-                        elem_type = Map.get(element, "type", "unknown")
-                        elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
-                        elem_required = Map.get(element, "required", false)
-                        elem_description = Map.get(element, "description")
-                        
-                        # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
-                        form_item = %{
-                          id: elem_id,
-                          type: safe_to_atom(elem_type),
-                          label: elem_label,
-                          required: elem_required,
-                          description: elem_description,
-                          placeholder: Map.get(element, "placeholder"),
-                          options: format_options(Map.get(element, "options", [])),
-                          min: Map.get(element, "min"),
-                          max: Map.get(element, "max"),
-                          step: Map.get(element, "step"),
-                          max_rating: Map.get(element, "max_rating", 5),
-                          min_date: Map.get(element, "min_date"),
-                          max_date: Map.get(element, "max_date"),
-                          min_time: Map.get(element, "min_time"),
-                          max_time: Map.get(element, "max_time"),
-                          time_format: Map.get(element, "time_format", "24h"),
-                          show_format_hint: Map.get(element, "show_format_hint"),
-                          format_display: Map.get(element, "format_display"),
-                          matrix_rows: Map.get(element, "matrix_rows"),
-                          matrix_columns: Map.get(element, "matrix_columns"),
-                          matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
-                          image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
-                          selection_type: safe_selection_type(Map.get(element, "selection_type")),
-                          multiple_files: Map.get(element, "multiple_files"),
-                          max_files: Map.get(element, "max_files"),
-                          max_file_size: Map.get(element, "max_file_size"),
-                          allowed_extensions: Map.get(element, "allowed_extensions"),
-                          region_level: Map.get(element, "region_level"),
-                          default_province: Map.get(element, "default_province")
-                        }
-                        
+                        # !!! START CHANGE !!!
+                        # 优先从 @form_items 中查找数据库记录
+                        db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+
+                        # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                        form_item = if db_item do
+                          # 使用来自数据库的 item 数据
+                          %{
+                            id: db_item.id,
+                            type: db_item.type,
+                            label: db_item.label,
+                            required: db_item.required,
+                            description: db_item.description,
+                            placeholder: db_item.placeholder,
+                            options: db_item.options, # 直接使用数据库预加载的 options
+                            min: db_item.min,
+                            max: db_item.max,
+                            step: db_item.step,
+                            max_rating: db_item.max_rating,
+                            min_date: db_item.min_date,
+                            max_date: db_item.max_date,
+                            min_time: db_item.min_time,
+                            max_time: db_item.max_time,
+                            time_format: db_item.time_format,
+                            show_format_hint: db_item.show_format_hint,
+                            format_display: db_item.format_display,
+                            matrix_rows: db_item.matrix_rows,
+                            matrix_columns: db_item.matrix_columns,
+                            matrix_type: db_item.matrix_type,
+                            image_caption_position: db_item.image_caption_position,
+                            selection_type: db_item.selection_type,
+                            multiple_files: db_item.multiple_files,
+                            max_files: db_item.max_files,
+                            max_file_size: db_item.max_file_size,
+                            allowed_extensions: db_item.allowed_extensions,
+                            region_level: db_item.region_level,
+                            default_province: db_item.default_province
+                          }
+                        else
+                          # 回退：使用模板结构中的数据 (记录警告)
+                          Logger.warning("FormTemplateEditorLive (conditions tab): Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data.")
+                          elem_type_str = Map.get(element, "type", "text_input")
+                          %{
+                            id: elem_id,
+                            type: safe_to_atom(elem_type_str), # 确保是 atom
+                            label: Map.get(element, "label") || "未命名元素",
+                            required: Map.get(element, "required", false),
+                            description: Map.get(element, "description"),
+                            placeholder: Map.get(element, "placeholder"),
+                            options: format_options_for_component(Map.get(element, "options", [])), # 回退时格式化
+                            min: Map.get(element, "min"),
+                            max: Map.get(element, "max"),
+                            step: Map.get(element, "step"),
+                            max_rating: Map.get(element, "max_rating", 5),
+                            min_date: Map.get(element, "min_date"),
+                            max_date: Map.get(element, "max_date"),
+                            min_time: Map.get(element, "min_time"),
+                            max_time: Map.get(element, "max_time"),
+                            time_format: Map.get(element, "time_format", "24h"),
+                            show_format_hint: Map.get(element, "show_format_hint"),
+                            format_display: Map.get(element, "format_display"),
+                            matrix_rows: Map.get(element, "matrix_rows"),
+                            matrix_columns: Map.get(element, "matrix_columns"),
+                            matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
+                            image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                            selection_type: safe_selection_type(Map.get(element, "selection_type")),
+                            multiple_files: Map.get(element, "multiple_files"),
+                            max_files: Map.get(element, "max_files"),
+                            max_file_size: Map.get(element, "max_file_size"),
+                            allowed_extensions: Map.get(element, "allowed_extensions"),
+                            region_level: Map.get(element, "region_level"),
+                            default_province: Map.get(element, "default_province")
+                          }
+                        end
+
+                        # 从构建好的 form_item 中获取显示所需的变量
+                        elem_type = to_string(form_item.type)
+                        elem_label = form_item.label
+                        elem_required = form_item.required
+                        elem_description = form_item.description
+                        # !!! END CHANGE !!!
+
                         # 检查是否有逻辑设置
                         has_logic = Map.get(element, "logic") != nil
                         logic = Map.get(element, "logic")
@@ -1158,11 +1248,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         condition_op = if condition, do: Map.get(condition, "operator", ""), else: nil
                         condition_value = if condition, do: Map.get(condition, "value", ""), else: nil
                         target_id = if has_logic, do: Map.get(logic, "target_id"), else: nil
-                        
+
                         # 查找目标题目（如果有）
                         target_item = if target_id, do: Enum.find(@structure, fn i -> Map.get(i, "id") == target_id end), else: nil
                         target_label = if target_item, do: Map.get(target_item, "label") || "未命名题目", else: nil
-                        
+
                         # 条件操作符显示文本
                         condition_op_text = case condition_op do
                           "equals" -> "等于"
@@ -1170,7 +1260,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           "contains" -> "包含"
                           _ -> condition_op
                         end
-                        
+
                         # 逻辑类型显示文本
                         logic_type_text = case logic_type do
                           "jump" -> "跳转到"
@@ -1180,8 +1270,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           _ -> logic_type
                         end
                       %>
-                      <div 
-                        id={"logic-item-#{elem_id}"} 
+                      <div
+                        id={"logic-item-#{elem_id}"}
                         class="p-3 border rounded bg-white shadow-sm form-card"
                       >
                         <div class="flex justify-between items-center">
@@ -1209,12 +1299,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               </div>
                             </div>
                           </div>
-                          
+
                           <div class="flex gap-2">
-                            <button 
-                              type="button" 
-                              phx-click="open_logic_editor" 
-                              phx-value-id={elem_id} 
+                            <button
+                              type="button"
+                              phx-click="open_logic_editor"
+                              phx-value-id={elem_id}
                               style="color: #3b82f6; background: none; border: none; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1224,26 +1314,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             </button>
                           </div>
                         </div>
-                        
+
                         <%= if elem_description do %>
                           <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
                         <% end %>
-                        
+
                         <%= if has_logic do %>
                           <div class="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
-                            <p>如果答案<strong><%= condition_op_text %></strong> "<%= condition_value %>" 
+                            <p>如果答案<strong><%= condition_op_text %></strong> "<%= condition_value %>"
                             则<strong><%= logic_type_text %></strong> <%= if target_label, do: "「#{target_label}」" %></p>
                           </div>
                         <% end %>
-                        
+
                         <!-- 逻辑编辑面板 - 仅在选中时显示 -->
                         <%= if @editing_logic_item_id == elem_id do %>
                           <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
                             <div class="flex justify-between items-center mb-3">
                               <h3 class="font-medium text-blue-800">设置题目逻辑</h3>
-                              <button 
-                                type="button" 
-                                phx-click="close_logic_editor" 
+                              <button
+                                type="button"
+                                phx-click="close_logic_editor"
                                 class="text-gray-500 hover:text-gray-800"
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1251,7 +1341,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                 </svg>
                               </button>
                             </div>
-                            
+
                             <form phx-submit="save_logic" class="space-y-3">
                               <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
@@ -1261,18 +1351,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                                     <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                                   </select>
-                                  <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
+                                  <%# !!! CHANGE: Pass the constructed form_item map instead of finding from structure again !!! %>
+                                  <%= render_condition_value_input(form_item, @logic_condition) %>
                                 </div>
                               </div>
-                              
+
                               <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
                                 <div class="flex flex-col gap-2">
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="jump" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="jump"
                                       checked={@logic_type == "jump"}
                                       phx-click="change_logic_type"
                                       phx-value-type="jump"
@@ -1281,10 +1372,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">跳转到指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="show" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="show"
                                       checked={@logic_type == "show"}
                                       phx-click="change_logic_type"
                                       phx-value-type="show"
@@ -1293,10 +1384,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">显示指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="hide" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="hide"
                                       checked={@logic_type == "hide"}
                                       phx-click="change_logic_type"
                                       phx-value-type="hide"
@@ -1305,10 +1396,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <span class="ml-2 text-gray-700">隐藏指定题目</span>
                                   </label>
                                   <label class="inline-flex items-center">
-                                    <input 
-                                      type="radio" 
-                                      name="logic[type]" 
-                                      value="end" 
+                                    <input
+                                      type="radio"
+                                      name="logic[type]"
+                                      value="end"
                                       checked={@logic_type == "end"}
                                       phx-click="change_logic_type"
                                       phx-value-type="end"
@@ -1318,12 +1409,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   </label>
                                 </div>
                               </div>
-                              
+
                               <%= if @logic_type in ["jump", "show", "hide"] do %>
                                 <div>
                                   <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
-                                  <select 
-                                    name="logic[target_id]" 
+                                  <select
+                                    name="logic[target_id]"
                                     class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                   >
                                     <option value="">-- 请选择题目 --</option>
@@ -1337,16 +1428,16 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   </select>
                                 </div>
                               <% end %>
-                              
+
                               <div class="pt-2 flex justify-end">
-                                <button 
+                                <button
                                   type="button"
                                   phx-click="close_logic_editor"
                                   class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
                                   取消
                                 </button>
-                                <button 
+                                <button
                                   type="submit"
                                   class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
@@ -1356,18 +1447,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             </form>
                           </div>
                         <% end %>
-                        
+
                         <div class="mt-3 border-t pt-3">
+                          <%# !!! 关键改动：传递构建好的 form_item 给渲染组件 !!! %>
                           <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
                         </div>
                       </div>
                     <% end %>
                   <% end %>
                 </div>
-                
+
                 <!-- 逻辑编辑面板 - 当存在编辑项时显示 -->
                 <%= if @editing_logic_item_id do %>
-                  <% 
+                  <%
                     # 查找正在编辑的项目
                     editing_item = Enum.find(@structure, fn item -> Map.get(item, "id") == @editing_logic_item_id end)
                     item_label = if editing_item, do: Map.get(editing_item, "label") || "未命名题目", else: "未知题目"
@@ -1375,9 +1467,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   <div class="mt-5 p-4 border border-blue-200 bg-blue-50 rounded-md">
                     <div class="flex justify-between items-center mb-3">
                       <h3 class="font-medium text-blue-800">编辑「<%= item_label %>」的逻辑</h3>
-                      <button 
-                        type="button" 
-                        phx-click="close_logic_editor" 
+                      <button
+                        type="button"
+                        phx-click="close_logic_editor"
                         class="text-gray-500 hover:text-gray-800"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1385,7 +1477,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         </svg>
                       </button>
                     </div>
-                    
+
                     <form phx-submit="save_logic" class="space-y-3">
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
@@ -1395,18 +1487,52 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                             <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                           </select>
-                          <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == @editing_logic_item_id end), @logic_condition) %>
+                          <%# !!! CHANGE: Pass the constructed form_item map for the editing item !!! %>
+                          <%
+                              # Find the form_item map for the item being edited for logic
+                              editing_db_item = Enum.find(@form_items, fn fi -> fi.id == @editing_logic_item_id end)
+                              editing_form_item_map = if editing_db_item do
+                                # Convert the struct to a map if needed by render_condition_value_input
+                                # Or adjust render_condition_value_input to accept the struct directly
+                                # Assuming render_condition_value_input can handle the struct:
+                                editing_db_item
+                              else
+                                # Fallback: Find from structure and build map (less ideal)
+                                editing_element = Enum.find(@structure, fn el -> Map.get(el, "id") == @editing_logic_item_id end)
+                                if editing_element do
+                                    elem_type_str = Map.get(editing_element, "type", "text_input")
+                                    %{
+                                      id: @editing_logic_item_id,
+                                      type: safe_to_atom(elem_type_str),
+                                      label: Map.get(editing_element, "label") || "未命名元素",
+                                      required: Map.get(editing_element, "required", false),
+                                      description: Map.get(editing_element, "description"),
+                                      placeholder: Map.get(editing_element, "placeholder"),
+                                      # !!! FIX: Add options field to fallback map !!!
+                                      options: format_options_for_component(Map.get(editing_element, "options", [])),
+                                      min: Map.get(editing_element, "min"),
+                                      max: Map.get(editing_element, "max"),
+                                      step: Map.get(editing_element, "step"),
+                                      max_rating: Map.get(editing_element, "max_rating", 5)
+                                      # Add other fields as needed by render_condition_value_input
+                                    }
+                                else
+                                    nil # Should not happen if @editing_logic_item_id is set
+                                end
+                              end
+                           %>
+                          <%= render_condition_value_input(editing_form_item_map, @logic_condition) %>
                         </div>
                       </div>
-                      
+
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
                         <div class="flex flex-col gap-2">
                           <label class="inline-flex items-center">
-                            <input 
-                              type="radio" 
-                              name="logic[type]" 
-                              value="jump" 
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="jump"
                               checked={@logic_type == "jump"}
                               phx-click="change_logic_type"
                               phx-value-type="jump"
@@ -1415,10 +1541,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             <span class="ml-2 text-gray-700">跳转到指定题目</span>
                           </label>
                           <label class="inline-flex items-center">
-                            <input 
-                              type="radio" 
-                              name="logic[type]" 
-                              value="show" 
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="show"
                               checked={@logic_type == "show"}
                               phx-click="change_logic_type"
                               phx-value-type="show"
@@ -1427,10 +1553,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             <span class="ml-2 text-gray-700">显示指定题目</span>
                           </label>
                           <label class="inline-flex items-center">
-                            <input 
-                              type="radio" 
-                              name="logic[type]" 
-                              value="hide" 
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="hide"
                               checked={@logic_type == "hide"}
                               phx-click="change_logic_type"
                               phx-value-type="hide"
@@ -1439,10 +1565,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             <span class="ml-2 text-gray-700">隐藏指定题目</span>
                           </label>
                           <label class="inline-flex items-center">
-                            <input 
-                              type="radio" 
-                              name="logic[type]" 
-                              value="end" 
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="end"
                               checked={@logic_type == "end"}
                               phx-click="change_logic_type"
                               phx-value-type="end"
@@ -1452,12 +1578,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           </label>
                         </div>
                       </div>
-                      
+
                       <%= if @logic_type in ["jump", "show", "hide"] do %>
                         <div>
                           <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
-                          <select 
-                            name="logic[target_id]" 
+                          <select
+                            name="logic[target_id]"
                             class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                           >
                             <option value="">-- 请选择题目 --</option>
@@ -1471,16 +1597,16 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           </select>
                         </div>
                       <% end %>
-                      
+
                       <div class="pt-2 flex justify-end">
-                        <button 
+                        <button
                           type="button"
                           phx-click="close_logic_editor"
                           class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
                           取消
                         </button>
-                        <button 
+                        <button
                           type="submit"
                           class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
@@ -1491,7 +1617,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   </div>
                 <% end %>
               </div>
-              
+
             <% "decoration" -> %>
               <!-- 页面装饰标签页内容 -->
               <div class="form-card">
@@ -1509,7 +1635,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       您可以添加企业Logo、品牌色调、自定义页头文本和结束页内容等。
                     </p>
                   </div>
-                  
+
                   <div style="font-style: italic; color: #9ca3af; margin-top: 2rem;">
                     此功能正在开发中，敬请期待...
                   </div>
@@ -1521,7 +1647,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     </div>
     """
   end
-  
+
   # 安全地将字符串转换为atom，如果转换失败则返回默认值:text_input
   defp safe_to_atom(type_str) when is_binary(type_str) do
     try do
@@ -1553,10 +1679,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp format_options(options) when is_list(options) do
     IO.puts("\n==== 格式化选项 ====")
     IO.puts("选项列表: #{inspect(options)}")
-    
+
     result = Enum.map(options, fn option ->
       IO.puts("处理选项: #{inspect(option)}")
-      
+
       formatted = cond do
         # 处理Map类型的选项
         is_map(option) ->
@@ -1568,14 +1694,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           label = Map.get(option, "label") || Map.get(option, :label) || value || ""
           # 图片文件名可能为nil
           image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
-          
+
           %{
             id: id,
             value: value,
             label: label,
             image_filename: image_filename
           }
-          
+
         # 处理字符串或其他非Map类型选项
         true ->
           option_str = to_string(option)
@@ -1586,11 +1712,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             image_filename: nil
           }
       end
-      
+
       IO.puts("格式化后: #{inspect(formatted)}")
       formatted
     end)
-    
+
     IO.puts("格式化结果: #{inspect(result)}")
     result
   end
@@ -1608,230 +1734,153 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       item_id = Map.get(item, "id")
       if item_id, do: Map.put(acc, item_id, item), else: acc
     end)
-    
+
     # 按新顺序重组结构项
-    reordered_items = Enum.map(ordered_ids, fn id -> 
+    reordered_items = Enum.map(ordered_ids, fn id ->
       Map.get(id_to_item_map, id)
     end)
     |> Enum.filter(&(&1 != nil))
-    
+
     # 处理可能不在ordered_ids中的项（尽管这种情况应该不会发生）
     missing_items = Enum.filter(structure, fn item ->
       item_id = Map.get(item, "id")
       item_id && !Enum.member?(ordered_ids, item_id)
     end)
-    
+
     # 合并重排序的项和缺失的项
     reordered_items ++ missing_items
   end
-  
+
   # 辅助函数：显示选中的控件类型名称
   defp display_selected_type(nil), do: "未选择"
   defp display_selected_type("text_input"), do: "文本输入"
-  
+
   # 根据表单项类型渲染适当的条件值输入控件
-  defp render_condition_value_input(item, logic_condition) do
-    # 打印调试信息以检查传入的项目
-    IO.inspect(item, label: "表单项数据")
-    
-    # 检查所有选择题类型的表单项结构
-    if !is_nil(item) && Map.get(item, "type") in ["radio", "checkbox", "dropdown"] do
-      options = Map.get(item, "options", [])
-      IO.puts("\n==== 选择题类型项目数据分析 ====")
-      IO.puts("项目ID: #{Map.get(item, "id", "未知")}")
-      IO.puts("项目类型: #{Map.get(item, "type", "未知")}")
-      IO.puts("选项数量: #{length(options)}")
-      IO.puts("选项数据结构: #{inspect(options)}")
-      
-      # 直接尝试遍历选项
-      if is_list(options) && length(options) > 0 do
-        IO.puts("\n==== 选项详情 ====")
-        Enum.each(options, fn option ->
-          cond do
-            is_map(option) ->
-              id = Map.get(option, "id") || Map.get(option, :id, "未知")
-              value = Map.get(option, "value") || Map.get(option, :value, "未知")
-              label = Map.get(option, "label") || Map.get(option, :label, "未知")
-              IO.puts("选项: id=#{id}, value=#{value}, label=#{label}")
-            true ->
-              IO.puts("非Map选项: #{inspect(option)}")
-          end
-        end)
+  defp render_condition_value_input(passed_item, logic_condition) do
+    # passed_item 可能是 Struct 或 Map
+
+    # 1. 统一获取 ID
+    item_id = case passed_item do
+                %MyApp.Forms.FormItem{id: id} -> id # 处理 Struct
+                %{id: id} -> id # 处理 Map (假设 render/1 中 fallback 使用 atom key)
+                _ -> nil
+              end
+
+    form_item = if item_id do
+      # 2. 查找数据库记录 (添加保护，防止 @form_items 为 nil)
+      db_item = if is_list(@form_items), do: Enum.find(@form_items, fn fi -> fi.id == item_id end), else: nil
+
+      if db_item do
+        db_item # 使用数据库 Struct
+      else
+        # 3. 回退逻辑 (仅当 passed_item 是 Map 时有意义)
+        if is_map(passed_item) do
+          %{
+            id: Map.get(passed_item, :id, Ecto.UUID.generate()), # 使用 atom key
+            type: safe_to_atom(Map.get(passed_item, :type)),
+            options: format_options_for_component(Map.get(passed_item, :options, [])),
+            max_rating: Map.get(passed_item, :max_rating, 5)
+            # Add other necessary fields if render logic needs them
+          }
+        else
+          Logger.error("Fallback in render_condition_value_input received non-map: #{inspect(passed_item)}")
+          nil # 无法回退
+        end
       end
+    else
+      nil # 无法获取 ID
     end
-    
-    if is_nil(item) do
+
+    if is_nil(form_item) do
       # 如果找不到表单项，返回普通文本输入框
       assigns = %{current_value: get_in(logic_condition || %{}, ["value"])}
       ~H"""
-      <input 
-        type="text" 
-        name="logic[condition_value]" 
+      <input
+        type="text"
+        name="logic[condition_value]"
         value={@current_value}
-        placeholder="输入答案值" 
+        placeholder="输入答案值"
         class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
       />
       """
     else
-      item_type = Map.get(item, "type")
+      item_type = form_item.type
       current_value = get_in(logic_condition || %{}, ["value"])
-      
-      # 直接调试输出完整的项目内容
-      IO.puts("项目类型: #{item_type}")
-      IO.puts("完整项目数据: #{inspect(item)}")
-      
-      # 创建预处理选项
-      default_options = [
-        %{id: Ecto.UUID.generate(), label: "选项A", value: "option_a"},
-        %{id: Ecto.UUID.generate(), label: "选项B", value: "option_b"}
-      ]
-      
+
       cond do
         # 选择题类型 (单选、多选、下拉菜单)
-        item_type in ["radio", "checkbox", "dropdown"] ->
-          # 获取选项
-          options = Map.get(item, "options", [])
-          IO.puts("原始选项: #{inspect(options)}")
-          
-          # 转换为FormItem结构，以便能使用process_options处理
-          form_item = %FormItem{
-            id: Map.get(item, "id", Ecto.UUID.generate()),
-            type: safe_to_atom(item_type),
-            options: []  # 初始为空列表，稍后通过format_options处理
-          }
-          
-          # 先预处理选项，确保格式一致
-          formatted_options = format_options(options)
-          
-          # 打印中间结果
-          IO.puts("\n======== 选项预处理结果 ========")
-          IO.inspect(formatted_options, label: "格式化后的选项")
-          
-          # 直接使用formatted_options，不尝试数据库操作
-          # 这里不使用process_options，因为它会尝试进行数据库操作
-          processed_options = 
-            if Enum.empty?(formatted_options) do
-              # 如果没有选项，使用默认选项
-              IO.puts("使用默认选项...")
-              default_options
-            else
-              IO.puts("使用格式化后的选项...")
-              formatted_options
-            end
-          
-          # 打印处理后的选项，用于调试
-          IO.puts("格式化后选项: #{inspect(formatted_options)}")
-          
-          IO.inspect(processed_options, label: "处理后的选项列表")
-          
-          # 额外处理一下，确保options里面的每个选项都是map，且有label和value字段
-          final_options = Enum.map(processed_options, fn option ->
-            IO.inspect(option, label: "处理前的选项")
-            
-            # 处理不同格式的选项
-            processed = cond do
-              # 已经是map且有:label和:value
-              is_map(option) && (Map.has_key?(option, :label) || Map.has_key?(option, "label")) ->
-                label = Map.get(option, :label) || Map.get(option, "label", "") 
-                value = Map.get(option, :value) || Map.get(option, "value", "")
-                %{label: label, value: value}
-                
-              # 是字符串
-              is_binary(option) -> 
-                %{label: option, value: option}
-                
-              # 其他情况
-              true -> 
-                %{label: inspect(option), value: to_string(option)}
-            end
-            
-            IO.inspect(processed, label: "处理后的选项")
-            processed
-          end)
-          
-          IO.inspect(final_options, label: "最终的选项列表")
-          
-          # 渲染下拉框
-          assigns = %{options: final_options, current_value: current_value}
+        item_type in [:radio, :checkbox, :dropdown] ->
+          # !!! FIX: Use form_item.options !!!
+          local_options = form_item.options || [] # 使用 form_item.options
+
+          assigns = %{current_value: current_value}
           ~H"""
-          <select 
-            name="logic[condition_value]" 
+          <select
+            name="logic[condition_value]"
             class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
           >
             <option value="">-- 请选择选项 --</option>
-            <%= for option <- @options do %>
-              <% 
-                # 调试每个选项
-                option_str = inspect(option)
-                IO.puts("渲染选项: #{option_str}")
-                
-                # 处理选项值和标签
-                option_value = Map.get(option, :value) || Map.get(option, "value", "")
-                option_label = Map.get(option, :label) || Map.get(option, "label", option_value)
-                
-                IO.puts("选项值: #{option_value}, 选项标签: #{option_label}")
-              %>
-              <option value={option_value} selected={@current_value == option_value}><%= option_label %></option>
+            <%= for option <- local_options do %>
+              <%# Handle both ItemOption struct and map format from fallback %>
+              <option value={option.value || Map.get(option, :value)} selected={@current_value == (option.value || Map.get(option, :value))}><%= option.label || Map.get(option, :label) %></option>
             <% end %>
           </select>
           """
-        
-      # 评分题
-      item_type == "rating" ->
-        max_rating = Map.get(item, "max_rating", 5)
-        IO.inspect(max_rating, label: "评分题最大评分")
-        assigns = %{max_rating: max_rating, current_value: current_value}
-        ~H"""
-        <select 
-          name="logic[condition_value]" 
-          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        >
-          <option value="">-- 请选择评分 --</option>
-          <%= for rating <- 1..@max_rating do %>
-            <option value={Integer.to_string(rating)} selected={@current_value == Integer.to_string(rating)}><%= rating %> 分</option>
-          <% end %>
-        </select>
-        """
 
-      # 日期选择
-      item_type == "date" ->
-        assigns = %{current_value: current_value}
-        ~H"""
-        <input 
-          type="date" 
-          name="logic[condition_value]" 
-          value={@current_value}
-          placeholder="YYYY-MM-DD" 
-          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
-        """
-        
-      # 时间选择
-      item_type == "time" ->
-        assigns = %{current_value: current_value}
-        ~H"""
-        <input 
-          type="time" 
-          name="logic[condition_value]" 
-          value={@current_value}
-          placeholder="HH:MM" 
-          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
-        """
-        
-      # 默认使用文本输入框
-      true ->
-        IO.inspect(item_type, label: "使用默认文本输入框的项目类型")
-        assigns = %{current_value: current_value}
-        ~H"""
-        <input 
-          type="text" 
-          name="logic[condition_value]" 
-          value={@current_value}
-          placeholder="输入答案值" 
-          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        />
-        """
+        # 评分题
+        item_type == :rating ->
+          max_rating = form_item.max_rating || 5
+          assigns = %{max_rating: max_rating, current_value: current_value}
+          ~H"""
+          <select
+            name="logic[condition_value]"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">-- 请选择评分 --</option>
+            <%= for rating <- 1..@max_rating do %>
+              <option value={Integer.to_string(rating)} selected={@current_value == Integer.to_string(rating)}><%= rating %> 分</option>
+            <% end %>
+          </select>
+          """
+
+        # 日期选择
+        item_type == :date ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="date"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="YYYY-MM-DD"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
+
+        # 时间选择
+        item_type == :time ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="time"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="HH:MM"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
+
+        # 默认使用文本输入框
+        true ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="text"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="输入答案值"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
       end
     end
   end
@@ -1850,4 +1899,173 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp display_selected_type("image_choice"), do: "图片选择"
   defp display_selected_type("file_upload"), do: "文件上传"
   defp display_selected_type(_), do: "未知类型"
+
+  # 从 edit.ex 复制的选项处理函数
+  defp process_item_params(params) do
+    # 确保所有键都是字符串
+    params = normalize_params(params)
+
+    # 类型转换
+    params = convert_type_to_atom(params)
+
+    # 必填项处理
+    normalize_required_field(params)
+  end
+
+  # 检查是否需要选项的表单项类型
+  defp requires_options?(item_type) when is_atom(item_type) do
+    item_type in [:radio, :checkbox, :dropdown]
+  end
+
+  defp requires_options?(item_type) when is_binary(item_type) do
+    item_type in ["radio", "checkbox", "dropdown"]
+  end
+
+  defp requires_options?(_), do: false
+
+  # 确保所有键都是字符串
+  defp normalize_params(params) do
+    params
+    |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+    |> Map.new()
+  end
+
+  # 将类型字符串转换为atom
+  defp convert_type_to_atom(params) do
+    case params["type"] do
+      "text_input" -> Map.put(params, "type", :text_input)
+      "textarea" -> Map.put(params, "type", :textarea)
+      "radio" -> Map.put(params, "type", :radio)
+      "checkbox" -> Map.put(params, "type", :checkbox)
+      "dropdown" -> Map.put(params, "type", :dropdown)
+      "rating" -> Map.put(params, "type", :rating)
+      "number" -> Map.put(params, "type", :number)
+      "email" -> Map.put(params, "type", :email)
+      "phone" -> Map.put(params, "type", :phone)
+      "date" -> Map.put(params, "type", :date)
+      "time" -> Map.put(params, "type", :time)
+      "region" -> Map.put(params, "type", :region)
+      "matrix" -> Map.put(params, "type", :matrix)
+      type when is_binary(type) -> Map.put(params, "type", String.to_existing_atom(type))
+      _ -> params
+    end
+  end
+
+  # 处理required字段的值
+  defp normalize_required_field(params) do
+    case params["required"] do
+      "true" -> Map.put(params, "required", true)
+      true -> Map.put(params, "required", true)
+      "on" -> Map.put(params, "required", true)
+      nil -> Map.put(params, "required", false)
+      false -> Map.put(params, "required", false)
+      "false" -> Map.put(params, "required", false)
+      _ -> params
+    end
+  end
+
+  # 处理选项
+  defp process_options(item, options_list) do
+    # 先获取当前数据库中的选项以备参考
+    current_options = case MyApp.Repo.preload(item, :options).options do
+      nil -> []
+      options when is_list(options) -> options
+    end
+
+    # 直接使用传入的 options_list
+    options_to_save = options_list
+      |> Enum.map(fn opt ->
+          %{
+            "label" => opt.label || "",
+            "value" => opt.value || "",
+            "image_id" => opt.image_id,
+            "image_filename" => opt.image_filename
+          }
+        end)
+      |> Enum.filter(fn opt ->
+          opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
+        end)
+
+    # 使用 Multi 来确保原子性：先删除旧选项，再添加新选项
+    multi = Ecto.Multi.new()
+
+    # 1. 删除旧选项
+    multi = Enum.reduce(current_options, multi, fn option, multi_acc ->
+      Ecto.Multi.delete(multi_acc, "delete_option_#{option.id}", option)
+    end)
+
+    # 2. 添加新选项
+    multi = Enum.with_index(options_to_save, 1)
+            |> Enum.reduce(multi, fn {option_params, index}, multi_acc ->
+                params_with_order = Map.put(option_params, "order", index)
+                changeset = MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{form_item_id: item.id}, params_with_order)
+                Ecto.Multi.insert(multi_acc, "insert_option_#{index}", changeset)
+            end)
+
+    # 执行事务
+    case MyApp.Repo.transaction(multi) do
+      {:ok, _result_map} ->
+        updated_item = Forms.get_form_item_with_options(item.id)
+        updated_item
+
+      {:error, failed_operation, failed_value, _changes_so_far} ->
+        item
+    end
+  end
+
+  # 这个函数现在只用于回退情况，确保返回 Map 列表以兼容 ItemRendererComponent
+  defp format_options_for_component(options) when is_list(options) do
+    IO.puts("\n==== 格式化选项 (回退) ====")
+    IO.puts("选项列表: #{inspect(options)}")
+
+    result = Enum.map(options, fn option ->
+      IO.puts("处理选项: #{inspect(option)}")
+
+      formatted = cond do
+        # 处理Map类型的选项 (来自template structure)
+        is_map(option) ->
+          id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
+          value = Map.get(option, "value") || Map.get(option, :value) || ""
+          label = Map.get(option, "label") || Map.get(option, :label) || value || ""
+          image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
+
+          %MyApp.Forms.ItemOption{ # 返回 ItemOption 结构体
+            id: id,
+            value: value,
+            label: label,
+            image_filename: image_filename,
+             # 确保其他必须字段有默认值，虽然 ItemRendererComponent 可能不直接用
+            order: Map.get(option, "order", 0),
+            form_item_id: nil, # 回退时无法确定
+            image_id: Map.get(option, "image_id")
+          }
+
+        # 处理字符串类型的选项 (来自template structure)
+        is_binary(option) ->
+           %MyApp.Forms.ItemOption{
+             id: Ecto.UUID.generate(),
+             value: option,
+             label: option,
+             order: 0,
+             form_item_id: nil,
+             image_filename: nil,
+             image_id: nil
+           }
+
+        # 其他无法处理的类型
+        true ->
+          Logger.warning("Unsupported option format encountered in format_options_for_component: #{inspect(option)}")
+          nil
+      end
+
+      IO.puts("格式化后: #{inspect(formatted)}")
+      formatted
+    end)
+    |> Enum.filter(&(&1 != nil)) # 过滤掉处理失败的选项
+
+    IO.puts("格式化结果: #{inspect(result)}")
+    result
+  end
+  defp format_options_for_component(nil), do: [] # 确保 nil 返回空列表
+  defp format_options_for_component(_), do: [] # 确保其他类型返回空列表
 end

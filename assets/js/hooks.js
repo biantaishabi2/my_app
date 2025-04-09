@@ -474,8 +474,11 @@ Hooks.Sortable = {
     
     // 为移动设备设置触控拖拽功能
     if (isMobile) {
-      setupMobileControls();
-      updateMobileControls();
+      // !!! FIX: Only setup mobile controls for the structure list !!!
+      if (this.el.id === 'structure-list') {
+        setupMobileControls();
+        updateMobileControls();
+      }
       
       // 监听DOM变化，为新添加的元素设置移动控件
       const observer = new MutationObserver((mutations) => {
@@ -487,7 +490,8 @@ Hooks.Sortable = {
           }
         });
         
-        if (needsUpdate) {
+        // !!! FIX: Only update mobile controls for the structure list !!!
+        if (needsUpdate && this.el.id === 'structure-list') {
           setupMobileControls();
           updateMobileControls();
         }
