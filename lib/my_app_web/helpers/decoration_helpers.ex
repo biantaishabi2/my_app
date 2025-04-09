@@ -3,6 +3,13 @@ defmodule MyAppWeb.DecorationHelpers do
   Helper functions for rendering decoration elements.
   """
   use Phoenix.Component
+  # Import LiveView specific components if not already via MyAppWeb
+  import Phoenix.LiveView.Helpers
+  import MyAppWeb.FormComponents
+  import MyAppWeb.CoreComponents
+
+  # Needed for format_bytes
+  import Number.Delimit
 
   @doc """
   Displays the user-friendly name for a decoration element type.
@@ -31,8 +38,15 @@ defmodule MyAppWeb.DecorationHelpers do
   def truncate(text, _max_length) when is_binary(text), do: text # Handle invalid max_length
   def truncate(_, _), do: "" # Handle non-binary text
 
+  # Determines if the image source is an uploaded file path.
+  defp is_uploaded_image?(src) when is_binary(src) do
+    String.starts_with?(src, "/uploads/") # Or adjust based on your actual upload path prefix
+  end
+  defp is_uploaded_image?(_), do: false
+
   @doc """
   Renders a preview of a decoration element.
+  Handles both URL and uploaded images.
   """
   attr :element, :map, required: true, doc: "The decoration element map."
   def render_decoration_preview(assigns) do
@@ -78,28 +92,28 @@ defmodule MyAppWeb.DecorationHelpers do
           </div>
         </div>
       <% "header_image" -> %>
-        <% image_url = @element["image_url"] || @element[:image_url] || "" %>
+        <% image_src = @element["image_url"] || @element[:image_url] || "" %>
         <% height = @element["height"] || @element[:height] || "200px" %>
         <div>
-          <%= if image_url != "" do %>
-            <img src={image_url} alt="题图" style={"height: #{height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
+          <%= if image_src != "" do %>
+            <img src={image_src} alt="题图" style={"height: #{height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
           <% else %>
             <div style={"height: #{height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
-              <span class="text-gray-400">请设置图片URL</span>
+              <span class="text-gray-400">请设置图片URL或上传图片</span>
             </div>
           <% end %>
         </div>
       <% "inline_image" -> %>
-        <% image_url = @element["image_url"] || @element[:image_url] || "" %>
+        <% image_src = @element["image_url"] || @element[:image_url] || "" %>
         <% caption = @element["caption"] || @element[:caption] || "" %>
         <% width = @element["width"] || @element[:width] || "100%" %>
         <% align = @element["align"] || @element[:align] || "center" %>
         <div style={"text-align: #{align};"}>
-          <%= if image_url != "" do %>
-            <img src={image_url} alt={caption} style={"width: #{width}; max-width: 100%; border-radius: 0.25rem; margin-left: auto; margin-right: auto;"} />
+          <%= if image_src != "" do %>
+            <img src={image_src} alt={caption} style={"width: #{width}; max-width: 100%; border-radius: 0.25rem; margin-left: auto; margin-right: auto;"} />
           <% else %>
             <div style={"width: #{width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
-              <span class="text-gray-400">请设置图片URL</span>
+              <span class="text-gray-400">请设置图片URL或上传图片</span>
             </div>
           <% end %>
           <%= if caption != "" do %>
@@ -115,182 +129,138 @@ defmodule MyAppWeb.DecorationHelpers do
   end
 
   @doc """
-  Renders an editor form for a decoration element.
+  Renders the editor interface for a specific decoration element.
+  Receives the full assigns map from the LiveView.
   """
   attr :element, :map, required: true, doc: "The decoration element map."
-  def render_decoration_editor(assigns) do
-    ~H"""
-    <%= case @element["type"] || @element[:type] do %>
-      <% "title" -> %>
-        <% title = @element["title"] || @element[:title] || "" %>
-        <% level = @element["level"] || @element[:level] || 2 %>
-        <% align = @element["align"] || @element[:align] || "left" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">标题文本</label>
-              <input type="text" name="title" value={title} required class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">标题级别</label>
-              <select name="level" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <option value="1" selected={level == 1}>大标题 (H1)</option>
-                <option value="2" selected={level == 2}>中标题 (H2)</option>
-                <option value="3" selected={level == 3}>小标题 (H3)</option>
-                <option value="4" selected={level == 4}>微标题 (H4)</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
-              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <option value="left" selected={align == "left"}>左对齐</option>
-                <option value="center" selected={align == "center"}>居中</option>
-                <option value="right" selected={align == "right"}>右对齐</option>
-              </select>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "paragraph" -> %>
-        <% content = @element["content"] || @element[:content] || "" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">段落内容</label>
-              <textarea name="content" rows="5" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"><%= content %></textarea>
-              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "section" -> %>
-         <% title = @element["title"] || @element[:title] || "" %>
-         <% divider_style = @element["divider_style"] || @element[:divider_style] || "solid" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">章节标题（可选）</label>
-              <input type="text" name="title" value={title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">分隔线样式</label>
-              <select name="divider_style" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <option value="solid" selected={divider_style == "solid"}>实线</option>
-                <option value="dashed" selected={divider_style == "dashed"}>虚线</option>
-                <option value="dotted" selected={divider_style == "dotted"}>点线</option>
-                <option value="double" selected={divider_style == "double"}>双线</option>
-              </select>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "explanation" -> %>
-         <% content = @element["content"] || @element[:content] || "" %>
-         <% note_type = @element["note_type"] || @element[:note_type] || "info" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">说明内容</label>
-              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"><%= content %></textarea>
-              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">提示类型</label>
-              <select name="note_type" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <option value="info" selected={note_type == "info"}>信息 (蓝色)</option>
-                <option value="tip" selected={note_type == "tip"}>提示 (绿色)</option>
-                <option value="warning" selected={note_type == "warning"}>警告 (黄色)</option>
-              </select>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "header_image" -> %>
-        <% image_url = @element["image_url"] || @element[:image_url] || "" %>
-        <% height = @element["height"] || @element[:height] || "200px" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
-              <input type="url" name="image_url" value={image_url} required class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">高度</label>
-              <input type="text" name="height" value={height} pattern="^(\d+)(px|rem|em|vh|%)$" title="e.g. 200px, 15rem, 50vh" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-              <p class="mt-1 text-xs text-gray-500">例如: 200px, 15rem, 50vh</p>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "inline_image" -> %>
-         <% image_url = @element["image_url"] || @element[:image_url] || "" %>
-         <% caption = @element["caption"] || @element[:caption] || "" %>
-         <% width = @element["width"] || @element[:width] || "100%" %>
-         <% align = @element["align"] || @element[:align] || "center" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
-              <input type="url" name="image_url" value={image_url} required class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">图片说明（可选）</label>
-              <input type="text" name="caption" value={caption} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">图片宽度</label>
-              <input type="text" name="width" value={width} pattern="^(\d+)(px|rem|em|%)?$" title="e.g. 50%, 300px" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-              <p class="mt-1 text-xs text-gray-500">例如: 50%, 300px</p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
-              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <option value="left" selected={align == "left"}>左对齐</option>
-                <option value="center" selected={align == "center"}>居中</option>
-                <option value="right" selected={align == "right"}>右对齐</option>
-              </select>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% "spacer" -> %>
-        <% height = @element["height"] || @element[:height] || "1rem" %>
-        <form phx-submit="save_decoration_element" phx-value-id={@element["id"] || @element[:id]}>
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">空间高度</label>
-              <input type="text" name="height" value={height} required pattern="^(\d+(\.\d+)?)(px|rem|em|vh)$" title="e.g. 1rem, 20px, 5vh" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-              <p class="mt-1 text-xs text-gray-500">例如: 1rem, 20px, 5vh</p>
-            </div>
-            <.form_actions />
-          </div>
-        </form>
-      <% _ -> %>
-        <div class="text-gray-500 p-4">无法编辑未知类型的元素</div>
-    <% end %>
-    """
-  end
+  attr :upload_config, :any, required: true, doc: "The specific upload configuration slice for this element type."
 
-  # Helper component for form actions
-  defp form_actions(assigns) do
+  def render_decoration_editor(assigns) do
+    # Extract necessary assigns from the nested parent assigns via __given__
+    parent_assigns = assigns.__given__.assigns # Correct path to parent assigns
+    myself = assigns.__given__.myself         # Correct path to myself
+
+    element = parent_assigns.current_decoration
+    upload_config_name = parent_assigns.current_upload_config_name # Use the dynamic name passed from LV
+    uploads_map = Map.get(parent_assigns, :uploads, %{}) # Access the uploads map, default to empty if missing
+
+    element_type = element["type"] || element[:type] # Handle both string and atom keys
+    element_id = element["id"] || element[:id]
+
+    # Create a form specific to this decoration element
+    form = Phoenix.HTML.FormData.to_form(%{}, as: "decoration")
+
     ~H"""
-    <div class="pt-3 flex justify-end space-x-2">
-      <button
-        type="button"
-        phx-click="close_decoration_editor"
-        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
-        取消
-      </button>
-      <button
-        type="submit"
-        class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
-        保存
-      </button>
+    <div class="space-y-4 border p-4 rounded-md bg-gray-50">
+      <.form :let={f} for={form} phx-change="validate_decoration_element" phx-submit="save_decoration_element" phx-value-id={element_id} phx-target={myself}>
+        <input type="hidden" name="id" value={element_id} />
+
+        <%= case element_type do %>
+          <% "title" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑标题</h2>
+            <.input field={{f, :title}} type="text" label="标题内容" value={element["title"] || element[:title]}/>
+            <.input field={{f, :level}} type="select" label="标题级别" options={[{"H1", 1}, {"H2", 2}, {"H3", 3}, {"H4", 4}, {"H5", 5}, {"H6", 6}]} value={to_string(element["level"] || element[:level] || 2)} />
+            <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "left"} />
+          <% "paragraph" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑段落</h2>
+            <.input field={{f, :content}} type="textarea" label="段落内容" value={element["content"] || element[:content]}/>
+          <% "section" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑章节分隔</h2>
+            <.input field={{f, :title}} type="text" label="章节标题（可选）" value={element["title"] || element[:title]} />
+            <.input field={{f, :divider_style}} type="select" label="分隔线样式" options={[{"实线", "solid"}, {"虚线", "dashed"}, {"点状线", "dotted"}, {"无分隔线", "none"}]} value={element["divider_style"] || element[:divider_style] || "solid"} />
+          <% "explanation" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑说明框</h2>
+            <.input field={{f, :content}} type="textarea" label="说明内容" value={element["content"] || element[:content]} />
+            <.input field={{f, :note_type}} type="select" label="提示类型" options={[{"信息", "info"}, {"成功", "success"}, {"警告", "warning"}, {"危险", "danger"}]} value={element["note_type"] || element[:note_type] || "info"} />
+          <% "header_image" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑页眉图片</h2>
+            <.input field={{f, :height}} type="text" label="图片高度 (e.g., 300px, 20rem)" value={element["height"] || element[:height] || "300px"} />
+            <.input field={{f, :image_url}} type="text" label="图片URL (留空以上传)" value={element["image_url"] || element[:image_url]} />
+            <%# Access uploads using the retrieved map and dynamic name %>
+            <%= if upload_config_name do %>
+              <.live_file_input upload={uploads_map[upload_config_name]} class="mt-2"/>
+              <div class="mt-2 space-y-1">
+                 <%= for entry <- uploads_map[upload_config_name].entries do %>
+                   <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
+                   <progress value={entry.progress} max="100" class="w-full h-2"></progress>
+                 <% end %>
+              </div>
+              <%# Use Phoenix.Component.upload_errors, passing the specific upload slice %>
+              <%= for err <- Phoenix.Component.upload_errors(uploads_map[upload_config_name]) do %>
+                <p class="alert alert-danger"><%= error_to_string(err) %></p>
+              <% end %>
+            <% end %>
+          <% "inline_image" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑行内图片</h2>
+            <.input field={{f, :caption}} type="text" label="图片说明（可选）" value={element["caption"] || element[:caption]} />
+            <.input field={{f, :width}} type="text" label="图片宽度 (e.g., 80%, 200px)" value={element["width"] || element[:width] || "100%"} />
+            <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "center"} />
+            <.input field={{f, :image_url}} type="text" label="图片URL (留空以上传)" value={element["image_url"] || element[:image_url]} />
+            <%# Access uploads using the retrieved map and dynamic name %>
+            <%= if upload_config_name do %>
+              <.live_file_input upload={uploads_map[upload_config_name]} class="mt-2"/>
+              <div class="mt-2 space-y-1">
+                 <%= for entry <- uploads_map[upload_config_name].entries do %>
+                   <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
+                   <progress value={entry.progress} max="100" class="w-full h-2"></progress>
+                 <% end %>
+              </div>
+              <%# Use Phoenix.Component.upload_errors, passing the specific upload slice %>
+              <%= for err <- Phoenix.Component.upload_errors(uploads_map[upload_config_name]) do %>
+                <p class="alert alert-danger"><%= error_to_string(err) %></p>
+              <% end %>
+            <% end %>
+          <% "spacer" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑间距</h2>
+            <.input field={{f, :height}} type="text" label="间距高度 (e.g., 1rem, 20px)" value={element["height"] || element[:height] || "1rem"} />
+          <% _ -> %>
+            <p>未知装饰类型：<%= element_type %></p>
+        <% end %>
+
+        <div class="flex justify-end space-x-2 mt-4">
+          <.button type="button" phx-click="cancel_edit_decoration_element" phx-target={myself} class="btn-secondary">
+            取消
+          </.button>
+          <.button type="submit" class="btn-primary" phx-disable-with="保存中...">
+            保存
+          </.button>
+        </div>
+      </.form>
     </div>
     """
   end
+
+  # Helper to extract upload errors for a specific entry
+  # Updated to accept upload_config and handle nil
+  # Renamed to avoid conflict with Phoenix.Component.upload_errors/2
+  # This helper seems redundant now as we can use Phoenix.Component.upload_errors directly.
+  # Let's comment it out for now.
+  # defp get_upload_errors_for_entry(upload_config, entry) do
+  #   if upload_config && upload_config.errors do
+  #     upload_config.errors
+  #     |> Enum.filter(fn {ref, _error} -> ref == entry.ref end)
+  #     |> Enum.map(fn {_ref, error} -> error end)
+  #   else
+  #     []
+  #   end
+  # end
+
+  # Helper to convert upload error atoms to strings (similar to FormLive.Edit)
+  defp error_to_string(:too_large), do: "文件太大"
+  defp error_to_string(:too_many_files), do: "文件数量过多"
+  defp error_to_string(:not_accepted), do: "文件类型不被接受"
+  defp error_to_string(_), do: "无效的文件"
+
+  # Helper to format bytes into KB/MB
+  defp format_bytes(bytes) when is_integer(bytes) do
+    cond do
+      bytes >= 1_048_576 -> # 1 MB
+        "#{Float.round(bytes / 1_048_576, 1)} MB"
+      bytes >= 1024 -> # 1 KB
+        "#{Float.round(bytes / 1024, 1)} KB"
+      true ->
+        "#{bytes} Bytes"
+    end
+  end
+  defp format_bytes(_), do: "0 Bytes" # Handle non-integer input
 end

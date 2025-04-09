@@ -11,8 +11,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   alias MyApp.FormTemplates
   alias MyApp.Forms # 添加缺失的别名
   alias MyApp.Forms.FormItem
+  alias MyApp.Upload # Ensure Upload alias is present
   # 添加 Logger 别名，因为 render 函数中的回退逻辑使用了它
   require Logger
+
+  @max_file_size 5_000_000 # 5MB
+  @allowed_image_types ~w(.jpg .jpeg .png .gif)
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -27,10 +31,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     form_items = form_with_data.items || [] # 提取表单项列表
 
     # 获取或初始化装饰元素列表
-    decoration = Map.get(template, :decoration, []) # Use Map.get for safe access
-
-    # 确保 decoration 是一个列表
-    decoration = if is_list(decoration), do: decoration, else: []
+    decoration = Map.get(template, :decoration, []) |> ensure_list() # Use Map.get for safe access & ensure list
 
     socket = socket
       |> assign(:template, template)
@@ -54,9 +55,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_type, nil)            # 添加：初始化逻辑类型
       |> assign(:logic_target_id, nil)       # 添加：初始化逻辑目标ID
       |> assign(:logic_condition, nil)       # 添加：初始化逻辑条件
+      # --- Explicitly assign the config name to assigns, trying to fix KeyError ---
+      # --- Add allow_upload ---
+      # --- Add allow_upload ---
 
     # 打印加载的表单项及其选项 (来自 form_with_data)
-    IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
+    # IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
 
     {:ok, socket}
   end
@@ -542,113 +546,167 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   @impl true
   def handle_event("edit_decoration_element", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :editing_decoration_id, id)}
-  end
+    # Find the decoration element by ID
+    case find_decoration_and_index(socket.assigns.decoration, id) do
+      {decoration, _index} ->
+        # === START CHANGE ===
+        # Check if it's an image type decoration
+        elem_type = decoration["type"] || decoration[:type] # Get type consistently
+        is_image_decoration = elem_type in ["header_image", "inline_image", :header_image, :inline_image]
 
-  @impl true
-  def handle_event("close_decoration_editor", _params, socket) do
-    {:noreply, assign(socket, :editing_decoration_id, nil)}
-  end
-
-  @impl true
-  def handle_event("save_decoration_element", %{"id" => id} = params, socket) do
-    # 找到要编辑的装饰元素
-    decoration = socket.assigns.decoration
-    element_index = Enum.find_index(decoration, fn elem -> (elem["id"] || elem[:id]) == id end)
-
-    if element_index do
-      # 获取当前元素
-      current_element = Enum.at(decoration, element_index)
-      element_type = current_element["type"] || current_element[:type]
-
-      # 根据元素类型处理参数
-      updated_element = case element_type do
-        "title" ->
-          title = params["title"] || ""
-          level = params["level"] || "2"
-          # 将 level 转换为整数
-          {level_int, _} = Integer.parse(level)
-          align = params["align"] || "left"
-
-          current_element
-          |> Map.put("title", title)
-          |> Map.put("level", level_int)
-          |> Map.put("align", align)
-
-        "paragraph" ->
-          content = params["content"] || ""
-
-          current_element
-          |> Map.put("content", content)
-
-        "section" ->
-          title = params["title"] || ""
-          divider_style = params["divider_style"] || "solid"
-
-          current_element
-          |> Map.put("title", title)
-          |> Map.put("divider_style", divider_style)
-
-        "explanation" ->
-          content = params["content"] || ""
-          note_type = params["note_type"] || "info"
-
-          current_element
-          |> Map.put("content", content)
-          |> Map.put("note_type", note_type)
-
-        "header_image" ->
-          image_url = params["image_url"] || ""
-          height = params["height"] || "300px"
-
-          current_element
-          |> Map.put("image_url", image_url)
-          |> Map.put("height", height)
-
-        "inline_image" ->
-          image_url = params["image_url"] || ""
-          caption = params["caption"] || ""
-          width = params["width"] || "100%"
-          align = params["align"] || "center"
-
-          current_element
-          |> Map.put("image_url", image_url)
-          |> Map.put("caption", caption)
-          |> Map.put("width", width)
-          |> Map.put("align", align)
-
-        "spacer" ->
-          height = params["height"] || "1rem"
-
-          current_element
-          |> Map.put("height", height)
-
-        _ -> current_element
-      end
-
-      # 更新列表中的元素
-      updated_decoration = List.replace_at(decoration, element_index, updated_element)
-
-      # 保存更新后的模板
-      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-        {:ok, updated_template} ->
-          {:noreply,
+        socket =
+          if is_image_decoration do
+            # Generate dynamic config name only for image types
+            config_name = String.to_atom("decoration-#{id}")
+            IO.puts("Allowing upload for image config: #{inspect(config_name)}")
+            # Allow upload for this specific image decoration instance
             socket
-            |> assign(:template, updated_template)
-            |> assign(:decoration, updated_template.decoration)
-            |> assign(:editing_decoration_id, nil)
-            |> put_flash(:info, "装饰元素已更新")
-          }
+            |> allow_upload(config_name,
+              accept: @allowed_image_types,
+              max_entries: 1,
+              max_file_size: @max_file_size,
+              auto_upload: false # Match Edit.ex, consume on save
+            )
+            |> assign(:current_upload_config_name, config_name) # Store config name
+          else
+            # Not an image decoration, ensure upload config name is nil
+            IO.puts("Not an image decoration, clearing upload config.")
+            assign(socket, :current_upload_config_name, nil)
+          end
+        # === END CHANGE ===
 
-        {:error, _changeset} ->
-          {:noreply,
-            socket
-            |> put_flash(:error, "无法更新装饰元素")
-          }
-      end
-    else
-      {:noreply, socket}
+        {:noreply,
+          socket
+          |> assign(:editing_decoration_id, id)
+          |> assign(:current_decoration, decoration) # Assign the full decoration map
+        }
+
+      nil ->
+        # Decoration not found
+        {:noreply, put_flash(socket, :error, "找不到要编辑的装饰元素")}
     end
+  end
+
+  @impl true
+  def handle_event("cancel_edit_decoration_element", _params, socket) do
+    {:noreply,
+      socket
+      |> assign(:editing_decoration_id, nil)
+      |> assign(:current_decoration, nil)
+      |> assign(:current_upload_config_name, nil) # Clear upload config name
+    }
+  end
+
+  @impl true
+  def handle_event("cancel_decoration_upload", %{"ref" => ref, "config_name" => config_name_str}, socket) do
+    config_name = String.to_atom(config_name_str)
+    {:noreply, cancel_upload(socket, config_name, ref)}
+  end
+
+  @impl true
+  def handle_event("save_decoration_element", %{"id" => decoration_id, "decoration" => decoration_params}, socket) do
+    IO.inspect(decoration_params, label: "Raw save_decoration_element params")
+
+    %{template: template, decoration: decorations} = socket.assigns
+
+    # Find the original decoration and its index
+    case find_decoration_and_index(decorations, decoration_id) do
+      {original_decoration, index} ->
+        # Generate dynamic config name for potential consumption
+        config_name = String.to_atom("decoration-#{decoration_id}")
+
+        # 1. Consume uploads BEFORE merging params
+        # TODO: Replace with call to new consume_decoration_upload helper
+        # upload_path = consume_decoration_upload(socket, config_name, template.id, original_decoration)
+        upload_result = consume_decoration_upload(socket, config_name, template.id, original_decoration) # Placeholder call
+
+        # 2. Prepare final params based on upload result
+        case upload_result do
+           {:ok, upload_path} ->
+             # If upload happened, use its path and remove any URL from form params
+             final_params =
+               decoration_params
+               |> Map.put("image_url", upload_path)
+               |> Map.drop(["_csrf_token", "_target", "_uploads"]) # Clean up Phoenix params
+               |> stringify_keys() # Ensure keys are strings
+
+             IO.inspect(final_params, label: "Final params after successful upload consumption")
+
+             # Proceed with merging and saving
+             merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params)
+
+           :no_upload ->
+              # No upload happened, clean up form params, keep existing/form URL
+              final_params =
+                decoration_params
+                |> Map.drop(["_csrf_token", "_target", "_uploads"])
+                |> stringify_keys()
+
+              IO.inspect(final_params, label: "Final params (no upload)")
+
+             # Proceed with merging and saving
+             merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params)
+
+           {:error, reason} ->
+              IO.puts("Upload consumption failed: #{inspect(reason)}")
+             # Keep editor open and show error
+             {:noreply,
+               socket
+               |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
+               # Maybe update current_decoration with attempted params?
+               |> put_flash(:error, "图片处理失败: #{reason}")
+             }
+        end
+
+      nil ->
+        # Decoration not found
+        {:noreply, put_flash(socket, :error, "找不到要保存的装饰元素")}
+    end
+  end
+
+  # Helper to merge params and save the template (extracted from save_decoration_element)
+  defp merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params) do
+     # 获取装饰元素ID
+     decoration_id = original_decoration["id"] || original_decoration[:id]
+     # 3. Merge final params with original (preserving ID, type)
+     # Important: Ensure essential keys like 'id' and 'type' are preserved
+     # and merge logic handles potential nil values from the form correctly.
+     # Prioritize image_url from final_params if it exists (means successful upload)
+     updated_decoration_item = Map.merge(original_decoration, final_params)
+
+     # Ensure required fields have fallbacks if cleared by form, but respect uploaded path
+     updated_decoration_item =
+        if Map.has_key?(final_params, "image_url") do
+          updated_decoration_item # Keep the image_url from final_params (upload)
+        else
+          # No upload, ensure image_url has a fallback if removed by form
+          Map.put(updated_decoration_item, "image_url", Map.get(final_params, "image_url") || Map.get(original_decoration, "image_url") || Map.get(original_decoration, :image_url) || "")
+        end
+
+     # 4. Update the list
+     updated_decorations = List.replace_at(decorations, index, updated_decoration_item)
+
+     # 5. Save to DB
+     case FormTemplates.update_template(template, %{decoration: updated_decorations}) do
+       {:ok, updated_template} ->
+         {:noreply,
+           socket
+           |> assign(:template, updated_template)
+           |> assign(:decoration, updated_decorations)
+           |> assign(:editing_decoration_id, nil) # Close editor
+           |> assign(:current_decoration, nil)
+           |> assign(:current_upload_config_name, nil) # Clear upload config name
+           |> put_flash(:info, "装饰元素已保存")
+         }
+       {:error, changeset} ->
+          IO.inspect(changeset, label: "Template Update Error")
+         {:noreply,
+           socket
+           |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
+           |> assign(:current_decoration, updated_decoration_item) # Show potentially invalid state
+           |> put_flash(:error, "保存装饰元素失败")
+         }
+     end
   end
 
   @impl true
@@ -664,7 +722,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         {:noreply,
           socket
           |> assign(:template, updated_template)
-          |> assign(:decoration, updated_template.decoration)
+          |> assign(:decoration, updated_decoration)
           |> put_flash(:info, "装饰元素已删除")
         }
 
@@ -708,7 +766,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         {:noreply,
           socket
           |> assign(:template, updated_template)
-          |> assign(:decoration, updated_template.decoration)
+          |> assign(:decoration, updated_decoration)
           |> put_flash(:info, "装饰元素顺序已更新")
         }
 
@@ -2041,8 +2099,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                   </button>
                                 </div>
 
-                                <%# 使用组件调用语法 %>
-                                <.render_decoration_editor element={element} />
+                                <%# 使用组件调用语法 - 修正：传递需要的 assigns %>
+                                <.render_decoration_editor
+                                  element={@current_decoration}
+                                  uploads={@uploads[@current_upload_config_name]}
+                                  upload_config_name={@current_upload_config_name}
+                                />
                               </div>
                             <% end %>
                           </div>
@@ -2081,5 +2143,107 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
     # 合并重排序的项和缺失的项
     reordered_items ++ missing_items
+  end
+
+  # --- Add upload event handlers ---
+
+  @impl true
+  def handle_event("cancel_decoration_upload", %{"ref" => ref, "config_name" => config_name_str}, socket) do
+    config_name = String.to_atom(config_name_str)
+    {:noreply, cancel_upload(socket, config_name, ref)}
+  end
+
+
+  # --- Helper Functions ---
+
+  defp ensure_list(nil), do: []
+  defp ensure_list(list) when is_list(list), do: list
+  defp ensure_list(_), do: []
+
+  defp find_decoration_and_index(decorations, id) do
+    Enum.find_index(decorations, fn decoration ->
+      (decoration["id"] || decoration[:id]) |> to_string() == id
+    end)
+    |> case do
+      nil -> nil
+      index -> {Enum.at(decorations, index), index}
+    end
+  end
+
+  defp stringify_keys(map) when is_map(map) do
+    for {key, val} <- map, into: %{}, do: {to_string(key), val}
+  end
+
+  defp is_uploaded_image?(src) when is_binary(src) do
+    String.starts_with?(src, "/uploads/") # Match helper function
+  end
+  defp is_uploaded_image?(_), do: false
+
+  # Consume upload helper (returns new path or nil)
+  defp consume_decoration_upload(socket, upload_config, template_id, original_decoration) do
+     uploaded_files =
+       consume_uploaded_entries(socket, upload_config, fn %{path: temp_path}, entry ->
+         ext = Path.extname(entry.client_name)
+         filename = "#{Ecto.UUID.generate()}#{ext}"
+         dest_dir = Path.join([:code.priv_dir(:my_app), "static", "uploads"])
+         dest_path = Path.join(dest_dir, filename)
+         upload_path = "/uploads/#{filename}" # Relative path for web access
+
+         # Ensure directory exists
+         File.mkdir_p!(dest_dir)
+
+         # Copy file
+         case File.cp(temp_path, dest_path) do
+           :ok ->
+             # Save file metadata (adjust association as needed)
+             file_attrs = %{
+               original_filename: entry.client_name,
+               filename: filename,
+               path: upload_path, # Store the web-accessible path
+               content_type: entry.client_type,
+               size: entry.client_size
+             }
+
+             case Upload.save_uploaded_file(template_id, nil, file_attrs) do # Assuming form_item_id can be nil
+               {:ok, uploaded_file} ->
+                 # --- Delete old file if replacing ---
+                 old_image_url = original_decoration["image_url"] || original_decoration[:image_url]
+                 if is_uploaded_image?(old_image_url) do
+                   Task.start(fn ->
+                      case Upload.delete_uploaded_file(template_id, old_image_url) do # Use the correct function
+                        {:ok, _} -> Logger.info("Deleted old decoration image: #{old_image_url}")
+                        {:error, reason} -> Logger.error("Failed deleting old decoration image #{old_image_url}: #{inspect(reason)}")
+                      end
+                   end)
+                 end
+                 # --- End Delete old file ---
+                 {:ok, uploaded_file.path} # Return the web path
+
+               {:error, changeset} ->
+                 Logger.error("Failed to save uploaded file record: #{inspect(changeset)}")
+                 {:error, "数据库记录保存失败"}
+             end
+
+           {:error, reason} ->
+             Logger.error("Failed to copy uploaded file: #{inspect(reason)}")
+             {:error, "文件复制失败: #{reason}"}
+         end
+       end)
+
+     # Return the first successful upload path, or nil
+     case uploaded_files do
+       [{:ok, path} | _] -> path
+       _ -> nil
+     end
+   end
+
+  @impl true
+  def handle_event("close_decoration_editor", _params, socket) do
+    {:noreply,
+      socket
+      |> assign(:editing_decoration_id, nil)
+      |> assign(:current_decoration, nil)
+      |> assign(:current_upload_config_name, nil) # Clear upload config name
+    }
   end
 end

@@ -195,4 +195,29 @@ defmodule MyApp.Upload do
         delete_file(file_id)
     end
   end
+
+  @doc """
+  Deletes an uploaded file record and the actual file based on its context (form_id) and web path.
+  Returns {:ok, uploaded_file} or {:error, :not_found | Ecto.Changeset.t() | atom()}.
+  """
+  def delete_uploaded_file_by_path(form_id, path) when is_binary(form_id) and is_binary(path) do
+    case get_uploaded_file_by_path(form_id, path) do
+      nil ->
+        {:error, :not_found}
+      uploaded_file ->
+        # Call the correct function with the file ID
+        delete_file(uploaded_file.id)
+    end
+  end
+
+  @doc """
+  Retrieves an uploaded file record by its context (form_id) and web path.
+  Returns the UploadedFile struct or nil.
+  """
+  def get_uploaded_file_by_path(form_id, path) when is_binary(form_id) and is_binary(path) do
+    from(u in UploadedFile, where: u.form_id == ^form_id and u.path == ^path)
+    |> Repo.one()
+  end
+
+  # Add other CRUD functions as needed, e.g., update_uploaded_file
 end
