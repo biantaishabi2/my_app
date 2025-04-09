@@ -59,3 +59,22 @@ html, body {
   width: 100vw !important;
   max-width: 100vw !important;
 }
+
+/* Styles for SortableJS drag and drop */
+.sortable-ghost {
+  opacity: 0.4;
+  background-color: #f0f4f8; /* Light blue/gray background */
+  border: 2px dashed #cbd5e0; /* Dashed border */
+}
+
+.sortable-drag {
+  cursor: grabbing !important; /* Force grabbing cursor */
+  background-color: #ffffff; /* Ensure background is white while dragging */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Add a subtle shadow */
+  opacity: 0.95; /* Slightly transparent */
+}
+
+/* Ensure the structure list items have a default cursor */
+#structure-list > div {
+  cursor: grab;
+}

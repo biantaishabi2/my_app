@@ -23,7 +23,7 @@ defmodule MyAppWeb.Router do
     plug :put_secure_browser_headers
     plug :fetch_current_user
   end
-  
+
   # 为表单相关页面创建单独的布局管道
   pipeline :form_browser do
     plug :accepts, ["html"]
@@ -96,11 +96,11 @@ defmodule MyAppWeb.Router do
       live "/chat/:id", ChatLive.Index, :show
     end
   end
-  
+
   # 表单系统管理路由
   scope "/", MyAppWeb do
     pipe_through [:form_browser, :require_authenticated_user]
-    
+
     live_session :form_system,
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms", FormLive.Index, :index
@@ -110,31 +110,33 @@ defmodule MyAppWeb.Router do
       live "/forms/:id/responses", FormLive.Responses, :index
       live "/forms/:form_id/responses/:id", FormLive.Responses, :show
       live "/forms/:id/show/edit", FormLive.Show, :edit
-      
-      # 表单模板演示页面
+
+      # 表单模板演示页面 (旧)
       live "/form-templates/demo", FormTemplateLive, :index
+      # 新：模板结构拖放 Demo 页面
+      live "/form-structures/demo", FormStructureDemoLive, :index
     end
   end
-  
+
   # 表单填写路由 (已登录用户)
   scope "/", MyAppWeb do
     pipe_through [:form_browser, :require_authenticated_user]
-    
+
     live_session :form_submission,
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms/:id/submit", FormLive.Submit, :new
     end
   end
-  
+
   # 公开表单路由 (无需登录)
   scope "/", MyAppWeb do
     pipe_through [:form_browser]
-    
+
     live_session :public_form_submission do
       live "/public/forms/:id", PublicFormLive.Show, :show
       live "/public/forms/:id/submit", PublicFormLive.Submit, :new
     end
-    
+
     get "/public/forms/:id/success", PublicFormController, :success
   end
 

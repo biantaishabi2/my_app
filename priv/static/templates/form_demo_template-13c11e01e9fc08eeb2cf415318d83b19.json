@@ -1,0 +1,152 @@
+{
+  "id": "demo_template_001",
+  "name": "表单模板演示",
+  "description": "演示条件逻辑的表单模板",
+  "structure": {
+    "items": [
+      {
+        "order": 0,
+        "label": "[始终显示] 基本文本输入",
+        "description": "这个表单项始终显示，用于控制其他表单项的显示条件",
+        "condition": null,
+        "display_group": "basic"
+      },
+      {
+        "order": 1,
+        "label": "[始终显示] 选择选项",
+        "description": "这个表单项始终显示，用于控制其他表单项的显示条件",
+        "condition": null,
+        "display_group": "basic"
+      },
+      {
+        "order": 2,
+        "label": "[输入'index'显示] 第一个条件表单项",
+        "description": "当第一个文本框中输入'index'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "index"}
+        },
+        "display_group": "index_condition"
+      },
+      {
+        "order": 3,
+        "label": "[输入'index'显示] 第二个条件表单项",
+        "description": "当第一个文本框中输入'index'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "index"}
+        },
+        "display_group": "index_condition"
+      },
+      {
+        "order": 4,
+        "label": "[输入'condition'显示] 第一个条件表单项",
+        "description": "当第一个文本框中输入'condition'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "condition"}
+        },
+        "display_group": "condition_group"
+      },
+      {
+        "order": 5,
+        "label": "[输入'condition'显示] 第二个条件表单项",
+        "description": "当第一个文本框中输入'condition'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "condition"}
+        },
+        "display_group": "condition_group"
+      },
+      {
+        "order": 6,
+        "label": "[时间控件 - 输入'complex'显示]",
+        "description": "时间控件，当第一个文本框中输入'complex'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "complex"}
+        },
+        "display_group": "complex_condition",
+        "item_type": "time"
+      },
+      {
+        "order": 7,
+        "label": "[输入'complex'显示] 日期控件",
+        "description": "当第一个文本框中输入'complex'时才显示",
+        "condition": {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "complex"}
+        },
+        "display_group": "complex_condition",
+        "item_type": "date"
+      },
+      {
+        "order": 8,
+        "label": "[地区控件 - 仅选择'选项B'显示]",
+        "description": "地区控件，仅当选择'选项B'时才显示",
+        "condition": {
+          "operator": "==",
+          "left": {"type": "field", "name": "second_field_id"},
+          "right": {"type": "value", "value": "选项B"}
+        },
+        "display_group": "option_b_condition",
+        "item_type": "region"
+      },
+      {
+        "order": 9,
+        "label": "[评分控件 - 选择'选项B'+输入'complex']",
+        "description": "评分控件，当同时满足选择'选项B'和输入'complex'时才显示",
+        "condition": {
+          "operator": "and",
+          "conditions": [
+            {
+              "operator": "contains",
+              "left": {"type": "field", "name": "first_field_id"},
+              "right": {"type": "value", "value": "complex"}
+            },
+            {
+              "operator": "==",
+              "left": {"type": "field", "name": "second_field_id"},
+              "right": {"type": "value", "value": "选项B"}
+            }
+          ]
+        },
+        "display_group": "complex_condition",
+        "item_type": "rating"
+      }
+    ],
+    "display_groups": [
+      {
+        "id": "basic",
+        "title": "基本信息",
+        "description": "始终显示的基本表单项"
+      },
+      {
+        "id": "index_condition",
+        "title": "索引条件组",
+        "description": "输入'index'时显示的表单项"
+      },
+      {
+        "id": "condition_group",
+        "title": "条件组",
+        "description": "输入'condition'时显示的表单项"
+      },
+      {
+        "id": "complex_condition",
+        "title": "复杂条件组",
+        "description": "满足复杂条件时显示的表单项"
+      },
+      {
+        "id": "option_b_condition",
+        "title": "选项B条件组",
+        "description": "选择'选项B'时显示的表单项"
+      }
+    ]
+  }
+}

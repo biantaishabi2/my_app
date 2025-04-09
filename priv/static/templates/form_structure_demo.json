@@ -1,0 +1,134 @@
+[
+  {
+    "id": "item-0-uuid", 
+    "order": 0,
+    "label": "[始终显示] 基本文本输入",
+    "description": "这个表单项始终显示，用于控制其他表单项的显示条件",
+    "condition": null,
+    "display_group": "basic",
+    "type": "text" 
+  },
+  {
+    "id": "item-1-uuid", 
+    "order": 1,
+    "label": "[始终显示] 选择选项",
+    "description": "这个表单项始终显示，用于控制其他表单项的显示条件",
+    "condition": null,
+    "display_group": "basic",
+    "type": "select" 
+  },
+  {
+    "id": "item-2-uuid", 
+    "order": 2,
+    "label": "[输入'index'显示] 第一个条件表单项",
+    "description": "当第一个文本框中输入'index'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "index"}
+    },
+    "display_group": "index_condition",
+    "type": "text" 
+  },
+  {
+    "id": "item-3-uuid", 
+    "order": 3,
+    "label": "[输入'index'显示] 第二个条件表单项",
+    "description": "当第一个文本框中输入'index'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "index"}
+    },
+    "display_group": "index_condition",
+     "type": "text" 
+  },
+  {
+    "id": "item-4-uuid", 
+    "order": 4,
+    "label": "[输入'condition'显示] 第一个条件表单项",
+    "description": "当第一个文本框中输入'condition'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "condition"}
+    },
+    "display_group": "condition_group",
+     "type": "text" 
+  },
+  {
+    "id": "item-5-uuid", 
+    "order": 5,
+    "label": "[输入'condition'显示] 第二个条件表单项",
+    "description": "当第一个文本框中输入'condition'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "condition"}
+    },
+    "display_group": "condition_group",
+     "type": "text" 
+  },
+  {
+    "id": "item-6-uuid", 
+    "order": 6,
+    "label": "[时间控件 - 输入'complex'显示]",
+    "description": "时间控件，当第一个文本框中输入'complex'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "complex"}
+    },
+    "display_group": "complex_condition",
+    "type": "time" 
+  },
+  {
+    "id": "item-7-uuid", 
+    "order": 7,
+    "label": "[输入'complex'显示] 日期控件",
+    "description": "当第一个文本框中输入'complex'时才显示",
+    "condition": {
+      "operator": "contains",
+      "left": {"type": "field", "name": "first_field_id"},
+      "right": {"type": "value", "value": "complex"}
+    },
+    "display_group": "complex_condition",
+    "type": "date" 
+  },
+  {
+    "id": "item-8-uuid", 
+    "order": 8,
+    "label": "[地区控件 - 仅选择'选项B'显示]",
+    "description": "地区控件，仅当选择'选项B'时才显示",
+    "condition": {
+      "operator": "==",
+      "left": {"type": "field", "name": "second_field_id"},
+      "right": {"type": "value", "value": "选项B"}
+    },
+    "display_group": "option_b_condition",
+    "type": "region" 
+  },
+  {
+    "id": "item-9-uuid", 
+    "order": 9,
+    "label": "[评分控件 - 选择'选项B'+输入'complex']",
+    "description": "评分控件，当同时满足选择'选项B'和输入'complex'时才显示",
+    "condition": {
+      "operator": "and",
+      "conditions": [
+        {
+          "operator": "contains",
+          "left": {"type": "field", "name": "first_field_id"},
+          "right": {"type": "value", "value": "complex"}
+        },
+        {
+          "operator": "==",
+          "left": {"type": "field", "name": "second_field_id"},
+          "right": {"type": "value", "value": "选项B"}
+        }
+      ]
+    },
+    "display_group": "complex_condition",
+    "type": "rating" 
+  }
+]

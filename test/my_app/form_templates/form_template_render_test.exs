@@ -161,4 +161,63 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
       refute rendered_html =~ ~r/value="value2"/
     end
   end
+
+  # --- 新增测试 ---
+  describe "render/2 - Dynamic Numbering Tests" do
+    test "adds dynamic numbers only to actual input fields, respecting visibility and order" do
+      # 假设的模板结构，包含不同类型的元素和条件
+      template = %FormTemplate{
+        structure: [
+          %{id: "id_intro", type: "introduction", content: "Intro"}, # 不应编号
+          %{id: "id1", type: "text", name: "field1", label: "Field 1"}, # 应编号 1
+          %{id: "id_section", type: "section", title: "Section 1"}, # 不应编号
+          %{
+            id: "id2",
+            type: "number",
+            name: "field2",
+            label: "Field 2",
+            condition: %{ # 条件渲染
+              operator: "==",
+              left: %{type: "field", name: "field1"},
+              right: %{type: "value", value: "show"}
+            }
+          }, # 如果可见，应编号 2
+          %{id: "id3", type: "select", name: "field3", label: "Field 3"}, # 如果 field2 可见，应编号 3；否则编号 2
+          %{id: "id_deco", type: "decoration", image_url: "img.png"} # 不应编号
+        ]
+      }
+
+      # 情况 1: field2 可见
+      form_data_show = %{"field1" => "show"}
+      # 假设 render 函数存在且返回 HTML 字符串
+      rendered_show = FormTemplate.render(template, form_data_show)
+
+      # 断言：检查序号 span 的总数是否正确
+      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_show) |> length() == 3
+      # 仍然可以检查关键字段的序号是否正确
+      assert rendered_show =~ ~r/<span class="dynamic-item-number">1\.<\/span>.*Field 1/s
+      assert rendered_show =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 2/s # field2 可见，编号 2
+      assert rendered_show =~ ~r/<span class="dynamic-item-number">3\.<\/span>.*Field 3/s # field3 编号 3
+      # 移除之前导致误报的 refute 断言
+      # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Intro/s
+      # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Section 1/s
+      # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*decoration/s
+
+      # 情况 2: field2 不可见
+      form_data_hide = %{"field1" => "hide"} # field2 的条件不满足
+      rendered_hide = FormTemplate.render(template, form_data_hide)
+
+      # --- 修改断言 ---
+      # 检查序号 span 的总数是否正确
+      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_hide) |> length() == 2
+      # 检查关键字段的序号
+      assert rendered_hide =~ ~r/<span class="dynamic-item-number">1\.<\/span>.*Field 1/s
+      refute rendered_hide =~ ~r/name="field2"/ # field2 不渲染
+      assert rendered_hide =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 3/s # field3 现在编号 2
+      # 移除之前导致误报的 refute 断言
+      # refute rendered_hide =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Intro/s
+      # refute rendered_hide =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Section 1/s
+      # refute rendered_hide =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*decoration/s
+    end
+  end
 end

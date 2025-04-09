@@ -113,7 +113,7 @@ defmodule MyApp.FormsTest do
       assert item.label == "Satisfaction Level"
       assert item.type == :radio
     end
-    
+
     test "with valid data adds a textarea item to the form", %{form: form} do
       item_attrs = %{
         label: "Your Comments",
@@ -126,7 +126,7 @@ defmodule MyApp.FormsTest do
       assert item.type == :textarea
       assert item.description == "Please enter detailed feedback..."
     end
-    
+
     test "with valid data adds a dropdown item to the form", %{form: form} do
       item_attrs = %{
         label: "Select Country",
@@ -137,7 +137,7 @@ defmodule MyApp.FormsTest do
       assert item.label == "Select Country"
       assert item.type == :dropdown
     end
-    
+
     test "with valid data adds a rating item to the form", %{form: form} do
       item_attrs = %{
         label: "Rate our service",
@@ -150,7 +150,7 @@ defmodule MyApp.FormsTest do
       assert item.type == :rating
       assert item.max_rating == 5
     end
-    
+
     # 新控件测试：数字输入字段
     test "with valid data adds a number item to the form", %{form: form} do
       item_attrs = %{
@@ -168,7 +168,7 @@ defmodule MyApp.FormsTest do
       assert item.max == 60
       assert item.step == 1
     end
-    
+
     test "number field validates min/max values", %{form: form} do
       # 无效的min/max值（min > max）
       item_attrs = %{
@@ -180,7 +180,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{min: ["最小值不能大于最大值"]} = errors_on(changeset)
     end
-    
+
     test "number field step must be positive", %{form: form} do
       item_attrs = %{
         label: "年龄",
@@ -190,7 +190,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{step: ["步长必须大于0"]} = errors_on(changeset)
     end
-    
+
     # 邮箱输入字段
     test "with valid data adds an email item to the form", %{form: form} do
       item_attrs = %{
@@ -204,7 +204,7 @@ defmodule MyApp.FormsTest do
       assert item.type == :email
       assert item.show_format_hint == true
     end
-    
+
     # 电话号码输入字段
     test "with valid data adds a phone item to the form", %{form: form} do
       item_attrs = %{
@@ -218,7 +218,7 @@ defmodule MyApp.FormsTest do
       assert item.type == :phone
       assert item.format_display == true
     end
-    
+
     # 日期选择字段
     test "with valid data adds a date item to the form", %{form: form} do
       item_attrs = %{
@@ -236,7 +236,7 @@ defmodule MyApp.FormsTest do
       assert item.max_date == "2023-12-31"
       assert item.date_format == "yyyy-MM-dd"
     end
-    
+
     # 时间选择字段
     test "with valid data adds a time item to the form", %{form: form} do
       item_attrs = %{
@@ -254,7 +254,7 @@ defmodule MyApp.FormsTest do
       assert item.max_time == "18:00"
       assert item.time_format == "24h"
     end
-    
+
     # 地区选择字段
     test "with valid data adds a region item to the form", %{form: form} do
       item_attrs = %{
@@ -270,7 +270,7 @@ defmodule MyApp.FormsTest do
       assert item.region_level == 3
       assert item.default_province == "广东省"
     end
-    
+
     # 矩阵题字段
     test "with valid data adds a matrix item to the form", %{form: form} do
       item_attrs = %{
@@ -288,7 +288,7 @@ defmodule MyApp.FormsTest do
       assert item.matrix_columns == ["非常满意", "满意", "一般", "不满意", "非常不满意"]
       assert item.matrix_type == :single
     end
-    
+
     # 日期格式验证
     test "date field validates format", %{form: form} do
       # 无效的日期格式
@@ -300,7 +300,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{date_format: ["日期格式无效"]} = errors_on(changeset)
     end
-    
+
     # 时间格式验证
     test "time field validates min/max times", %{form: form} do
       # 无效的时间值（min > max）
@@ -313,7 +313,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{min_time: ["开始时间不能晚于结束时间"]} = errors_on(changeset)
     end
-    
+
     # 地区级别验证
     test "region field validates region level", %{form: form} do
       # 无效的地区级别
@@ -325,7 +325,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{region_level: ["地区级别必须是1-3之间的值"]} = errors_on(changeset)
     end
-    
+
     # 矩阵题行列验证
     test "matrix field validates rows and columns", %{form: form} do
       # 无效的矩阵题（无行）
@@ -337,7 +337,7 @@ defmodule MyApp.FormsTest do
       }
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{matrix_rows: ["矩阵行不能为空"]} = errors_on(changeset)
-      
+
       # 无效的矩阵题（无列）
       item_attrs = %{
         label: "满意度评价",
@@ -348,7 +348,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{matrix_columns: ["矩阵列不能为空"]} = errors_on(changeset)
     end
-    
+
     # 矩阵题唯一性验证
     test "matrix field validates uniqueness of rows and columns", %{form: form} do
       # 无效的矩阵题（重复行）
@@ -360,7 +360,7 @@ defmodule MyApp.FormsTest do
       }
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{matrix_rows: ["矩阵行标题必须唯一"]} = errors_on(changeset)
-      
+
       # 无效的矩阵题（重复列）
       item_attrs = %{
         label: "满意度评价",
@@ -371,7 +371,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{matrix_columns: ["矩阵列标题必须唯一"]} = errors_on(changeset)
     end
-    
+
     # 图片选择控件测试
     test "with valid data adds an image_choice item to the form", %{form: form} do
       item_attrs = %{
@@ -387,7 +387,7 @@ defmodule MyApp.FormsTest do
       assert item.selection_type == :single
       assert item.image_caption_position == :bottom
     end
-    
+
     # 图片选择控件验证
     test "image_choice field validates selection_type", %{form: form} do
       # 无效的选择类型
@@ -399,7 +399,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{selection_type: ["is invalid"]} = errors_on(changeset)
     end
-    
+
     # 图片选择控件验证标题位置
     test "image_choice field validates caption position", %{form: form} do
       # 无效的标题位置
@@ -411,7 +411,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{image_caption_position: ["is invalid"]} = errors_on(changeset)
     end
-    
+
     # 文件上传控件测试
     test "with valid data adds a file_upload item to the form", %{form: form} do
       item_attrs = %{
@@ -431,7 +431,7 @@ defmodule MyApp.FormsTest do
       assert item.multiple_files == true
       assert item.max_files == 3
     end
-    
+
     # 文件上传控件文件大小验证
     test "file_upload field validates max_file_size", %{form: form} do
       # 无效的文件大小（超过20MB限制）
@@ -442,7 +442,7 @@ defmodule MyApp.FormsTest do
       }
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{max_file_size: ["单个文件大小不能超过20MB"]} = errors_on(changeset)
-      
+
       # 无效的文件大小（负值）
       item_attrs = %{
         label: "上传文件",
@@ -452,7 +452,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{max_file_size: ["文件大小必须大于0"]} = errors_on(changeset)
     end
-    
+
     # 文件上传控件最大文件数验证
     test "file_upload field validates max_files", %{form: form} do
       # 无效的最大文件数（超过10个文件限制）
@@ -464,7 +464,7 @@ defmodule MyApp.FormsTest do
       }
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{max_files: ["最多允许上传10个文件"]} = errors_on(changeset)
-      
+
       # 无效的最大文件数（少于1个）
       item_attrs = %{
         label: "上传文件",
@@ -475,7 +475,7 @@ defmodule MyApp.FormsTest do
       assert {:error, changeset} = Forms.add_form_item(form, item_attrs)
       assert %{max_files: ["最多文件数必须至少为1"]} = errors_on(changeset)
     end
-    
+
     # 文件上传控件扩展名验证
     test "file_upload field validates allowed_extensions", %{form: form} do
       # 无效的扩展名（不带点号）
@@ -571,59 +571,59 @@ defmodule MyApp.FormsTest do
 
   describe "get_form_item/1" do
     setup [:create_form_with_radio_item]
-    
+
     test "returns the form item with given id", %{radio_item: item} do
       fetched_item = Forms.get_form_item(item.id)
       assert fetched_item.id == item.id
       assert fetched_item.label == item.label
       assert fetched_item.type == :radio
     end
-    
+
     test "returns nil for non-existent form item id" do
       non_existent_uuid = Ecto.UUID.generate()
       assert Forms.get_form_item(non_existent_uuid) == nil
     end
   end
-  
+
   describe "get_form_item_with_options/1" do
     setup [:create_form_with_radio_item]
-    
+
     test "returns the form item with options preloaded", %{radio_item: item} do
       # Add some options to the radio item
       option1_attrs = %{label: "Option X", value: "x"}
       option2_attrs = %{label: "Option Y", value: "y"}
       {:ok, _option1} = Forms.add_item_option(item, option1_attrs)
       {:ok, _option2} = Forms.add_item_option(item, option2_attrs)
-      
+
       # Get the item with options
       item_with_options = Forms.get_form_item_with_options(item.id)
-      
+
       # Verify the item data
       assert item_with_options.id == item.id
       assert item_with_options.label == item.label
-      
+
       # Verify options are loaded and correct
       assert length(item_with_options.options) == 2
       option_labels = Enum.map(item_with_options.options, & &1.label) |> Enum.sort()
       assert option_labels == ["Option X", "Option Y"] |> Enum.sort()
     end
-    
+
     test "returns nil for non-existent form item id when preloading options" do
       non_existent_uuid = Ecto.UUID.generate()
       assert Forms.get_form_item_with_options(non_existent_uuid) == nil
     end
   end
-  
+
   describe "update_form_item/2" do
     setup [:create_form_with_radio_item]
-    
+
     test "updates form item with valid data", %{radio_item: item} do
       update_attrs = %{
         label: "Updated Question",
         required: false,
         description: "This is a description"
       }
-      
+
       assert {:ok, updated_item} = Forms.update_form_item(item, update_attrs)
       assert updated_item.id == item.id
       assert updated_item.label == "Updated Question"
@@ -631,22 +631,22 @@ defmodule MyApp.FormsTest do
       assert updated_item.description == "This is a description"
       # Type should remain the same since we didn't update it
       assert updated_item.type == :radio
-      
+
       # Verify changes are persisted
       fetched_item = Forms.get_form_item(item.id)
       assert fetched_item.label == "Updated Question"
     end
-    
+
     test "returns error changeset with invalid data", %{radio_item: item} do
       # Empty label is invalid
       invalid_attrs = %{label: ""}
       assert {:error, %Ecto.Changeset{}} = Forms.update_form_item(item, invalid_attrs)
-      
+
       # Verify item wasn't changed
       fetched_item = Forms.get_form_item(item.id)
       assert fetched_item.label == item.label
     end
-    
+
     test "updates rating item max_rating", %{form: form} do
       # First create a rating item
       {:ok, rating_item} = Forms.add_form_item(form, %{
@@ -654,111 +654,111 @@ defmodule MyApp.FormsTest do
         type: :rating,
         max_rating: 5
       })
-      
+
       # Now update its max_rating
       update_attrs = %{
         max_rating: 10
       }
-      
+
       assert {:ok, updated_item} = Forms.update_form_item(rating_item, update_attrs)
       assert updated_item.max_rating == 10
-      
+
       # Verify with string value too
       update_attrs = %{
         max_rating: "7"
       }
-      
+
       assert {:ok, updated_item} = Forms.update_form_item(updated_item, update_attrs)
       assert updated_item.max_rating == 7
     end
   end
-  
+
   describe "delete_form_item/1" do
     setup [:create_form_with_radio_item]
-    
+
     test "deletes the form item", %{radio_item: item} do
       assert {:ok, %{id: deleted_id}} = Forms.delete_form_item(item)
       assert deleted_id == item.id
-      
+
       # Verify item is deleted
       assert Forms.get_form_item(item.id) == nil
     end
-    
+
     test "deletes associated options when deleting a form item", %{radio_item: item, user: user} do
       # Add options to the item
       {:ok, _option} = Forms.add_item_option(item, %{label: "Test Option", value: "test"})
-      
+
       # Delete the item
       assert {:ok, _} = Forms.delete_form_item(item)
-      
+
       # Verify item is deleted
       assert Forms.get_form_item(item.id) == nil
-      
+
       # Create a similar item to verify options don't exist in options table
       {:ok, new_form} = Forms.create_form(%{title: "New Test Form", user_id: user.id})
       {:ok, new_item} = Forms.add_form_item(new_form, %{
-        label: "New Radio Question", 
+        label: "New Radio Question",
         type: :radio,
         required: true
       })
-      
+
       # Try to query for previous option's value - should not find any
       {:ok, _all_new_options} = Forms.add_item_option(new_item, %{label: "New Option", value: "new"})
     end
   end
-  
+
   describe "reorder_form_items/2" do
     setup do
       # Create a form with multiple items for reordering
       user = user_fixture()
       {:ok, form} = Forms.create_form(%{title: "Form for Reordering", user_id: user.id})
-      
+
       # Add several items with initial ordering
       {:ok, item1} = Forms.add_form_item(form, %{label: "Question 1", type: :text_input})
       {:ok, item2} = Forms.add_form_item(form, %{label: "Question 2", type: :text_input})
       {:ok, item3} = Forms.add_form_item(form, %{label: "Question 3", type: :text_input})
-      
+
       %{form: form, items: [item1, item2, item3], user: user}
     end
-    
+
     test "changes the order of form items", %{form: form, items: [item1, item2, item3]} do
       # Reorder the items: move item3 to first position, keeping others in order
       new_order = [item3.id, item1.id, item2.id]
-      
+
       assert {:ok, reordered_items} = Forms.reorder_form_items(form.id, new_order)
-      
+
       # Verify the items were reordered
       assert length(reordered_items) == 3
-      
+
       # Extract IDs in the new order
       reordered_ids = Enum.map(reordered_items, &(&1.id))
       assert reordered_ids == new_order
-      
+
       # Verify the order fields were updated
       [first, second, third] = reordered_items
       assert first.order == 1
       assert second.order == 2
       assert third.order == 3
-      
+
       # Verify first item is now item3
       assert first.id == item3.id
     end
-    
+
     test "returns error when item IDs don't match form's items", %{form: form, items: [item1, item2, _item3], user: user} do
       # Create an item for a different form
       {:ok, other_form} = Forms.create_form(%{title: "Another Form", user_id: user.id})
       {:ok, other_item} = Forms.add_form_item(other_form, %{label: "Other Question", type: :text_input})
-      
+
       # Try to include that item in our reordering
       invalid_order = [item1.id, item2.id, other_item.id]
-      
+
       assert {:error, :invalid_item_ids} = Forms.reorder_form_items(form.id, invalid_order)
     end
-    
+
     test "returns error when not all form items are included", %{form: form, items: [item1, item2, _item3]} do
       # Missing one item
       incomplete_order = [item1.id, item2.id]
-      
+
       assert {:error, :missing_items} = Forms.reorder_form_items(form.id, incomplete_order)
     end
   end

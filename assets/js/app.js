@@ -21,6 +21,7 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
+import Sortable from "sortablejs"; // <--- 导入 sortablejs
 // 导入钩子定义
 import Hooks from "./hooks"
 // 导入表单构建器钩子
@@ -79,10 +80,31 @@ Hooks.SettingsLayout = {
   }
 };
 
-// 合并钩子，但保持钩子对象独立（不互相影响）
+// --- 新增：定义 Sortable Hook ---
+Hooks.Sortable = {
+  mounted() {
+    console.log("Sortable hook mounted"); // 添加日志确认 Hook 已加载
+    const sorter = new Sortable(this.el, {
+      animation: 150,
+      ghostClass: "sortable-ghost",
+      dragClass: "sortable-drag",
+      onEnd: (evt) => {
+        const orderedIds = Array.from(evt.to.children).map(
+          (item) => item.dataset.id
+        );
+        console.log("Sortable onEnd - New order:", orderedIds);
+        this.pushEvent("update_structure_order", { ordered_ids: orderedIds });
+      },
+    });
+  }
+};
+// --- 结束：定义 Sortable Hook ---
+
+
+// --- 修改：正确合并钩子 ---
 const AllHooks = {
-  ...Hooks,  // 聊天和应用相关钩子
-  ...FormHooks  // 表单系统相关钩子
+  ...Hooks,      // 包含 SettingsLayout 和 Sortable
+  ...FormHooks   // 包含表单系统的钩子
 };
 
 // 初始化LiveView

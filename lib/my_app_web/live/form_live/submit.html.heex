@@ -564,7 +564,17 @@
                                   <a href={file.path} target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
                                     查看
                                   </a>
-                                  <!-- 这里可以添加 "移除关联" 的按钮，但需要后端支持 -->
+                                  <!-- 添加删除按钮 -->
+                                  <button
+                                    type="button"
+                                    phx-click="remove_file"
+                                    phx-value-field-id={item.id}
+                                    phx-value-file-path={file.path}
+                                    data-confirm="确定要删除这个文件吗？"
+                                    class="text-red-600 hover:text-red-800 text-sm font-medium focus:outline-none"
+                                  >
+                                    删除
+                                  </button>
                                 </div>
                               </div>
                             <% end %>
