@@ -2,21 +2,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   use MyAppWeb, :live_view
   import MyAppWeb.FormLive.ItemRendererComponent
   import MyAppWeb.FormComponents
-  # 导入FormLive.Edit中的函数，特别是process_options
-  # import MyAppWeb.FormLive.Edit, only: [process_options: 2]
   # === 假设你创建了以下 Helper 模块 ===
   import MyAppWeb.FormHelpers
-  import MyAppWeb.DecorationHelpers
   # === End Helper 模块导入 ===
+  # +++ ADD IMPORTS +++
+  import Number.Delimit
+  import MyAppWeb.CoreComponents
+  # +++ END ADD IMPORTS +++
   alias MyApp.FormTemplates
   alias MyApp.Forms # 添加缺失的别名
   alias MyApp.Forms.FormItem
-  alias MyApp.Upload # Ensure Upload alias is present
   # 添加 Logger 别名，因为 render 函数中的回退逻辑使用了它
   require Logger
-
-  @max_file_size 5_000_000 # 5MB
-  @allowed_image_types ~w(.jpg .jpeg .png .gif)
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -55,9 +52,6 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_type, nil)            # 添加：初始化逻辑类型
       |> assign(:logic_target_id, nil)       # 添加：初始化逻辑目标ID
       |> assign(:logic_condition, nil)       # 添加：初始化逻辑条件
-      # --- Explicitly assign the config name to assigns, trying to fix KeyError ---
-      # --- Add allow_upload ---
-      # --- Add allow_upload ---
 
     # 打印加载的表单项及其选项 (来自 form_with_data)
     # IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
@@ -549,36 +543,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # Find the decoration element by ID
     case find_decoration_and_index(socket.assigns.decoration, id) do
       {decoration, _index} ->
-        # === START CHANGE ===
-        # Check if it's an image type decoration
-        elem_type = decoration["type"] || decoration[:type] # Get type consistently
-        is_image_decoration = elem_type in ["header_image", "inline_image", :header_image, :inline_image]
-
-        socket =
-          if is_image_decoration do
-            # Generate dynamic config name only for image types
-            config_name = String.to_atom("decoration-#{id}")
-            IO.puts("Allowing upload for image config: #{inspect(config_name)}")
-            # Allow upload for this specific image decoration instance
-            socket
-            |> allow_upload(config_name,
-              accept: @allowed_image_types,
-              max_entries: 1,
-              max_file_size: @max_file_size,
-              auto_upload: false # Match Edit.ex, consume on save
-            )
-            |> assign(:current_upload_config_name, config_name) # Store config name
-          else
-            # Not an image decoration, ensure upload config name is nil
-            IO.puts("Not an image decoration, clearing upload config.")
-            assign(socket, :current_upload_config_name, nil)
-          end
-        # === END CHANGE ===
-
+        # Just open the editor, no upload logic needed
         {:noreply,
-          socket
-          |> assign(:editing_decoration_id, id)
-          |> assign(:current_decoration, decoration) # Assign the full decoration map
+         socket
+         |> assign(:editing_decoration_id, id)
+         |> assign(:current_decoration, decoration) # Assign the full decoration map
         }
 
       nil ->
@@ -593,120 +562,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       socket
       |> assign(:editing_decoration_id, nil)
       |> assign(:current_decoration, nil)
-      |> assign(:current_upload_config_name, nil) # Clear upload config name
     }
-  end
-
-  @impl true
-  def handle_event("cancel_decoration_upload", %{"ref" => ref, "config_name" => config_name_str}, socket) do
-    config_name = String.to_atom(config_name_str)
-    {:noreply, cancel_upload(socket, config_name, ref)}
-  end
-
-  @impl true
-  def handle_event("save_decoration_element", %{"id" => decoration_id, "decoration" => decoration_params}, socket) do
-    IO.inspect(decoration_params, label: "Raw save_decoration_element params")
-
-    %{template: template, decoration: decorations} = socket.assigns
-
-    # Find the original decoration and its index
-    case find_decoration_and_index(decorations, decoration_id) do
-      {original_decoration, index} ->
-        # Generate dynamic config name for potential consumption
-        config_name = String.to_atom("decoration-#{decoration_id}")
-
-        # 1. Consume uploads BEFORE merging params
-        # TODO: Replace with call to new consume_decoration_upload helper
-        # upload_path = consume_decoration_upload(socket, config_name, template.id, original_decoration)
-        upload_result = consume_decoration_upload(socket, config_name, template.id, original_decoration) # Placeholder call
-
-        # 2. Prepare final params based on upload result
-        case upload_result do
-           {:ok, upload_path} ->
-             # If upload happened, use its path and remove any URL from form params
-             final_params =
-               decoration_params
-               |> Map.put("image_url", upload_path)
-               |> Map.drop(["_csrf_token", "_target", "_uploads"]) # Clean up Phoenix params
-               |> stringify_keys() # Ensure keys are strings
-
-             IO.inspect(final_params, label: "Final params after successful upload consumption")
-
-             # Proceed with merging and saving
-             merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params)
-
-           :no_upload ->
-              # No upload happened, clean up form params, keep existing/form URL
-              final_params =
-                decoration_params
-                |> Map.drop(["_csrf_token", "_target", "_uploads"])
-                |> stringify_keys()
-
-              IO.inspect(final_params, label: "Final params (no upload)")
-
-             # Proceed with merging and saving
-             merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params)
-
-           {:error, reason} ->
-              IO.puts("Upload consumption failed: #{inspect(reason)}")
-             # Keep editor open and show error
-             {:noreply,
-               socket
-               |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
-               # Maybe update current_decoration with attempted params?
-               |> put_flash(:error, "图片处理失败: #{reason}")
-             }
-        end
-
-      nil ->
-        # Decoration not found
-        {:noreply, put_flash(socket, :error, "找不到要保存的装饰元素")}
-    end
-  end
-
-  # Helper to merge params and save the template (extracted from save_decoration_element)
-  defp merge_and_save_decoration(socket, template, decorations, index, original_decoration, final_params) do
-     # 获取装饰元素ID
-     decoration_id = original_decoration["id"] || original_decoration[:id]
-     # 3. Merge final params with original (preserving ID, type)
-     # Important: Ensure essential keys like 'id' and 'type' are preserved
-     # and merge logic handles potential nil values from the form correctly.
-     # Prioritize image_url from final_params if it exists (means successful upload)
-     updated_decoration_item = Map.merge(original_decoration, final_params)
-
-     # Ensure required fields have fallbacks if cleared by form, but respect uploaded path
-     updated_decoration_item =
-        if Map.has_key?(final_params, "image_url") do
-          updated_decoration_item # Keep the image_url from final_params (upload)
-        else
-          # No upload, ensure image_url has a fallback if removed by form
-          Map.put(updated_decoration_item, "image_url", Map.get(final_params, "image_url") || Map.get(original_decoration, "image_url") || Map.get(original_decoration, :image_url) || "")
-        end
-
-     # 4. Update the list
-     updated_decorations = List.replace_at(decorations, index, updated_decoration_item)
-
-     # 5. Save to DB
-     case FormTemplates.update_template(template, %{decoration: updated_decorations}) do
-       {:ok, updated_template} ->
-         {:noreply,
-           socket
-           |> assign(:template, updated_template)
-           |> assign(:decoration, updated_decorations)
-           |> assign(:editing_decoration_id, nil) # Close editor
-           |> assign(:current_decoration, nil)
-           |> assign(:current_upload_config_name, nil) # Clear upload config name
-           |> put_flash(:info, "装饰元素已保存")
-         }
-       {:error, changeset} ->
-          IO.inspect(changeset, label: "Template Update Error")
-         {:noreply,
-           socket
-           |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
-           |> assign(:current_decoration, updated_decoration_item) # Show potentially invalid state
-           |> put_flash(:error, "保存装饰元素失败")
-         }
-     end
   end
 
   @impl true
@@ -1110,7 +966,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 模板标题和操作区 -->
           <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;">
-            <%# <h1 style=\"font-size: 1.5rem; font-weight: 700;\">Template Name Removed</h1> REMOVED %>
+            <%# <h1 style="font-size: 1.5rem; font-weight: 700;">Template Name Removed</h1> REMOVED %>
 
             <div style="display: flex; gap: 0.75rem;">
               <.link
@@ -2043,7 +1899,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           <div
                             id={"decoration-#{elem_id}"}
                             data-id={elem_id}
-                            class="p-3 border rounded bg-white shadow-sm form-card"
+                            class={["p-3 border rounded bg-white shadow-sm form-card transition-all duration-150 ease-in-out", if(@editing_decoration_id == elem_id, do: "ring-2 ring-indigo-500")]}
                           >
                             <div class="flex justify-between items-center">
                               <div class="flex items-center">
@@ -2080,41 +1936,43 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                             <!-- 预览区域 -->
                             <div class="mt-3 border-t pt-3">
-                              <.render_decoration_preview element={element} />
+                              <%# Call the preview function (which should still exist) %>
+                              <%= render_decoration_preview(%{element: element}) %>
                             </div>
 
-                            <!-- 编辑面板 - 仅在选中时显示 -->
+                            <!-- 编辑面板 - 仅在选中时显示 (INLINED HERE) -->
                             <%= if @editing_decoration_id == elem_id do %>
-                              <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
-                                <div class="flex justify-between items-center mb-3">
-                                  <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
-                                  <button
-                                    type="button"
-                                    phx-click="close_decoration_editor"
-                                    class="text-gray-500 hover:text-gray-800"
-                                  >
+                              <div class="mt-3 p-4 border border-indigo-300 bg-indigo-50 rounded-md"> <%# Adjusted padding/style %>
+                                <%# --- START INLINED EDITOR HEEX --- %>
+                                <%
+                                  # Prepare variables needed for the inlined editor using @assigns
+                                  current_elem_id = @current_decoration["id"] || @current_decoration[:id]
+                                  current_elem_type = @current_decoration["type"] || @current_decoration[:type]
+                                  current_upload_config = @current_upload_config_name # Use assign directly
+                                  # Safely get specific upload state, default to empty if config_name is nil or not found
+                                  uploads_for_current = if current_upload_config, do: Map.get(@uploads, current_upload_config, %{entries: []}), else: %{entries: []}
+                                  # Create a form helper context based on the current decoration being edited
+                                  # Ensure keys are strings for the form
+                                  form_data = @current_decoration |> stringify_keys()
+                                  form = Phoenix.HTML.FormData.to_form(form_data, as: "decoration")
+                                %>\n                                <div class="flex justify-between items-center mb-4">
+                                  <h3 class="text-lg font-medium text-indigo-800">编辑 <%= display_decoration_type(current_elem_type) %></h3>
+                                  <button type="button" phx-click="cancel_edit_decoration_element" phx-target={@myself} class="text-gray-500 hover:text-gray-800">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                       <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                                     </svg>
                                   </button>
-                                </div>
+                                </div>\n\n                                <.form :let={f} for={form} phx-change="validate_decoration_element" phx-submit="save_decoration_element" phx-value-id={current_elem_id} phx-target={@myself}>
+                                  <%# Use name="id" not decoration[id] for the hidden input %>
+                                  <input type="hidden" name="id" value={current_elem_id} />
+                                  <%# Use name="decoration[type]" to ensure type is submitted %>
+                                  <input type="hidden" name="decoration[type]" value={current_elem_type} />
 
-                                <%# 使用组件调用语法 - 修正：传递需要的 assigns %>
-                                <.render_decoration_editor
-                                  element={@current_decoration}
-                                  uploads={@uploads[@current_upload_config_name]}
-                                  upload_config_name={@current_upload_config_name}
-                                />
-                              </div>
-                            <% end %>
-                          </div>
-                        <% end %>
-                      <% end %>
-                    </div>
-                  </div>
+                                  <%= case current_elem_type do %>
+                                    <% "title" -> %>\n                                      <.input field={{f, :title}} name="decoration[title]" type="text" label="标题内容" value={form_data["title"]} />\n                                      <.input field={{f, :level}} name="decoration[level]" type="select" label="标题级别" options={[{"H1", 1}, {"H2", 2}, {"H3", 3}, {"H4", 4}]} value={to_string(form_data["level"] || 2)} />\n                                      <.input field={{f, :align}} name="decoration[align]" type="select" label="对齐方式" options={[{"居左", "left"}, {"居中", "center"}, {"居右", "right"}]} value={form_data["align"] || "left"} />\n                                    <% "paragraph" -> %>\n                                      <.input field={{f, :content}} name="decoration[content]" type="textarea" label="段落内容" value={form_data["content"]} />\n                                    <% "section" -> %>\n                                      <.input field={{f, :title}} name="decoration[title]" type="text" label="章节标题" value={form_data["title"]} />\n                                      <.input field={{f, :divider_style}} name="decoration[divider_style]" type="select" label="分隔线样式" options={[{"实线", "solid"}, {"虚线", "dashed"}, {"点状", "dotted"}, {"无", "none"}]} value={form_data["divider_style"] || "solid"} />\n                                    <% "explanation" -> %>\n                                      <.input field={{f, :content}} name="decoration[content]" type="textarea" label="说明内容" value={form_data["content"]} />\n                                      <.input field={{f, :note_type}} name="decoration[note_type]" type="select" label="说明类型" options={[{"信息", "info"}, {"警告", "warning"}, {"成功", "success"}, {"错误", "error"}]} value={form_data["note_type"] || "info"} />\n                                    <% type when type in ["header_image", "inline_image"] -> %>\n                                      <.input field={{f, :image_url}} name="decoration[image_url]" type="text" label="图片URL (留空以上传)" value={form_data["image_url"]} phx-debounce="500"/>\n                                      <%# Button to initiate the upload process %>\n                                      <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={current_elem_id} phx-target={@myself} class="btn-secondary btn-sm mt-2">\n                                        上传新图片替换\n                                      </.button>\n                                      <%# Display file input and progress only if upload is initiated (current_upload_config is set FOR THIS element) %>\n                                      <%= if current_upload_config && @uploads[current_upload_config] do %>\n                                        <div class="mt-4 border-t pt-4">\n                                          <h3 class="text-md font-medium mb-2">上传新图片</h3>\n                                          <.live_file_input upload={@uploads[current_upload_config]} class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>\n                                          <div class="mt-2 space-y-1">\n                                            <%= for entry <- uploads_for_current.entries do %>\n                                              <div class="flex items-center justify-between p-2 border rounded">\n                                                <span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span>\n                                                <button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(current_upload_config)} phx-target={@myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button>\n                                              </div>\n                                              <progress value={entry.progress} max="100" class="w-full h-2"></progress>\n                                              <%= for err <- upload_errors(@uploads[current_upload_config], entry.ref) do %>\n                                                <div class="text-sm text-red-600"><%= error_to_string(err) %></div>\n                                              <% end %>\n                                            <% end %>\n                                          </div>\n                                          <.button type="button" phx-click="apply_decoration_upload" phx-value-id={current_elem_id} phx-value-config_name={Atom.to_string(current_upload_config)} phx-target={@myself} class="btn-primary btn-sm mt-2" disabled={!Enum.any?(uploads_for_current.entries, &(&1.progress == 100))}>\n                                            应用上传的图片\n                                          </.button>\n                                        </div>\n                                      <% else %>\n                                         <p class="text-sm text-gray-500 mt-2">点击 "上传新图片替换" 按钮以选择文件。</p>\n                                      <% end %>\n                                      <%= if type == "inline_image" do %>\n                                        <.input field={{f, :caption}} name="decoration[caption]" type="text" label="图片说明" value={form_data["caption"]} />\n                                        <.input field={{f, :width}} name="decoration[width]" type="text" label="图片宽度 (e.g., 80%, 300px)" value={form_data["width"] || "80%"} />\n                                        <.input field={{f, :align}} name="decoration[align]" type="select" label="对齐方式" options={[{"居左", "left"}, {"居中", "center"}, {"居右", "right"}]} value={form_data["align"] || "center"} />\n                                      <% else %> <%# header_image %>\n                                        <.input field={{f, :height}} name="decoration[height]" type="text" label="图片高度 (e.g., 300px)" value={form_data["height"] || "300px"} />\n                                      <% end %>\n                                    <% "spacer" -> %>\n                                      <.input field={{f, :height}} name="decoration[height]" type="text" label="间距高度 (e.g., 2rem, 32px)" value={form_data["height"] || "2rem"} />\n                                  <% end %>\n\n                                  <div class="flex justify-end space-x-2 mt-4">\n                                    <button type="button" phx-click="cancel_edit_decoration_element" phx-target={@myself} class="btn-secondary">取消</button>\n                                    <button type="submit" phx-disable-with="保存中..." class="btn-primary">保存更改</button>\n                                  </div>\n                                </.form>\n                                <%# --- END INLINED EDITOR HEEX --- %>\n                              </div>\n                            <% end %>\n                          </div>\n                        <% end %>\n                      <% end %>\n                    </div>\n                  </div>
                 </div>
               </div>
-          <% end %>
+            <% end %>
         </div>
       </div>
     </div>
@@ -2145,13 +2003,6 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     reordered_items ++ missing_items
   end
 
-  # --- Add upload event handlers ---
-
-  @impl true
-  def handle_event("cancel_decoration_upload", %{"ref" => ref, "config_name" => config_name_str}, socket) do
-    config_name = String.to_atom(config_name_str)
-    {:noreply, cancel_upload(socket, config_name, ref)}
-  end
 
 
   # --- Helper Functions ---
@@ -2174,69 +2025,6 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     for {key, val} <- map, into: %{}, do: {to_string(key), val}
   end
 
-  defp is_uploaded_image?(src) when is_binary(src) do
-    String.starts_with?(src, "/uploads/") # Match helper function
-  end
-  defp is_uploaded_image?(_), do: false
-
-  # Consume upload helper (returns new path or nil)
-  defp consume_decoration_upload(socket, upload_config, template_id, original_decoration) do
-     uploaded_files =
-       consume_uploaded_entries(socket, upload_config, fn %{path: temp_path}, entry ->
-         ext = Path.extname(entry.client_name)
-         filename = "#{Ecto.UUID.generate()}#{ext}"
-         dest_dir = Path.join([:code.priv_dir(:my_app), "static", "uploads"])
-         dest_path = Path.join(dest_dir, filename)
-         upload_path = "/uploads/#{filename}" # Relative path for web access
-
-         # Ensure directory exists
-         File.mkdir_p!(dest_dir)
-
-         # Copy file
-         case File.cp(temp_path, dest_path) do
-           :ok ->
-             # Save file metadata (adjust association as needed)
-             file_attrs = %{
-               original_filename: entry.client_name,
-               filename: filename,
-               path: upload_path, # Store the web-accessible path
-               content_type: entry.client_type,
-               size: entry.client_size
-             }
-
-             case Upload.save_uploaded_file(template_id, nil, file_attrs) do # Assuming form_item_id can be nil
-               {:ok, uploaded_file} ->
-                 # --- Delete old file if replacing ---
-                 old_image_url = original_decoration["image_url"] || original_decoration[:image_url]
-                 if is_uploaded_image?(old_image_url) do
-                   Task.start(fn ->
-                      case Upload.delete_uploaded_file(template_id, old_image_url) do # Use the correct function
-                        {:ok, _} -> Logger.info("Deleted old decoration image: #{old_image_url}")
-                        {:error, reason} -> Logger.error("Failed deleting old decoration image #{old_image_url}: #{inspect(reason)}")
-                      end
-                   end)
-                 end
-                 # --- End Delete old file ---
-                 {:ok, uploaded_file.path} # Return the web path
-
-               {:error, changeset} ->
-                 Logger.error("Failed to save uploaded file record: #{inspect(changeset)}")
-                 {:error, "数据库记录保存失败"}
-             end
-
-           {:error, reason} ->
-             Logger.error("Failed to copy uploaded file: #{inspect(reason)}")
-             {:error, "文件复制失败: #{reason}"}
-         end
-       end)
-
-     # Return the first successful upload path, or nil
-     case uploaded_files do
-       [{:ok, path} | _] -> path
-       _ -> nil
-     end
-   end
-
   @impl true
   def handle_event("close_decoration_editor", _params, socket) do
     {:noreply,
@@ -2246,4 +2034,342 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:current_upload_config_name, nil) # Clear upload config name
     }
   end
+
+  @impl true
+  def handle_event("save_decoration_element", %{"id" => decoration_id, "decoration" => decoration_params}, socket) do
+    IO.inspect(decoration_params, label: "Raw save_decoration_element params")
+
+    %{template: template, decoration: decorations, staged_upload_entry: staged_upload} = socket.assigns
+
+    # Find the original decoration and its index
+    case find_decoration_and_index(decorations, decoration_id) do
+      {original_decoration, index} ->
+        # 1. Check if there's a staged upload for THIS decoration
+        final_image_url_result =
+          if staged_upload && staged_upload.decoration_id == decoration_id do
+            IO.puts("Persisting staged upload for decoration #{decoration_id}")
+            persist_staged_decoration_upload(staged_upload.entry, template.id)
+          else
+            # No staged upload for this item.
+            # Use the image_url from the form OR the current decoration, prioritizing form.
+            # Fallback to original if both are nil or preview links.
+            form_url = Map.get(decoration_params, "image_url")
+            current_url = Map.get(socket.assigns.current_decoration, "image_url") # Might be preview URL
+
+            final_url = cond do
+              form_url != nil && !String.starts_with?(form_url || "", "preview:") ->
+                form_url # Use valid URL submitted from form
+              current_url != nil && !String.starts_with?(current_url || "", "preview:") ->
+                 current_url # Use valid URL from current state (if form didn't override)
+              true ->
+                Map.get(original_decoration, "image_url") || Map.get(original_decoration, :image_url) || "" # Fallback to original or empty
+            end
+            IO.puts("No staged upload found or used for #{decoration_id}. Using URL: #{final_url}")
+            {:ok, final_url} # Treat as success, no file operation needed
+          end
+
+        case final_image_url_result do
+          {:ok, final_image_url} ->
+            # 2. Prepare final params by cleaning form input
+            # Exclude image_url here, as we handle it explicitly with final_image_url
+            cleaned_params =
+              decoration_params
+              |> Map.drop(["_csrf_token", "_target", "_uploads", "config_name", "id", "image_url"])
+              |> stringify_keys() # Ensure keys are strings
+
+            # 3. Merge cleaned form params onto the ORIGINAL decoration first
+            updated_decoration_item = Map.merge(original_decoration, cleaned_params)
+
+            # 4. Explicitly set the determined image_url
+            updated_decoration_item = Map.put(updated_decoration_item, "image_url", final_image_url)
+
+            # 5. Update the list
+            updated_decorations = List.replace_at(decorations, index, updated_decoration_item)
+
+            # 6. Save to DB
+            case FormTemplates.update_template(template, %{decoration: updated_decorations}) do
+              {:ok, updated_template} ->
+                {:noreply,
+                  socket
+                  |> assign(:template, updated_template)
+                  |> assign(:decoration, updated_decorations)
+                  |> assign(:editing_decoration_id, nil) # Close editor
+                  |> assign(:current_decoration, nil)
+                  |> assign(:current_upload_config_name, nil) # Clear config name
+                  |> assign(:staged_upload_entry, nil) # Clear staged upload on successful save
+                  |> put_flash(:info, "装饰元素已保存")
+                }
+              {:error, changeset} ->
+                IO.inspect(changeset, label: "Template Update Error")
+                error_message = MyAppWeb.ErrorHelpers.translate_error(changeset) |> Enum.join(", ")
+                {:noreply,
+                  socket
+                  |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
+                  # Show the state *before* attempting save, potentially with preview URL
+                  |> assign(:current_decoration, socket.assigns.current_decoration)
+                  |> put_flash(:error, "保存装饰元素失败: #{error_message}")
+                }
+            end
+
+          {:error, reason} ->
+            # File persistence failed
+            IO.puts("Decoration image persistence failed: #{inspect(reason)}")
+            {:noreply,
+              socket
+              |> assign(:editing_decoration_id, decoration_id) # Keep editor open
+              |> assign(:current_decoration, socket.assigns.current_decoration) # Keep showing preview
+              |> put_flash(:error, "图片保存失败: #{reason}")
+            }
+        end
+
+      nil ->
+        # Decoration not found
+        {:noreply, put_flash(socket, :error, "找不到要保存的装饰元素")}
+    end
+  end
+
+  # === NEW HELPER ===
+  defp persist_staged_decoration_upload(entry, template_id) do
+    source_path = entry.path # Temporary path from LiveView upload
+    original_filename = entry.client_name
+
+    # Define target directory relative to priv/static (ensure it exists)
+    # Use template ID to isolate uploads per template
+    relative_dir = Path.join(["uploads", "templates", to_string(template_id)])
+    target_dir = Path.join("priv/static", relative_dir)
+
+    # Ensure the directory exists
+    # Use File.mkdir_p! to raise an error if creation fails
+    try do
+      File.mkdir_p!(target_dir)
+    rescue
+      e in File.Error ->
+        Logger.error("Failed to create directory #{target_dir}: #{inspect(e)}")
+        reraise e, System.stacktrace() # Re-raise to handle upstream or crash
+    end
+
+    # Generate a unique filename (e.g., using UUID + safe name)
+    extension = Path.extname(original_filename)
+    safe_base = original_filename |> Path.basename(extension) |> String.replace(~r/[^A-Za-z0-9_.-]+/, "_")
+    unique_filename = "#{safe_base}_#{Ecto.UUID.generate()}#{extension}"
+    target_path = Path.join(target_dir, unique_filename)
+
+    # Move the file (copy and delete source might be safer across filesystems)
+    case File.cp(source_path, target_path) do
+      :ok ->
+        # Optionally delete the source temp file (LiveView might clean it up anyway)
+        # File.rm(source_path)
+
+        # Return the relative URL path for storage/display (starts with /)
+        final_relative_url = "/" <> Path.join(relative_dir, unique_filename) |> String.replace("\\", "/") # Ensure forward slashes for URL
+        {:ok, final_relative_url}
+      {:error, reason} ->
+        Logger.error("Failed to copy decoration upload from #{source_path} to #{target_path}: #{inspect(reason)}")
+        {:error, "文件系统错误"} # Return a user-friendly error message
+    end
+  catch
+     # Catch potential errors during directory creation or file operations
+     error ->
+       Logger.error("Error during decoration upload persistence: #{inspect(error)}")
+       {:error, "处理文件时发生内部错误"}
+  end
+
+  # +++ ADD PRIVATE HELPER FUNCTIONS +++
+
+  # --- Decoration Rendering Helpers ---
+
+  # (Copied from DecorationHelpers)
+  defp display_decoration_type(nil), do: "未知类型"
+  defp display_decoration_type("title"), do: "标题"
+  defp display_decoration_type("paragraph"), do: "段落"
+  defp display_decoration_type("section"), do: "章节分隔"
+  defp display_decoration_type("explanation"), do: "解释框"
+  defp display_decoration_type("header_image"), do: "题图"
+  defp display_decoration_type("inline_image"), do: "插图"
+  defp display_decoration_type("spacer"), do: "空间"
+  defp display_decoration_type(atom) when is_atom(atom), do: display_decoration_type(Atom.to_string(atom))
+  defp display_decoration_type(_), do: "未知类型"
+
+  # (Copied from DecorationHelpers)
+  defp truncate(text, max_length) when is_binary(text) and is_integer(max_length) and max_length >= 0 do
+    if String.length(text) > max_length do
+      String.slice(text, 0, max_length) <> "..."
+    else
+      text
+    end
+  end
+  defp truncate(text, _max_length) when is_binary(text), do: text # Handle invalid max_length
+  defp truncate(_, _), do: "" # Handle non-binary text
+
+  # (Copied from DecorationHelpers)
+
+  # (Copied from DecorationHelpers)
+
+  # (Copied and adapted from DecorationHelpers.render_decoration_preview)
+  defp render_decoration_preview(%{element: element} = assigns) do
+    ~H"""
+    <%= case element["type"] || element[:type] do %>
+      <% "title" -> %>
+        <div style={"text-align: #{element["align"] || element[:align] || "left"};"}>
+          <%= case element["level"] || element[:level] || 1 do %>
+            <% 1 -> %><h1 style="font-size: 1.5rem; font-weight: 700;"><%= element["title"] || element[:title] || "未命名标题" %></h1>
+            <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= element["title"] || element[:title] || "未命名标题" %></h2>
+            <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= element["title"] || element[:title] || "未命名标题" %></h3>
+            <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= element["title"] || element[:title] || "未命名标题" %></h4>
+          <% end %>
+        </div>
+      <% "paragraph" -> %>
+        <div class="text-gray-700 prose prose-sm max-w-none">
+          <%= Phoenix.HTML.raw(element["content"] || element[:content] || "") %>
+        </div>
+      <% "section" -> %>
+        <% title = element["title"] || element[:title] %>
+        <% divider_style = element["divider_style"] || element[:divider_style] || "solid" %>
+        <div>
+          <hr style={"border-style: #{divider_style}; border-color: #e5e7eb;"} />
+          <%= if title do %>
+            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= title %></h3>
+          <% end %>
+        </div>
+      <% "explanation" -> %>
+        <% content = element["content"] || element[:content] || "" %>
+        <% note_type = element["note_type"] || element[:note_type] || "info" %>
+        <% bg_color = case note_type do "warning" -> "#fff7ed"; "tip" -> "#f0fdf4"; _ -> "#f0f9ff" end %>
+        <% border_color = case note_type do "warning" -> "#fdba74"; "tip" -> "#86efac"; _ -> "#bae6fd" end %>
+        <% icon = case note_type do "warning" -> "⚠️"; "tip" -> "💡"; _ -> "ℹ️" end %>
+        <div style={"background-color: #{bg_color}; border-left: 4px solid #{border_color}; padding: 1rem; border-radius: 0.25rem;"}>
+          <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+            <div style="font-size: 1.25rem; line-height: 1.25;"><%= icon %></div>
+            <div>
+              <div style="font-weight: 500; margin-bottom: 0.25rem;"><%= String.capitalize(note_type) %></div>
+              <div class="text-gray-700 prose prose-sm max-w-none">
+                <%= Phoenix.HTML.raw(content) %>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% "header_image" -> %>
+        <% image_src = element["image_url"] || element[:image_url] || "" %>
+        <% height = element["height"] || element[:height] || "200px" %>
+        <div>
+          <%= if image_src != "" do %>
+            <img src={image_src} alt="题图" style={"height: #{height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
+          <% else %>
+            <div style={"height: #{height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL或上传图片</span>
+            </div>
+          <% end %>
+        </div>
+      <% "inline_image" -> %>
+        <% image_src = element["image_url"] || element[:image_url] || "" %>
+        <% caption = element["caption"] || element[:caption] || "" %>
+        <% width = element["width"] || element[:width] || "100%" %>
+        <% align = element["align"] || element[:align] || "center" %>
+        <div style={"text-align: #{align};"}>
+          <%= if image_src != "" do %>
+            <img src={image_src} alt={caption} style={"width: #{width}; max-width: 100%; border-radius: 0.25rem; margin-left: auto; margin-right: auto;"} />
+          <% else %>
+            <div style={"width: #{width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL或上传图片</span>
+            </div>
+          <% end %>
+          <%= if caption != "" do %>
+            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= caption %></div>
+          <% end %>
+        </div>
+      <% "spacer" -> %>
+        <div style={"height: #{element["height"] || element[:height] || "1rem"};"} class="spacer"></div>
+      <% _ -> %>
+        <div class="text-gray-500">未知元素预览</div>
+    <% end %>
+    """
+  end
+
+  # (Copied and adapted from DecorationHelpers.render_decoration_editor)
+  defp render_decoration_editor(%{element: element, uploads: uploads_map, upload_config_name: upload_config_name, myself: myself} = assigns) do
+    # Parameters are now pattern-matched, no need to extract from assigns
+
+    element_type = element["type"] || element[:type] # Handle both string and atom keys
+    element_id = element["id"] || element[:id]
+
+    # Create a form specific to this decoration element
+    form = Phoenix.HTML.FormData.to_form(element, as: "decoration")
+
+    ~H"""
+    <div class="space-y-4 border p-4 rounded-md bg-gray-50">
+      <.form :let={f} for={form} phx-change="validate_decoration_element" phx-submit="save_decoration_element" phx-value-id={element_id} phx-target={myself}>
+        <input type="hidden" name="id" value={element_id} />
+
+        <%= case element_type do %>
+          <% "title" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑标题</h2>
+            <.input field={{f, :title}} type="text" label="标题内容" value={element["title"] || element[:title]}/>
+            <.input field={{f, :level}} type="select" label="标题级别" options={[{"H1", 1}, {"H2", 2}, {"H3", 3}, {"H4", 4}, {"H5", 5}, {"H6", 6}]} value={to_string(element["level"] || element[:level] || 2)} />
+            <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "left"} />
+          <% "paragraph" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑段落</h2>
+            <.input field={{f, :content}} type="textarea" label="段落内容" value={element["content"] || element[:content]}/>
+          <% "section" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑章节分隔</h2>
+            <.input field={{f, :title}} type="text" label="章节标题（可选）" value={element["title"] || element[:title]} />
+            <.input field={{f, :divider_style}} type="select" label="分隔线样式" options={[{"实线", "solid"}, {"虚线", "dashed"}, {"点状线", "dotted"}, {"无分隔线", "none"}]} value={element["divider_style"] || element[:divider_style] || "solid"} />
+          <% "explanation" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑说明框</h2>
+            <.input field={{f, :content}} type="textarea" label="说明内容" value={element["content"] || element[:content]} />
+            <.input field={{f, :note_type}} type="select" label="提示类型" options={[{"信息", "info"}, {"成功", "success"}, {"警告", "warning"}, {"危险", "danger"}]} value={element["note_type"] || element[:note_type] || "info"} />
+          <% type when type in ["header_image", "inline_image"] -> %>
+            <%= if type == "header_image" do %>
+              <h2 class="text-lg font-semibold mb-2">编辑页眉图片</h2>
+              <.input field={{f, :height}} type="text" label="图片高度 (e.g., 300px, 20rem)" value={element["height"] || element[:height] || "300px"} />
+            <% else %>
+              <h2 class="text-lg font-semibold mb-2">编辑行内图片</h2>
+              <.input field={{f, :caption}} type="text" label="图片说明（可选）" value={element["caption"] || element[:caption]} />
+              <.input field={{f, :width}} type="text" label="图片宽度 (e.g., 80%, 200px)" value={element["width"] || element[:width] || "100%"} />
+              <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "center"} />
+            <% end %>
+            <.input field={{f, :image_url}} type="text" label="图片URL (或点击下方按钮上传)" value={element["image_url"] || element[:image_url]} />
+
+            <%# Button to initiate the upload process %>
+            <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-secondary btn-sm mt-2">
+              上传新图片
+            </.button>
+
+            <%# Display file input and progress only if upload is initiated (upload_config_name is set) %>
+            <%= if upload_config_name do %>
+              <div class="mt-4 border-t pt-4">
+                <h3 class="text-md font-medium mb-2">上传新图片</h3>
+                <.live_file_input upload={uploads_map} class="mt-2"/> <%# Pass the whole uploads_map %>
+                <div class="mt-2 space-y-1">
+                  <%= for entry <- uploads_map.entries do %>
+                    <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
+                    <progress value={entry.progress} max="100" class="w-full h-2"></progress>
+                  <% end %>
+                </div>
+                <%= for err <- Phoenix.Component.upload_errors(uploads_map) do %><%# Use the whole uploads_map %>
+                  <p class="alert alert-danger"><%= error_to_string(err) %></p>
+                <% end %>
+                <%# Button to apply the uploaded image - Enable only if there are completed entries %>
+                <.button type="button" phx-click="apply_decoration_upload" phx-value-id={element_id} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} class="btn-primary btn-sm mt-2" disabled={!Enum.any?(uploads_map.entries, &(&1.progress == 100))}>
+                  应用上传的图片
+                </.button>
+              </div>
+            <% else %>
+              <p class="text-sm text-gray-500 mt-2">点击 "上传新图片" 按钮以选择文件。</p>
+            <% end %>
+          <% "spacer" -> %>
+            <h2 class="text-lg font-semibold mb-2">编辑间距</h2>
+            <.input field={{f, :height}} type="text" label="间距高度 (e.g., 1rem, 20px)" value={element["height"] || element[:height] || "1rem"} />
+          <% _ -> %>
+            <p>未知装饰类型：<%= element_type %></p>
+        <% end %>
+
+        <div class="flex justify-end space-x-2 mt-4">
+          <button type="button" phx-click="cancel_edit_decoration_element" phx-target={myself} class="btn-secondary">取消</button>
+          <button type="submit" phx-disable-with="保存中..." class="btn-primary">保存更改</button>
+        </div>
+      </.form>
+    </div>
+    """
+  end
+  # +++ END PRIVATE HELPER FUNCTIONS +++
 end

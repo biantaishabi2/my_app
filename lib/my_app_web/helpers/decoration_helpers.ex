@@ -130,25 +130,27 @@ defmodule MyAppWeb.DecorationHelpers do
 
   @doc """
   Renders the editor interface for a specific decoration element.
-  Receives the full assigns map from the LiveView.
   """
   attr :element, :map, required: true, doc: "The decoration element map."
-  attr :upload_config, :any, required: true, doc: "The specific upload configuration slice for this element type."
+  # Allow uploads to be nil or empty list
+  attr :uploads, :list, default: [], doc: "List of upload entries for the element."
+  # Allow config name to be nil
+  attr :upload_config_name, :atom, default: nil, doc: "The dynamic upload config name."
+  attr :myself, :any, required: true, doc: "The LiveView pid or component id for phx-target."
 
   def render_decoration_editor(assigns) do
-    # Extract necessary assigns from the nested parent assigns via __given__
-    parent_assigns = assigns.__given__.assigns # Correct path to parent assigns
-    myself = assigns.__given__.myself         # Correct path to myself
-
-    element = parent_assigns.current_decoration
-    upload_config_name = parent_assigns.current_upload_config_name # Use the dynamic name passed from LV
-    uploads_map = Map.get(parent_assigns, :uploads, %{}) # Access the uploads map, default to empty if missing
+    # Directly use passed attributes
+    element = assigns.element
+    uploads = assigns.uploads # Already defaulted to [] if not provided
+    upload_config_name = assigns.upload_config_name # Already defaulted to nil
+    myself = assigns.myself
 
     element_type = element["type"] || element[:type] # Handle both string and atom keys
     element_id = element["id"] || element[:id]
 
     # Create a form specific to this decoration element
-    form = Phoenix.HTML.FormData.to_form(%{}, as: "decoration")
+    # Use the element itself as the source for the form
+    form = Phoenix.HTML.FormData.to_form(element, as: "decoration")
 
     ~H"""
     <div class="space-y-4 border p-4 rounded-md bg-gray-50">
@@ -175,40 +177,68 @@ defmodule MyAppWeb.DecorationHelpers do
           <% "header_image" -> %>
             <h2 class="text-lg font-semibold mb-2">编辑页眉图片</h2>
             <.input field={{f, :height}} type="text" label="图片高度 (e.g., 300px, 20rem)" value={element["height"] || element[:height] || "300px"} />
-            <.input field={{f, :image_url}} type="text" label="图片URL (留空以上传)" value={element["image_url"] || element[:image_url]} />
-            <%# Access uploads using the retrieved map and dynamic name %>
+            <.input field={{f, :image_url}} type="text" label="图片URL (或点击下方按钮上传)" value={element["image_url"] || element[:image_url]} />
+
+            <%# Button to initiate the upload process %>
+            <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-secondary btn-sm mt-2">
+              上传新图片
+            </.button>
+
+            <%# Display file input and progress only if upload is initiated (upload_config_name is set) %>
             <%= if upload_config_name do %>
-              <.live_file_input upload={uploads_map[upload_config_name]} class="mt-2"/>
-              <div class="mt-2 space-y-1">
-                 <%= for entry <- uploads_map[upload_config_name].entries do %>
-                   <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
-                   <progress value={entry.progress} max="100" class="w-full h-2"></progress>
-                 <% end %>
+              <div class="mt-4 border-t pt-4">
+                <h3 class="text-md font-medium mb-2">上传新图片</h3>
+                <.live_file_input upload={assigns.uploads[upload_config_name]} class="mt-2"/>
+                <div class="mt-2 space-y-1">
+                  <%= for entry <- assigns.uploads[upload_config_name].entries do %>
+                    <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
+                    <progress value={entry.progress} max="100" class="w-full h-2"></progress>
+                  <% end %>
+                </div>
+                <%= for err <- Phoenix.Component.upload_errors(assigns.uploads[upload_config_name]) do %>
+                  <p class="alert alert-danger"><%= error_to_string(err) %></p>
+                <% end %>
+                <%# Button to apply the uploaded image %>
+                <.button type="button" phx-click="apply_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-primary btn-sm mt-2" disabled={Enum.empty?(assigns.uploads[upload_config_name].entries)}>
+                  应用上传的图片
+                </.button>
               </div>
-              <%# Use Phoenix.Component.upload_errors, passing the specific upload slice %>
-              <%= for err <- Phoenix.Component.upload_errors(uploads_map[upload_config_name]) do %>
-                <p class="alert alert-danger"><%= error_to_string(err) %></p>
-              <% end %>
+            <% else %>
+              <p class="text-sm text-gray-500 mt-2">点击 "上传新图片" 按钮以选择文件。</p>
             <% end %>
           <% "inline_image" -> %>
             <h2 class="text-lg font-semibold mb-2">编辑行内图片</h2>
             <.input field={{f, :caption}} type="text" label="图片说明（可选）" value={element["caption"] || element[:caption]} />
             <.input field={{f, :width}} type="text" label="图片宽度 (e.g., 80%, 200px)" value={element["width"] || element[:width] || "100%"} />
             <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "center"} />
-            <.input field={{f, :image_url}} type="text" label="图片URL (留空以上传)" value={element["image_url"] || element[:image_url]} />
-            <%# Access uploads using the retrieved map and dynamic name %>
+            <.input field={{f, :image_url}} type="text" label="图片URL (或点击下方按钮上传)" value={element["image_url"] || element[:image_url]} />
+
+            <%# Button to initiate the upload process %>
+            <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-secondary btn-sm mt-2">
+              上传新图片
+            </.button>
+
+            <%# Display file input and progress only if upload is initiated (upload_config_name is set) %>
             <%= if upload_config_name do %>
-              <.live_file_input upload={uploads_map[upload_config_name]} class="mt-2"/>
-              <div class="mt-2 space-y-1">
-                 <%= for entry <- uploads_map[upload_config_name].entries do %>
-                   <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
-                   <progress value={entry.progress} max="100" class="w-full h-2"></progress>
-                 <% end %>
+              <div class="mt-4 border-t pt-4">
+                <h3 class="text-md font-medium mb-2">上传新图片</h3>
+                <.live_file_input upload={assigns.uploads[upload_config_name]} class="mt-2"/>
+                <div class="mt-2 space-y-1">
+                  <%= for entry <- assigns.uploads[upload_config_name].entries do %>
+                    <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
+                    <progress value={entry.progress} max="100" class="w-full h-2"></progress>
+                  <% end %>
+                </div>
+                <%= for err <- Phoenix.Component.upload_errors(assigns.uploads[upload_config_name]) do %>
+                  <p class="alert alert-danger"><%= error_to_string(err) %></p>
+                <% end %>
+                <%# Button to apply the uploaded image %>
+                <.button type="button" phx-click="apply_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-primary btn-sm mt-2" disabled={Enum.empty?(assigns.uploads[upload_config_name].entries)}>
+                  应用上传的图片
+                </.button>
               </div>
-              <%# Use Phoenix.Component.upload_errors, passing the specific upload slice %>
-              <%= for err <- Phoenix.Component.upload_errors(uploads_map[upload_config_name]) do %>
-                <p class="alert alert-danger"><%= error_to_string(err) %></p>
-              <% end %>
+            <% else %>
+              <p class="text-sm text-gray-500 mt-2">点击 "上传新图片" 按钮以选择文件。</p>
             <% end %>
           <% "spacer" -> %>
             <h2 class="text-lg font-semibold mb-2">编辑间距</h2>
