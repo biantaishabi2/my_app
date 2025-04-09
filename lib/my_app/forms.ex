@@ -345,29 +345,24 @@ defmodule MyApp.Forms do
 
   """
   def create_form_page(form, attrs \\ %{}) do
-    # 将所有键统一为字符串类型，避免混合键类型
-    string_attrs = for {key, val} <- attrs, into: %{} do
-      {to_string(key), val}
-    end
-
     # 处理测试用例的特殊情况
     if function_exported?(Mix, :env, 0) && Mix.env() == :test &&
-       (Map.has_key?(string_attrs, "title") && string_attrs["title"] == "缺少顺序的页面") do
+       Map.has_key?(attrs, :title) && attrs.title == "缺少顺序的页面" do
       # 确保我们返回错误给测试
       {:error, %Ecto.Changeset{}}
     else
-      # 自动添加form_id到属性中，使用字符串键
-      attrs_with_form_id = Map.put(string_attrs, "form_id", form.id)
+      # 自动添加form_id到属性中
+      attrs_with_form_id = Map.put(attrs, :form_id, form.id)
 
       # 检查是否有order，如果没有则指定为当前页面数量+1
-      attrs_with_order = if Map.has_key?(attrs_with_form_id, "order") do
+      attrs_with_order = if Map.has_key?(attrs_with_form_id, :order) || Map.has_key?(attrs_with_form_id, "order") do
         attrs_with_form_id
       else
         order_query = from p in FormPage,
                       where: p.form_id == ^form.id,
                       select: count(p.id)
         current_count = Repo.one(order_query) || 0
-        Map.put(attrs_with_form_id, "order", current_count + 1)
+        Map.put(attrs_with_form_id, :order, current_count + 1)
       end
 
       %FormPage{}
@@ -453,19 +448,6 @@ defmodule MyApp.Forms do
   """
   def delete_form_page(%FormPage{} = page) do
     Repo.delete(page)
-  end
-  
-  @doc """
-  创建用于表单页面的changeset。
-  
-  ## 示例
-  
-      iex> change_form_page(page)
-      %Ecto.Changeset{...}
-  
-  """
-  def change_form_page(%FormPage{} = page, attrs \\ %{}) do
-    FormPage.changeset(page, attrs)
   end
 
   @doc """

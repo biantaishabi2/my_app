@@ -2,18 +2,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   use MyAppWeb, :live_view
   import MyAppWeb.FormLive.ItemRendererComponent
   import MyAppWeb.FormComponents
-  # === 假设你创建了以下 Helper 模块 ===
-  import MyAppWeb.FormHelpers
-  # === End Helper 模块导入 ===
-  # +++ ADD IMPORTS +++
-  import Number.Delimit
-  import MyAppWeb.CoreComponents
-  # +++ END ADD IMPORTS +++
+  # 导入FormLive.Edit中的函数，特别是process_options
+  import MyAppWeb.FormLive.Edit, only: [process_options: 2]
   alias MyApp.FormTemplates
   alias MyApp.Forms # 添加缺失的别名
   alias MyApp.Forms.FormItem
-  # 添加 Logger 别名，因为 render 函数中的回退逻辑使用了它
-  require Logger
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -28,7 +21,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     form_items = form_with_data.items || [] # 提取表单项列表
 
     # 获取或初始化装饰元素列表
-    decoration = Map.get(template, :decoration, []) |> ensure_list() # Use Map.get for safe access & ensure list
+    decoration = Map.get(template, :decoration, []) # Use Map.get for safe access
+
+    # 确保 decoration 是一个列表
+    decoration = if is_list(decoration), do: decoration, else: []
 
     socket = socket
       |> assign(:template, template)
@@ -54,7 +50,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_condition, nil)       # 添加：初始化逻辑条件
 
     # 打印加载的表单项及其选项 (来自 form_with_data)
-    # IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
+    IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
 
     {:ok, socket}
   end
@@ -540,29 +536,113 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   @impl true
   def handle_event("edit_decoration_element", %{"id" => id}, socket) do
-    # Find the decoration element by ID
-    case find_decoration_and_index(socket.assigns.decoration, id) do
-      {decoration, _index} ->
-        # Just open the editor, no upload logic needed
-        {:noreply,
-         socket
-         |> assign(:editing_decoration_id, id)
-         |> assign(:current_decoration, decoration) # Assign the full decoration map
-        }
-
-      nil ->
-        # Decoration not found
-        {:noreply, put_flash(socket, :error, "找不到要编辑的装饰元素")}
-    end
+    {:noreply, assign(socket, :editing_decoration_id, id)}
   end
 
   @impl true
-  def handle_event("cancel_edit_decoration_element", _params, socket) do
-    {:noreply,
-      socket
-      |> assign(:editing_decoration_id, nil)
-      |> assign(:current_decoration, nil)
-    }
+  def handle_event("close_decoration_editor", _params, socket) do
+    {:noreply, assign(socket, :editing_decoration_id, nil)}
+  end
+
+  @impl true
+  def handle_event("save_decoration_element", %{"id" => id} = params, socket) do
+    # 找到要编辑的装饰元素
+    decoration = socket.assigns.decoration
+    element_index = Enum.find_index(decoration, fn elem -> (elem["id"] || elem[:id]) == id end)
+
+    if element_index do
+      # 获取当前元素
+      current_element = Enum.at(decoration, element_index)
+      element_type = current_element["type"] || current_element[:type]
+
+      # 根据元素类型处理参数
+      updated_element = case element_type do
+        "title" ->
+          title = params["title"] || ""
+          level = params["level"] || "2"
+          # 将 level 转换为整数
+          {level_int, _} = Integer.parse(level)
+          align = params["align"] || "left"
+
+          current_element
+          |> Map.put("title", title)
+          |> Map.put("level", level_int)
+          |> Map.put("align", align)
+
+        "paragraph" ->
+          content = params["content"] || ""
+
+          current_element
+          |> Map.put("content", content)
+
+        "section" ->
+          title = params["title"] || ""
+          divider_style = params["divider_style"] || "solid"
+
+          current_element
+          |> Map.put("title", title)
+          |> Map.put("divider_style", divider_style)
+
+        "explanation" ->
+          content = params["content"] || ""
+          note_type = params["note_type"] || "info"
+
+          current_element
+          |> Map.put("content", content)
+          |> Map.put("note_type", note_type)
+
+        "header_image" ->
+          image_url = params["image_url"] || ""
+          height = params["height"] || "300px"
+
+          current_element
+          |> Map.put("image_url", image_url)
+          |> Map.put("height", height)
+
+        "inline_image" ->
+          image_url = params["image_url"] || ""
+          caption = params["caption"] || ""
+          width = params["width"] || "100%"
+          align = params["align"] || "center"
+
+          current_element
+          |> Map.put("image_url", image_url)
+          |> Map.put("caption", caption)
+          |> Map.put("width", width)
+          |> Map.put("align", align)
+
+        "spacer" ->
+          height = params["height"] || "1rem"
+
+          current_element
+          |> Map.put("height", height)
+
+        _ -> current_element
+      end
+
+      # 更新列表中的元素
+      updated_decoration = List.replace_at(decoration, element_index, updated_element)
+
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+        {:ok, updated_template} ->
+          {:noreply,
+            socket
+            |> assign(:template, updated_template)
+            |> assign(:decoration, updated_template.decoration)
+            |> assign(:editing_decoration_id, nil)
+            |> put_flash(:info, "装饰元素已更新")
+          }
+
+        {:error, _changeset} ->
+          {:noreply,
+            socket
+            |> put_flash(:error, "无法更新装饰元素")
+          }
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -578,7 +658,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         {:noreply,
           socket
           |> assign(:template, updated_template)
-          |> assign(:decoration, updated_decoration)
+          |> assign(:decoration, updated_template.decoration)
           |> put_flash(:info, "装饰元素已删除")
         }
 
@@ -622,7 +702,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         {:noreply,
           socket
           |> assign(:template, updated_template)
-          |> assign(:decoration, updated_decoration)
+          |> assign(:decoration, updated_template.decoration)
           |> put_flash(:info, "装饰元素顺序已更新")
         }
 
@@ -966,7 +1046,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 模板标题和操作区 -->
           <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;">
-            <%# <h1 style="font-size: 1.5rem; font-weight: 700;">Template Name Removed</h1> REMOVED %>
+            <%# <h1 style=\"font-size: 1.5rem; font-weight: 700;\">Template Name Removed</h1> REMOVED %>
 
             <div style="display: flex; gap: 0.75rem;">
               <.link
@@ -1251,7 +1331,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                                     <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                                   </select>
-                                  <.render_condition_value_input item={Enum.find(@structure, fn item -> item["id"] == elem_id end)} condition={@logic_condition} />
+                                  <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
                                 </div>
                               </div>
 
@@ -1589,7 +1669,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                                   </select>
                                   <%# !!! CHANGE: Pass the constructed form_item map instead of finding from structure again !!! %>
-                                  <.render_condition_value_input item={form_item} condition={@logic_condition} />
+                                  <%= render_condition_value_input(form_item, @logic_condition) %>
                                 </div>
                               </div>
 
@@ -1694,7 +1774,165 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   <% end %>
                 </div>
 
-                <!-- 逻辑编辑面板已移到每个卡片中，这里不再需要重复渲染 -->
+                <!-- 逻辑编辑面板 - 当存在编辑项时显示 -->
+                <%= if @editing_logic_item_id do %>
+                  <%
+                    # 查找正在编辑的项目
+                    editing_item = Enum.find(@structure, fn item -> Map.get(item, "id") == @editing_logic_item_id end)
+                    item_label = if editing_item, do: Map.get(editing_item, "label") || "未命名题目", else: "未知题目"
+                  %>
+                  <div class="mt-5 p-4 border border-blue-200 bg-blue-50 rounded-md">
+                    <div class="flex justify-between items-center mb-3">
+                      <h3 class="font-medium text-blue-800">编辑「<%= item_label %>」的逻辑</h3>
+                      <button
+                        type="button"
+                        phx-click="close_logic_editor"
+                        class="text-gray-500 hover:text-gray-800"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <form phx-submit="save_logic" class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                        <div class="flex items-center gap-2">
+                          <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
+                            <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
+                            <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                          </select>
+                          <%# !!! CHANGE: Pass the constructed form_item map for the editing item !!! %>
+                          <%
+                              # Find the form_item map for the item being edited for logic
+                              editing_db_item = Enum.find(@form_items, fn fi -> fi.id == @editing_logic_item_id end)
+                              editing_form_item_map = if editing_db_item do
+                                # Convert the struct to a map if needed by render_condition_value_input
+                                # Or adjust render_condition_value_input to accept the struct directly
+                                # Assuming render_condition_value_input can handle the struct:
+                                editing_db_item
+                              else
+                                # Fallback: Find from structure and build map (less ideal)
+                                editing_element = Enum.find(@structure, fn el -> Map.get(el, "id") == @editing_logic_item_id end)
+                                if editing_element do
+                                    elem_type_str = Map.get(editing_element, "type", "text_input")
+                                    %{
+                                      id: @editing_logic_item_id,
+                                      type: safe_to_atom(elem_type_str),
+                                      label: Map.get(editing_element, "label") || "未命名元素",
+                                      required: Map.get(editing_element, "required", false),
+                                      description: Map.get(editing_element, "description"),
+                                      placeholder: Map.get(editing_element, "placeholder"),
+                                      # !!! FIX: Add options field to fallback map !!!
+                                      options: format_options_for_component(Map.get(editing_element, "options", [])),
+                                      min: Map.get(editing_element, "min"),
+                                      max: Map.get(editing_element, "max"),
+                                      step: Map.get(editing_element, "step"),
+                                      max_rating: Map.get(editing_element, "max_rating", 5)
+                                      # Add other fields as needed by render_condition_value_input
+                                    }
+                                else
+                                    nil # Should not happen if @editing_logic_item_id is set
+                                end
+                              end
+                           %>
+                          <%= render_condition_value_input(editing_form_item_map, @logic_condition) %>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                        <div class="flex flex-col gap-2">
+                          <label class="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="jump"
+                              checked={@logic_type == "jump"}
+                              phx-click="change_logic_type"
+                              phx-value-type="jump"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">跳转到指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="show"
+                              checked={@logic_type == "show"}
+                              phx-click="change_logic_type"
+                              phx-value-type="show"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">显示指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="hide"
+                              checked={@logic_type == "hide"}
+                              phx-click="change_logic_type"
+                              phx-value-type="hide"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">隐藏指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input
+                              type="radio"
+                              name="logic[type]"
+                              value="end"
+                              checked={@logic_type == "end"}
+                              phx-click="change_logic_type"
+                              phx-value-type="end"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">结束问卷</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <%= if @logic_type in ["jump", "show", "hide"] do %>
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                          <select
+                            name="logic[target_id]"
+                            class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          >
+                            <option value="">-- 请选择题目 --</option>
+                            <%= for target_item <- @structure do %>
+                              <% target_id = Map.get(target_item, "id") %>
+                              <% target_label = Map.get(target_item, "label") || "未命名题目" %>
+                              <%= if target_id != @editing_logic_item_id do %>
+                                <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                              <% end %>
+                            <% end %>
+                          </select>
+                        </div>
+                      <% end %>
+
+                      <div class="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          phx-click="close_logic_editor"
+                          class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          取消
+                        </button>
+                        <button
+                          type="submit"
+                          class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          保存规则
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                <% end %>
               </div>
 
             <% "decoration" -> %>
@@ -1899,7 +2137,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           <div
                             id={"decoration-#{elem_id}"}
                             data-id={elem_id}
-                            class={["p-3 border rounded bg-white shadow-sm form-card transition-all duration-150 ease-in-out", if(@editing_decoration_id == elem_id, do: "ring-2 ring-indigo-500")]}
+                            class="p-3 border rounded bg-white shadow-sm form-card"
                           >
                             <div class="flex justify-between items-center">
                               <div class="flex items-center">
@@ -1936,50 +2174,122 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                             <!-- 预览区域 -->
                             <div class="mt-3 border-t pt-3">
-                              <%# Call the preview function (which should still exist) %>
-                              <%= render_decoration_preview(%{element: element}) %>
+                              <%= render_decoration_preview(element) %>
                             </div>
 
-                            <!-- 编辑面板 - 仅在选中时显示 (INLINED HERE) -->
+                            <!-- 编辑面板 - 仅在选中时显示 -->
                             <%= if @editing_decoration_id == elem_id do %>
-                              <div class="mt-3 p-4 border border-indigo-300 bg-indigo-50 rounded-md"> <%# Adjusted padding/style %>
-                                <%# --- START INLINED EDITOR HEEX --- %>
-                                <%
-                                  # Prepare variables needed for the inlined editor using @assigns
-                                  current_elem_id = @current_decoration["id"] || @current_decoration[:id]
-                                  current_elem_type = @current_decoration["type"] || @current_decoration[:type]
-                                  current_upload_config = @current_upload_config_name # Use assign directly
-                                  # Safely get specific upload state, default to empty if config_name is nil or not found
-                                  uploads_for_current = if current_upload_config, do: Map.get(@uploads, current_upload_config, %{entries: []}), else: %{entries: []}
-                                  # Create a form helper context based on the current decoration being edited
-                                  # Ensure keys are strings for the form
-                                  form_data = @current_decoration |> stringify_keys()
-                                  form = Phoenix.HTML.FormData.to_form(form_data, as: "decoration")
-                                %>\n                                <div class="flex justify-between items-center mb-4">
-                                  <h3 class="text-lg font-medium text-indigo-800">编辑 <%= display_decoration_type(current_elem_type) %></h3>
-                                  <button type="button" phx-click="cancel_edit_decoration_element" phx-target={@myself} class="text-gray-500 hover:text-gray-800">
+                              <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+                                <div class="flex justify-between items-center mb-3">
+                                  <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
+                                  <button
+                                    type="button"
+                                    phx-click="close_decoration_editor"
+                                    class="text-gray-500 hover:text-gray-800"
+                                  >
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                       <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                                     </svg>
                                   </button>
-                                </div>\n\n                                <.form :let={f} for={form} phx-change="validate_decoration_element" phx-submit="save_decoration_element" phx-value-id={current_elem_id} phx-target={@myself}>
-                                  <%# Use name="id" not decoration[id] for the hidden input %>
-                                  <input type="hidden" name="id" value={current_elem_id} />
-                                  <%# Use name="decoration[type]" to ensure type is submitted %>
-                                  <input type="hidden" name="decoration[type]" value={current_elem_type} />
+                                </div>
 
-                                  <%= case current_elem_type do %>
-                                    <% "title" -> %>\n                                      <.input field={{f, :title}} name="decoration[title]" type="text" label="标题内容" value={form_data["title"]} />\n                                      <.input field={{f, :level}} name="decoration[level]" type="select" label="标题级别" options={[{"H1", 1}, {"H2", 2}, {"H3", 3}, {"H4", 4}]} value={to_string(form_data["level"] || 2)} />\n                                      <.input field={{f, :align}} name="decoration[align]" type="select" label="对齐方式" options={[{"居左", "left"}, {"居中", "center"}, {"居右", "right"}]} value={form_data["align"] || "left"} />\n                                    <% "paragraph" -> %>\n                                      <.input field={{f, :content}} name="decoration[content]" type="textarea" label="段落内容" value={form_data["content"]} />\n                                    <% "section" -> %>\n                                      <.input field={{f, :title}} name="decoration[title]" type="text" label="章节标题" value={form_data["title"]} />\n                                      <.input field={{f, :divider_style}} name="decoration[divider_style]" type="select" label="分隔线样式" options={[{"实线", "solid"}, {"虚线", "dashed"}, {"点状", "dotted"}, {"无", "none"}]} value={form_data["divider_style"] || "solid"} />\n                                    <% "explanation" -> %>\n                                      <.input field={{f, :content}} name="decoration[content]" type="textarea" label="说明内容" value={form_data["content"]} />\n                                      <.input field={{f, :note_type}} name="decoration[note_type]" type="select" label="说明类型" options={[{"信息", "info"}, {"警告", "warning"}, {"成功", "success"}, {"错误", "error"}]} value={form_data["note_type"] || "info"} />\n                                    <% type when type in ["header_image", "inline_image"] -> %>\n                                      <.input field={{f, :image_url}} name="decoration[image_url]" type="text" label="图片URL (留空以上传)" value={form_data["image_url"]} phx-debounce="500"/>\n                                      <%# Button to initiate the upload process %>\n                                      <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={current_elem_id} phx-target={@myself} class="btn-secondary btn-sm mt-2">\n                                        上传新图片替换\n                                      </.button>\n                                      <%# Display file input and progress only if upload is initiated (current_upload_config is set FOR THIS element) %>\n                                      <%= if current_upload_config && @uploads[current_upload_config] do %>\n                                        <div class="mt-4 border-t pt-4">\n                                          <h3 class="text-md font-medium mb-2">上传新图片</h3>\n                                          <.live_file_input upload={@uploads[current_upload_config]} class="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>\n                                          <div class="mt-2 space-y-1">\n                                            <%= for entry <- uploads_for_current.entries do %>\n                                              <div class="flex items-center justify-between p-2 border rounded">\n                                                <span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span>\n                                                <button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(current_upload_config)} phx-target={@myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button>\n                                              </div>\n                                              <progress value={entry.progress} max="100" class="w-full h-2"></progress>\n                                              <%= for err <- upload_errors(@uploads[current_upload_config], entry.ref) do %>\n                                                <div class="text-sm text-red-600"><%= error_to_string(err) %></div>\n                                              <% end %>\n                                            <% end %>\n                                          </div>\n                                          <.button type="button" phx-click="apply_decoration_upload" phx-value-id={current_elem_id} phx-value-config_name={Atom.to_string(current_upload_config)} phx-target={@myself} class="btn-primary btn-sm mt-2" disabled={!Enum.any?(uploads_for_current.entries, &(&1.progress == 100))}>\n                                            应用上传的图片\n                                          </.button>\n                                        </div>\n                                      <% else %>\n                                         <p class="text-sm text-gray-500 mt-2">点击 "上传新图片替换" 按钮以选择文件。</p>\n                                      <% end %>\n                                      <%= if type == "inline_image" do %>\n                                        <.input field={{f, :caption}} name="decoration[caption]" type="text" label="图片说明" value={form_data["caption"]} />\n                                        <.input field={{f, :width}} name="decoration[width]" type="text" label="图片宽度 (e.g., 80%, 300px)" value={form_data["width"] || "80%"} />\n                                        <.input field={{f, :align}} name="decoration[align]" type="select" label="对齐方式" options={[{"居左", "left"}, {"居中", "center"}, {"居右", "right"}]} value={form_data["align"] || "center"} />\n                                      <% else %> <%# header_image %>\n                                        <.input field={{f, :height}} name="decoration[height]" type="text" label="图片高度 (e.g., 300px)" value={form_data["height"] || "300px"} />\n                                      <% end %>\n                                    <% "spacer" -> %>\n                                      <.input field={{f, :height}} name="decoration[height]" type="text" label="间距高度 (e.g., 2rem, 32px)" value={form_data["height"] || "2rem"} />\n                                  <% end %>\n\n                                  <div class="flex justify-end space-x-2 mt-4">\n                                    <button type="button" phx-click="cancel_edit_decoration_element" phx-target={@myself} class="btn-secondary">取消</button>\n                                    <button type="submit" phx-disable-with="保存中..." class="btn-primary">保存更改</button>\n                                  </div>\n                                </.form>\n                                <%# --- END INLINED EDITOR HEEX --- %>\n                              </div>\n                            <% end %>\n                          </div>\n                        <% end %>\n                      <% end %>\n                    </div>\n                  </div>
+                                <%= render_decoration_editor(element) %>
+                              </div>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                  </div>
                 </div>
               </div>
-            <% end %>
+          <% end %>
         </div>
       </div>
     </div>
     """
   end
 
-  # Keep this function for now as it directly manipulates the structure assign
+  # 安全地将字符串转换为atom，如果转换失败则返回默认值:text_input
+  defp safe_to_atom(type_str) when is_binary(type_str) do
+    try do
+      String.to_existing_atom(type_str)
+    rescue
+      ArgumentError -> :text_input
+    end
+  end
+  defp safe_to_atom(_), do: :text_input
+
+  # 安全处理matrix_type值
+  defp safe_matrix_type("multiple"), do: :multiple
+  defp safe_matrix_type(:multiple), do: :multiple
+  defp safe_matrix_type(_), do: :single
+
+  # 安全处理selection_type值
+  defp safe_selection_type("multiple"), do: :multiple
+  defp safe_selection_type(:multiple), do: :multiple
+  defp safe_selection_type(_), do: :single
+
+  # 安全处理image_caption_position值
+  defp safe_caption_position("top"), do: :top
+  defp safe_caption_position(:top), do: :top
+  defp safe_caption_position("none"), do: :none
+  defp safe_caption_position(:none), do: :none
+  defp safe_caption_position(_), do: :bottom
+
+  # 将模板选项格式化为FormItem需要的格式
+  defp format_options(options) when is_list(options) do
+    IO.puts("\n==== 格式化选项 ====")
+    IO.puts("选项列表: #{inspect(options)}")
+
+    result = Enum.map(options, fn option ->
+      IO.puts("处理选项: #{inspect(option)}")
+
+      formatted = cond do
+        # 处理Map类型的选项
+        is_map(option) ->
+          # 获取id，确保有值
+          id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
+          # 获取value，确保有值
+          value = Map.get(option, "value") || Map.get(option, :value) || ""
+          # 获取label，如果没有则使用value
+          label = Map.get(option, "label") || Map.get(option, :label) || value || ""
+          # 图片文件名可能为nil
+          image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
+
+          %{
+            id: id,
+            value: value,
+            label: label,
+            image_filename: image_filename
+          }
+
+        # 处理字符串或其他非Map类型选项
+        true ->
+          option_str = to_string(option)
+          %{
+            id: Ecto.UUID.generate(),
+            value: option_str,
+            label: option_str,
+            image_filename: nil
+          }
+      end
+
+      IO.puts("格式化后: #{inspect(formatted)}")
+      formatted
+    end)
+
+    IO.puts("格式化结果: #{inspect(result)}")
+    result
+  end
+  # 对于非列表选项，返回默认选项
+  defp format_options(nil), do: [
+    %{id: Ecto.UUID.generate(), label: "选项A", value: "option_a", image_filename: nil},
+    %{id: Ecto.UUID.generate(), label: "选项B", value: "option_b", image_filename: nil}
+  ]
+  defp format_options(_), do: []
+
+  # 根据新的顺序重排结构项
   defp reorder_structure_items(structure, ordered_ids) do
     # 创建一个ID到结构项的映射
     id_to_item_map = Enum.reduce(structure, %{}, fn item, acc ->
@@ -2003,182 +2313,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     reordered_items ++ missing_items
   end
 
+  # 辅助函数：显示选中的控件类型名称
+  defp display_selected_type(nil), do: "未选择"
+  defp display_selected_type("text_input"), do: "文本输入"
 
-
-  # --- Helper Functions ---
-
-  defp ensure_list(nil), do: []
-  defp ensure_list(list) when is_list(list), do: list
-  defp ensure_list(_), do: []
-
-  defp find_decoration_and_index(decorations, id) do
-    Enum.find_index(decorations, fn decoration ->
-      (decoration["id"] || decoration[:id]) |> to_string() == id
-    end)
-    |> case do
-      nil -> nil
-      index -> {Enum.at(decorations, index), index}
-    end
-  end
-
-  defp stringify_keys(map) when is_map(map) do
-    for {key, val} <- map, into: %{}, do: {to_string(key), val}
-  end
-
-  @impl true
-  def handle_event("close_decoration_editor", _params, socket) do
-    {:noreply,
-      socket
-      |> assign(:editing_decoration_id, nil)
-      |> assign(:current_decoration, nil)
-      |> assign(:current_upload_config_name, nil) # Clear upload config name
-    }
-  end
-
-  @impl true
-  def handle_event("save_decoration_element", %{"id" => decoration_id, "decoration" => decoration_params}, socket) do
-    IO.inspect(decoration_params, label: "Raw save_decoration_element params")
-
-    %{template: template, decoration: decorations, staged_upload_entry: staged_upload} = socket.assigns
-
-    # Find the original decoration and its index
-    case find_decoration_and_index(decorations, decoration_id) do
-      {original_decoration, index} ->
-        # 1. Check if there's a staged upload for THIS decoration
-        final_image_url_result =
-          if staged_upload && staged_upload.decoration_id == decoration_id do
-            IO.puts("Persisting staged upload for decoration #{decoration_id}")
-            persist_staged_decoration_upload(staged_upload.entry, template.id)
-          else
-            # No staged upload for this item.
-            # Use the image_url from the form OR the current decoration, prioritizing form.
-            # Fallback to original if both are nil or preview links.
-            form_url = Map.get(decoration_params, "image_url")
-            current_url = Map.get(socket.assigns.current_decoration, "image_url") # Might be preview URL
-
-            final_url = cond do
-              form_url != nil && !String.starts_with?(form_url || "", "preview:") ->
-                form_url # Use valid URL submitted from form
-              current_url != nil && !String.starts_with?(current_url || "", "preview:") ->
-                 current_url # Use valid URL from current state (if form didn't override)
-              true ->
-                Map.get(original_decoration, "image_url") || Map.get(original_decoration, :image_url) || "" # Fallback to original or empty
-            end
-            IO.puts("No staged upload found or used for #{decoration_id}. Using URL: #{final_url}")
-            {:ok, final_url} # Treat as success, no file operation needed
-          end
-
-        case final_image_url_result do
-          {:ok, final_image_url} ->
-            # 2. Prepare final params by cleaning form input
-            # Exclude image_url here, as we handle it explicitly with final_image_url
-            cleaned_params =
-              decoration_params
-              |> Map.drop(["_csrf_token", "_target", "_uploads", "config_name", "id", "image_url"])
-              |> stringify_keys() # Ensure keys are strings
-
-            # 3. Merge cleaned form params onto the ORIGINAL decoration first
-            updated_decoration_item = Map.merge(original_decoration, cleaned_params)
-
-            # 4. Explicitly set the determined image_url
-            updated_decoration_item = Map.put(updated_decoration_item, "image_url", final_image_url)
-
-            # 5. Update the list
-            updated_decorations = List.replace_at(decorations, index, updated_decoration_item)
-
-            # 6. Save to DB
-            case FormTemplates.update_template(template, %{decoration: updated_decorations}) do
-              {:ok, updated_template} ->
-                {:noreply,
-                  socket
-                  |> assign(:template, updated_template)
-                  |> assign(:decoration, updated_decorations)
-                  |> assign(:editing_decoration_id, nil) # Close editor
-                  |> assign(:current_decoration, nil)
-                  |> assign(:current_upload_config_name, nil) # Clear config name
-                  |> assign(:staged_upload_entry, nil) # Clear staged upload on successful save
-                  |> put_flash(:info, "装饰元素已保存")
-                }
-              {:error, changeset} ->
-                IO.inspect(changeset, label: "Template Update Error")
-                error_message = MyAppWeb.ErrorHelpers.translate_error(changeset) |> Enum.join(", ")
-                {:noreply,
-                  socket
-                  |> assign(:editing_decoration_id, decoration_id) # Keep editor open on error
-                  # Show the state *before* attempting save, potentially with preview URL
-                  |> assign(:current_decoration, socket.assigns.current_decoration)
-                  |> put_flash(:error, "保存装饰元素失败: #{error_message}")
-                }
-            end
-
-          {:error, reason} ->
-            # File persistence failed
-            IO.puts("Decoration image persistence failed: #{inspect(reason)}")
-            {:noreply,
-              socket
-              |> assign(:editing_decoration_id, decoration_id) # Keep editor open
-              |> assign(:current_decoration, socket.assigns.current_decoration) # Keep showing preview
-              |> put_flash(:error, "图片保存失败: #{reason}")
-            }
-        end
-
-      nil ->
-        # Decoration not found
-        {:noreply, put_flash(socket, :error, "找不到要保存的装饰元素")}
-    end
-  end
-
-  # === NEW HELPER ===
-  defp persist_staged_decoration_upload(entry, template_id) do
-    source_path = entry.path # Temporary path from LiveView upload
-    original_filename = entry.client_name
-
-    # Define target directory relative to priv/static (ensure it exists)
-    # Use template ID to isolate uploads per template
-    relative_dir = Path.join(["uploads", "templates", to_string(template_id)])
-    target_dir = Path.join("priv/static", relative_dir)
-
-    # Ensure the directory exists
-    # Use File.mkdir_p! to raise an error if creation fails
-    try do
-      File.mkdir_p!(target_dir)
-    rescue
-      e in File.Error ->
-        Logger.error("Failed to create directory #{target_dir}: #{inspect(e)}")
-        reraise e, System.stacktrace() # Re-raise to handle upstream or crash
-    end
-
-    # Generate a unique filename (e.g., using UUID + safe name)
-    extension = Path.extname(original_filename)
-    safe_base = original_filename |> Path.basename(extension) |> String.replace(~r/[^A-Za-z0-9_.-]+/, "_")
-    unique_filename = "#{safe_base}_#{Ecto.UUID.generate()}#{extension}"
-    target_path = Path.join(target_dir, unique_filename)
-
-    # Move the file (copy and delete source might be safer across filesystems)
-    case File.cp(source_path, target_path) do
-      :ok ->
-        # Optionally delete the source temp file (LiveView might clean it up anyway)
-        # File.rm(source_path)
-
-        # Return the relative URL path for storage/display (starts with /)
-        final_relative_url = "/" <> Path.join(relative_dir, unique_filename) |> String.replace("\\", "/") # Ensure forward slashes for URL
-        {:ok, final_relative_url}
-      {:error, reason} ->
-        Logger.error("Failed to copy decoration upload from #{source_path} to #{target_path}: #{inspect(reason)}")
-        {:error, "文件系统错误"} # Return a user-friendly error message
-    end
-  catch
-     # Catch potential errors during directory creation or file operations
-     error ->
-       Logger.error("Error during decoration upload persistence: #{inspect(error)}")
-       {:error, "处理文件时发生内部错误"}
-  end
-
-  # +++ ADD PRIVATE HELPER FUNCTIONS +++
-
-  # --- Decoration Rendering Helpers ---
-
-  # (Copied from DecorationHelpers)
+  # 辅助函数：显示装饰元素类型
   defp display_decoration_type(nil), do: "未知类型"
   defp display_decoration_type("title"), do: "标题"
   defp display_decoration_type("paragraph"), do: "段落"
@@ -2187,189 +2326,771 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp display_decoration_type("header_image"), do: "题图"
   defp display_decoration_type("inline_image"), do: "插图"
   defp display_decoration_type("spacer"), do: "空间"
-  defp display_decoration_type(atom) when is_atom(atom), do: display_decoration_type(Atom.to_string(atom))
   defp display_decoration_type(_), do: "未知类型"
 
-  # (Copied from DecorationHelpers)
-  defp truncate(text, max_length) when is_binary(text) and is_integer(max_length) and max_length >= 0 do
+  # 截取字符串的辅助函数
+  defp truncate(text, max_length) when is_binary(text) do
     if String.length(text) > max_length do
       String.slice(text, 0, max_length) <> "..."
     else
       text
     end
   end
-  defp truncate(text, _max_length) when is_binary(text), do: text # Handle invalid max_length
-  defp truncate(_, _), do: "" # Handle non-binary text
+  defp truncate(_, _), do: ""
 
-  # (Copied from DecorationHelpers)
+  # 根据表单项类型渲染适当的条件值输入控件
+  defp render_condition_value_input(form_item_data, logic_condition) do
+    # form_item_data is either a FormItem struct or a map constructed in render/1
 
-  # (Copied from DecorationHelpers)
+    # 1. Safely extract needed data from form_item_data (struct or map)
+    item_id = case form_item_data do
+                %MyApp.Forms.FormItem{id: id} -> id
+                %{id: id} -> id # Assumes atom key :id from fallback map
+                _ -> nil
+              end
 
-  # (Copied and adapted from DecorationHelpers.render_decoration_preview)
-  defp render_decoration_preview(%{element: element} = assigns) do
-    ~H"""
-    <%= case element["type"] || element[:type] do %>
-      <% "title" -> %>
-        <div style={"text-align: #{element["align"] || element[:align] || "left"};"}>
-          <%= case element["level"] || element[:level] || 1 do %>
-            <% 1 -> %><h1 style="font-size: 1.5rem; font-weight: 700;"><%= element["title"] || element[:title] || "未命名标题" %></h1>
-            <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= element["title"] || element[:title] || "未命名标题" %></h2>
-            <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= element["title"] || element[:title] || "未命名标题" %></h3>
-            <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= element["title"] || element[:title] || "未命名标题" %></h4>
+    item_type = case form_item_data do
+                  %MyApp.Forms.FormItem{type: type} -> type
+                  %{type: type} -> type # Assumes atom type in map
+                  _ -> nil
+                end
+
+    # Get options safely, handling both struct and map, ensuring it's a list
+    options = case form_item_data do
+                %MyApp.Forms.FormItem{options: opts} when is_list(opts) -> opts # Already ItemOption structs
+                %{options: opts} when is_list(opts) -> opts # Assumes list of ItemOption structs/maps from fallback
+                _ -> []
+              end
+
+    max_rating = case form_item_data do
+                   %MyApp.Forms.FormItem{max_rating: rating} -> rating
+                   %{max_rating: rating} -> rating # Assumes atom key :max_rating
+                   _ -> 5 # Default
+                 end
+
+    # Check if we could determine the item type
+    if is_nil(item_type) do
+      # Render disabled text input if type couldn't be determined or item data was bad
+      assigns = %{current_value: get_in(logic_condition || %{}, ["value"])}
+      ~H"""
+      <input
+        type="text"
+        name="logic[condition_value]"
+        value={@current_value}
+        placeholder="无法确定控件类型"
+        class="block w-2/3 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        disabled
+      />
+      """
+    else
+      # We have a valid item type, proceed with rendering the correct input
+      current_value = get_in(logic_condition || %{}, ["value"])
+
+      cond do
+        # 选择题类型 (单选、多选、下拉菜单)
+        item_type in [:radio, :checkbox, :dropdown] ->
+          local_options = options # Use the safely extracted options list
+
+          assigns = %{current_value: current_value}
+          ~H"""
+          <select
+            name="logic[condition_value]"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">-- 请选择选项 --</option>
+            <%= for option <- local_options do %>
+              <%# Access fields safely for struct or map %>
+              <% opt_value = option.value || Map.get(option, :value) %>
+              <% opt_label = option.label || Map.get(option, :label) %>
+              <option value={opt_value} selected={@current_value == opt_value}><%= opt_label %></option>
+            <% end %>
+          </select>
+          """
+
+        # 评分题
+        item_type == :rating ->
+          local_max_rating = max_rating || 5
+          assigns = %{max_rating: local_max_rating, current_value: current_value}
+          ~H"""
+          <select
+            name="logic[condition_value]"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">-- 请选择评分 --</option>
+            <%= for rating <- 1..@max_rating do %>
+              <option value={Integer.to_string(rating)} selected={@current_value == Integer.to_string(rating)}><%= rating %> 分</option>
+            <% end %>
+          </select>
+          """
+
+        # 日期选择
+        item_type == :date ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="date"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="YYYY-MM-DD"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
+
+        # 时间选择
+        item_type == :time ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="time"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="HH:MM"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
+
+        # 默认使用文本输入框
+        true ->
+          assigns = %{current_value: current_value}
+          ~H"""
+          <input
+            type="text"
+            name="logic[condition_value]"
+            value={@current_value}
+            placeholder="输入答案值"
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+          """
+      end
+    end
+  end
+  defp display_selected_type("textarea"), do: "文本区域"
+  defp display_selected_type("radio"), do: "单选按钮"
+  defp display_selected_type("dropdown"), do: "下拉菜单"
+  defp display_selected_type("checkbox"), do: "复选框"
+  defp display_selected_type("rating"), do: "评分"
+  defp display_selected_type("number"), do: "数字输入"
+  defp display_selected_type("email"), do: "邮箱输入"
+  defp display_selected_type("phone"), do: "电话号码"
+  defp display_selected_type("date"), do: "日期选择"
+  defp display_selected_type("time"), do: "时间选择"
+  defp display_selected_type("region"), do: "地区选择"
+  defp display_selected_type("matrix"), do: "矩阵题"
+  defp display_selected_type("image_choice"), do: "图片选择"
+  defp display_selected_type("file_upload"), do: "文件上传"
+  defp display_selected_type(_), do: "未知类型"
+
+  # 渲染装饰元素预览
+  defp render_decoration_preview(element) do
+    type = element["type"] || element[:type]
+
+    case type do
+      "title" ->
+        title = element["title"] || element[:title] || "未命名标题"
+        level = element["level"] || element[:level] || 1
+        align = element["align"] || element[:align] || "left"
+
+        assigns = %{title: title, level: level, align: align}
+        ~H"""
+        <div style={"text-align: #{@align};"}>
+          <%= case @level do %>
+            <% 1 -> %><h1 style="font-size: 1.5rem; font-weight: 700;"><%= @title %></h1>
+            <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= @title %></h2>
+            <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= @title %></h3>
+            <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= @title %></h4>
           <% end %>
         </div>
-      <% "paragraph" -> %>
-        <div class="text-gray-700 prose prose-sm max-w-none">
-          <%= Phoenix.HTML.raw(element["content"] || element[:content] || "") %>
+        """
+
+      "paragraph" ->
+        content = element["content"] || element[:content] || ""
+
+        assigns = %{content: content}
+        ~H"""
+        <div class="text-gray-700">
+          <%= Phoenix.HTML.raw(@content) %>
         </div>
-      <% "section" -> %>
-        <% title = element["title"] || element[:title] %>
-        <% divider_style = element["divider_style"] || element[:divider_style] || "solid" %>
+        """
+
+      "section" ->
+        title = element["title"] || element[:title]
+        divider_style = element["divider_style"] || element[:divider_style] || "solid"
+
+        assigns = %{title: title, divider_style: divider_style}
+        ~H"""
         <div>
-          <hr style={"border-style: #{divider_style}; border-color: #e5e7eb;"} />
-          <%= if title do %>
-            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= title %></h3>
+          <hr style={"border-style: #{@divider_style}; border-color: #e5e7eb;"} />
+          <%= if @title do %>
+            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= @title %></h3>
           <% end %>
         </div>
-      <% "explanation" -> %>
-        <% content = element["content"] || element[:content] || "" %>
-        <% note_type = element["note_type"] || element[:note_type] || "info" %>
-        <% bg_color = case note_type do "warning" -> "#fff7ed"; "tip" -> "#f0fdf4"; _ -> "#f0f9ff" end %>
-        <% border_color = case note_type do "warning" -> "#fdba74"; "tip" -> "#86efac"; _ -> "#bae6fd" end %>
-        <% icon = case note_type do "warning" -> "⚠️"; "tip" -> "💡"; _ -> "ℹ️" end %>
-        <div style={"background-color: #{bg_color}; border-left: 4px solid #{border_color}; padding: 1rem; border-radius: 0.25rem;"}>
+        """
+
+      "explanation" ->
+        content = element["content"] || element[:content] || ""
+        type = element["note_type"] || element[:note_type] || "info"
+
+        bg_color = case type do
+          "warning" -> "#fff7ed"
+          "tip" -> "#f0fdf4"
+          _ -> "#f0f9ff"  # info 默认
+        end
+
+        border_color = case type do
+          "warning" -> "#fdba74"
+          "tip" -> "#86efac"
+          _ -> "#bae6fd"  # info 默认
+        end
+
+        icon = case type do
+          "warning" -> "⚠️"
+          "tip" -> "💡"
+          _ -> "ℹ️"  # info 默认
+        end
+
+        assigns = %{content: content, bg_color: bg_color, border_color: border_color, icon: icon, type: type}
+        ~H"""
+        <div style={"background-color: #{@bg_color}; border-left: 4px solid #{@border_color}; padding: 1rem; border-radius: 0.25rem;"}>
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-            <div style="font-size: 1.25rem; line-height: 1.25;"><%= icon %></div>
+            <div style="font-size: 1.25rem; line-height: 1.25;"><%= @icon %></div>
             <div>
-              <div style="font-weight: 500; margin-bottom: 0.25rem;"><%= String.capitalize(note_type) %></div>
-              <div class="text-gray-700 prose prose-sm max-w-none">
-                <%= Phoenix.HTML.raw(content) %>
+              <div style="font-weight: 500; margin-bottom: 0.25rem;"><%= String.capitalize(@type) %></div>
+              <div class="text-gray-700">
+                <%= Phoenix.HTML.raw(@content) %>
               </div>
             </div>
           </div>
         </div>
-      <% "header_image" -> %>
-        <% image_src = element["image_url"] || element[:image_url] || "" %>
-        <% height = element["height"] || element[:height] || "200px" %>
+        """
+
+      "header_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        height = element["height"] || element[:height] || "300px"
+
+        assigns = %{image_url: image_url, height: height}
+        ~H"""
         <div>
-          <%= if image_src != "" do %>
-            <img src={image_src} alt="题图" style={"height: #{height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
+          <%= if @image_url != "" do %>
+            <img src={@image_url} alt="题图" style={"height: #{@height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
           <% else %>
-            <div style={"height: #{height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
-              <span class="text-gray-400">请设置图片URL或上传图片</span>
+            <div style={"height: #{@height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL</span>
             </div>
           <% end %>
         </div>
-      <% "inline_image" -> %>
-        <% image_src = element["image_url"] || element[:image_url] || "" %>
-        <% caption = element["caption"] || element[:caption] || "" %>
-        <% width = element["width"] || element[:width] || "100%" %>
-        <% align = element["align"] || element[:align] || "center" %>
-        <div style={"text-align: #{align};"}>
-          <%= if image_src != "" do %>
-            <img src={image_src} alt={caption} style={"width: #{width}; max-width: 100%; border-radius: 0.25rem; margin-left: auto; margin-right: auto;"} />
+        """
+
+      "inline_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        caption = element["caption"] || element[:caption] || ""
+        width = element["width"] || element[:width] || "100%"
+        align = element["align"] || element[:align] || "center"
+
+        assigns = %{image_url: image_url, caption: caption, width: width, align: align}
+        ~H"""
+        <div style={"text-align: #{@align};"}>
+          <%= if @image_url != "" do %>
+            <img src={@image_url} alt={@caption} style={"width: #{@width}; max-width: 100%; border-radius: 0.25rem;"} />
           <% else %>
-            <div style={"width: #{width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
-              <span class="text-gray-400">请设置图片URL或上传图片</span>
+            <div style={"width: #{@width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL</span>
             </div>
           <% end %>
-          <%= if caption != "" do %>
-            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= caption %></div>
+          <%= if @caption != "" do %>
+            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= @caption %></div>
           <% end %>
         </div>
-      <% "spacer" -> %>
-        <div style={"height: #{element["height"] || element[:height] || "1rem"};"} class="spacer"></div>
-      <% _ -> %>
-        <div class="text-gray-500">未知元素预览</div>
-    <% end %>
-    """
+        """
+
+      "spacer" ->
+        height = element["height"] || element[:height] || "1rem"
+
+        assigns = %{height: height}
+        ~H"""
+        <div style={"height: #{@height};"} class="spacer"></div>
+        """
+
+      _ ->
+        assigns = %{}
+        ~H"""
+        <div class="text-gray-500">未知元素类型</div>
+        """
+    end
   end
 
-  # (Copied and adapted from DecorationHelpers.render_decoration_editor)
-  defp render_decoration_editor(%{element: element, uploads: uploads_map, upload_config_name: upload_config_name, myself: myself} = assigns) do
-    # Parameters are now pattern-matched, no need to extract from assigns
+  # 渲染装饰元素编辑器
+  defp render_decoration_editor(element) do
+    type = element["type"] || element[:type]
+    id = element["id"] || element[:id]
 
-    element_type = element["type"] || element[:type] # Handle both string and atom keys
-    element_id = element["id"] || element[:id]
+    case type do
+      "title" ->
+        title = element["title"] || element[:title] || ""
+        level = element["level"] || element[:level] || 1
+        align = element["align"] || element[:align] || "left"
 
-    # Create a form specific to this decoration element
-    form = Phoenix.HTML.FormData.to_form(element, as: "decoration")
+        assigns = %{id: id, title: title, level: level, align: align}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">标题文本</label>
+              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
 
-    ~H"""
-    <div class="space-y-4 border p-4 rounded-md bg-gray-50">
-      <.form :let={f} for={form} phx-change="validate_decoration_element" phx-submit="save_decoration_element" phx-value-id={element_id} phx-target={myself}>
-        <input type="hidden" name="id" value={element_id} />
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">标题级别</label>
+              <select name="level" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="1" selected={@level == 1}>大标题 (H1)</option>
+                <option value="2" selected={@level == 2}>中标题 (H2)</option>
+                <option value="3" selected={@level == 3}>小标题 (H3)</option>
+                <option value="4" selected={@level == 4}>微标题 (H4)</option>
+              </select>
+            </div>
 
-        <%= case element_type do %>
-          <% "title" -> %>
-            <h2 class="text-lg font-semibold mb-2">编辑标题</h2>
-            <.input field={{f, :title}} type="text" label="标题内容" value={element["title"] || element[:title]}/>
-            <.input field={{f, :level}} type="select" label="标题级别" options={[{"H1", 1}, {"H2", 2}, {"H3", 3}, {"H4", 4}, {"H5", 5}, {"H6", 6}]} value={to_string(element["level"] || element[:level] || 2)} />
-            <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "left"} />
-          <% "paragraph" -> %>
-            <h2 class="text-lg font-semibold mb-2">编辑段落</h2>
-            <.input field={{f, :content}} type="textarea" label="段落内容" value={element["content"] || element[:content]}/>
-          <% "section" -> %>
-            <h2 class="text-lg font-semibold mb-2">编辑章节分隔</h2>
-            <.input field={{f, :title}} type="text" label="章节标题（可选）" value={element["title"] || element[:title]} />
-            <.input field={{f, :divider_style}} type="select" label="分隔线样式" options={[{"实线", "solid"}, {"虚线", "dashed"}, {"点状线", "dotted"}, {"无分隔线", "none"}]} value={element["divider_style"] || element[:divider_style] || "solid"} />
-          <% "explanation" -> %>
-            <h2 class="text-lg font-semibold mb-2">编辑说明框</h2>
-            <.input field={{f, :content}} type="textarea" label="说明内容" value={element["content"] || element[:content]} />
-            <.input field={{f, :note_type}} type="select" label="提示类型" options={[{"信息", "info"}, {"成功", "success"}, {"警告", "warning"}, {"危险", "danger"}]} value={element["note_type"] || element[:note_type] || "info"} />
-          <% type when type in ["header_image", "inline_image"] -> %>
-            <%= if type == "header_image" do %>
-              <h2 class="text-lg font-semibold mb-2">编辑页眉图片</h2>
-              <.input field={{f, :height}} type="text" label="图片高度 (e.g., 300px, 20rem)" value={element["height"] || element[:height] || "300px"} />
-            <% else %>
-              <h2 class="text-lg font-semibold mb-2">编辑行内图片</h2>
-              <.input field={{f, :caption}} type="text" label="图片说明（可选）" value={element["caption"] || element[:caption]} />
-              <.input field={{f, :width}} type="text" label="图片宽度 (e.g., 80%, 200px)" value={element["width"] || element[:width] || "100%"} />
-              <.input field={{f, :align}} type="select" label="对齐方式" options={[{"左对齐", "left"}, {"居中", "center"}, {"右对齐", "right"}]} value={element["align"] || element[:align] || "center"} />
-            <% end %>
-            <.input field={{f, :image_url}} type="text" label="图片URL (或点击下方按钮上传)" value={element["image_url"] || element[:image_url]} />
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
+              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="left" selected={@align == "left"}>左对齐</option>
+                <option value="center" selected={@align == "center"}>居中</option>
+                <option value="right" selected={@align == "right"}>右对齐</option>
+              </select>
+            </div>
 
-            <%# Button to initiate the upload process %>
-            <.button type="button" phx-click="initiate_decoration_upload" phx-value-id={element_id} phx-target={myself} class="btn-secondary btn-sm mt-2">
-              上传新图片
-            </.button>
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
 
-            <%# Display file input and progress only if upload is initiated (upload_config_name is set) %>
-            <%= if upload_config_name do %>
-              <div class="mt-4 border-t pt-4">
-                <h3 class="text-md font-medium mb-2">上传新图片</h3>
-                <.live_file_input upload={uploads_map} class="mt-2"/> <%# Pass the whole uploads_map %>
-                <div class="mt-2 space-y-1">
-                  <%= for entry <- uploads_map.entries do %>
-                    <div class="flex items-center justify-between p-2 border rounded"><span class="text-sm font-medium"><%= entry.client_name %> (<%= format_bytes(entry.client_size) %>)</span><button type="button" phx-click="cancel_decoration_upload" phx-value-ref={entry.ref} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} aria-label="取消上传" class="text-red-500 hover:text-red-700">&times;</button></div>
-                    <progress value={entry.progress} max="100" class="w-full h-2"></progress>
-                  <% end %>
-                </div>
-                <%= for err <- Phoenix.Component.upload_errors(uploads_map) do %><%# Use the whole uploads_map %>
-                  <p class="alert alert-danger"><%= error_to_string(err) %></p>
-                <% end %>
-                <%# Button to apply the uploaded image - Enable only if there are completed entries %>
-                <.button type="button" phx-click="apply_decoration_upload" phx-value-id={element_id} phx-value-config_name={Atom.to_string(upload_config_name)} phx-target={myself} class="btn-primary btn-sm mt-2" disabled={!Enum.any?(uploads_map.entries, &(&1.progress == 100))}>
-                  应用上传的图片
-                </.button>
-              </div>
-            <% else %>
-              <p class="text-sm text-gray-500 mt-2">点击 "上传新图片" 按钮以选择文件。</p>
-            <% end %>
-          <% "spacer" -> %>
-            <h2 class="text-lg font-semibold mb-2">编辑间距</h2>
-            <.input field={{f, :height}} type="text" label="间距高度 (e.g., 1rem, 20px)" value={element["height"] || element[:height] || "1rem"} />
-          <% _ -> %>
-            <p>未知装饰类型：<%= element_type %></p>
-        <% end %>
+      "paragraph" ->
+        content = element["content"] || element[:content] || ""
 
-        <div class="flex justify-end space-x-2 mt-4">
-          <button type="button" phx-click="cancel_edit_decoration_element" phx-target={myself} class="btn-secondary">取消</button>
-          <button type="submit" phx-disable-with="保存中..." class="btn-primary">保存更改</button>
-        </div>
-      </.form>
-    </div>
-    """
+        assigns = %{id: id, content: content}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">段落内容</label>
+              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      "section" ->
+        title = element["title"] || element[:title] || ""
+        divider_style = element["divider_style"] || element[:divider_style] || "solid"
+
+        assigns = %{id: id, title: title, divider_style: divider_style}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">章节标题（可选）</label>
+              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">分隔线样式</label>
+              <select name="divider_style" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="solid" selected={@divider_style == "solid"}>实线</option>
+                <option value="dashed" selected={@divider_style == "dashed"}>虚线</option>
+                <option value="dotted" selected={@divider_style == "dotted"}>点线</option>
+                <option value="double" selected={@divider_style == "double"}>双线</option>
+              </select>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      "explanation" ->
+        content = element["content"] || element[:content] || ""
+        note_type = element["note_type"] || element[:note_type] || "info"
+
+        assigns = %{id: id, content: content, note_type: note_type}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">说明内容</label>
+              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">提示类型</label>
+              <select name="note_type" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="info" selected={@note_type == "info"}>信息 (蓝色)</option>
+                <option value="tip" selected={@note_type == "tip"}>提示 (绿色)</option>
+                <option value="warning" selected={@note_type == "warning"}>警告 (黄色)</option>
+              </select>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      "header_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        height = element["height"] || element[:height] || "300px"
+
+        assigns = %{id: id, image_url: image_url, height: height}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
+              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">高度</label>
+              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 300px, 20rem 或 50vh</p>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      "inline_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        caption = element["caption"] || element[:caption] || ""
+        width = element["width"] || element[:width] || "100%"
+        align = element["align"] || element[:align] || "center"
+
+        assigns = %{id: id, image_url: image_url, caption: caption, width: width, align: align}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
+              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片说明</label>
+              <input type="text" name="caption" value={@caption} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片宽度</label>
+              <input type="text" name="width" value={@width} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 50%, 300px</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
+              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="left" selected={@align == "left"}>左对齐</option>
+                <option value="center" selected={@align == "center"}>居中</option>
+                <option value="right" selected={@align == "right"}>右对齐</option>
+              </select>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      "spacer" ->
+        height = element["height"] || element[:height] || "1rem"
+
+        assigns = %{id: id, height: height}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">空间高度</label>
+              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 1rem, 20px, 2em</p>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+
+      _ ->
+        assigns = %{}
+        ~H"""
+        <div class="text-gray-500">无法编辑未知类型的元素</div>
+        """
+    end
   end
-  # +++ END PRIVATE HELPER FUNCTIONS +++
+
+  defp process_item_params(params) do
+    # 确保所有键都是字符串
+    params = normalize_params(params)
+
+    # 类型转换
+    params = convert_type_to_atom(params)
+
+    # 必填项处理
+    normalize_required_field(params)
+  end
+
+  # 检查是否需要选项的表单项类型
+  defp requires_options?(item_type) when is_atom(item_type) do
+    item_type in [:radio, :checkbox, :dropdown]
+  end
+
+  defp requires_options?(item_type) when is_binary(item_type) do
+    item_type in ["radio", "checkbox", "dropdown"]
+  end
+
+  defp requires_options?(_), do: false
+
+  # 确保所有键都是字符串
+  defp normalize_params(params) do
+    params
+    |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+    |> Map.new()
+  end
+
+  # 将类型字符串转换为atom
+  defp convert_type_to_atom(params) do
+    case params["type"] do
+      "text_input" -> Map.put(params, "type", :text_input)
+      "textarea" -> Map.put(params, "type", :textarea)
+      "radio" -> Map.put(params, "type", :radio)
+      "checkbox" -> Map.put(params, "type", :checkbox)
+      "dropdown" -> Map.put(params, "type", :dropdown)
+      "rating" -> Map.put(params, "type", :rating)
+      "number" -> Map.put(params, "type", :number)
+      "email" -> Map.put(params, "type", :email)
+      "phone" -> Map.put(params, "type", :phone)
+      "date" -> Map.put(params, "type", :date)
+      "time" -> Map.put(params, "type", :time)
+      "region" -> Map.put(params, "type", :region)
+      "matrix" -> Map.put(params, "type", :matrix)
+      type when is_binary(type) -> Map.put(params, "type", String.to_existing_atom(type))
+      _ -> params
+    end
+  end
+
+  # 处理required字段的值
+  defp normalize_required_field(params) do
+    case params["required"] do
+      "true" -> Map.put(params, "required", true)
+      true -> Map.put(params, "required", true)
+      "on" -> Map.put(params, "required", true)
+      nil -> Map.put(params, "required", false)
+      false -> Map.put(params, "required", false)
+      "false" -> Map.put(params, "required", false)
+      _ -> params
+    end
+  end
+
+  # 处理选项
+  defp process_options(item, options_list) do
+    # 先获取当前数据库中的选项以备参考
+    current_options = case MyApp.Repo.preload(item, :options).options do
+      nil -> []
+      options when is_list(options) -> options
+    end
+
+    # 直接使用传入的 options_list
+    options_to_save = options_list
+      |> Enum.map(fn opt ->
+          %{
+            "label" => opt.label || "",
+            "value" => opt.value || "",
+            "image_id" => opt.image_id,
+            "image_filename" => opt.image_filename
+          }
+        end)
+      |> Enum.filter(fn opt ->
+          opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
+        end)
+
+    # 使用 Multi 来确保原子性：先删除旧选项，再添加新选项
+    multi = Ecto.Multi.new()
+
+    # 1. 删除旧选项
+    multi = Enum.reduce(current_options, multi, fn option, multi_acc ->
+      Ecto.Multi.delete(multi_acc, "delete_option_#{option.id}", option)
+    end)
+
+    # 2. 添加新选项
+    multi = Enum.with_index(options_to_save, 1)
+            |> Enum.reduce(multi, fn {option_params, index}, multi_acc ->
+                params_with_order = Map.put(option_params, "order", index)
+                changeset = MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{form_item_id: item.id}, params_with_order)
+                Ecto.Multi.insert(multi_acc, "insert_option_#{index}", changeset)
+            end)
+
+    # 执行事务
+    case MyApp.Repo.transaction(multi) do
+      {:ok, _result_map} ->
+        updated_item = Forms.get_form_item_with_options(item.id)
+        updated_item
+
+      {:error, failed_operation, failed_value, _changes_so_far} ->
+        item
+    end
+  end
+
+  # 这个函数现在只用于回退情况，确保返回 Map 列表以兼容 ItemRendererComponent
+  defp format_options_for_component(options) when is_list(options) do
+    IO.puts("\n==== 格式化选项 (回退) ====")
+    IO.puts("选项列表: #{inspect(options)}")
+
+    result = Enum.map(options, fn option ->
+      IO.puts("处理选项: #{inspect(option)}")
+
+      formatted = cond do
+        # 处理Map类型的选项 (来自template structure)
+        is_map(option) ->
+          id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
+          value = Map.get(option, "value") || Map.get(option, :value) || ""
+          label = Map.get(option, "label") || Map.get(option, :label) || value || ""
+          image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
+
+          %MyApp.Forms.ItemOption{ # 返回 ItemOption 结构体
+            id: id,
+            value: value,
+            label: label,
+            image_filename: image_filename,
+             # 确保其他必须字段有默认值，虽然 ItemRendererComponent 可能不直接用
+            order: Map.get(option, "order", 0),
+            form_item_id: nil, # 回退时无法确定
+            image_id: Map.get(option, "image_id")
+          }
+
+        # 处理字符串类型的选项 (来自template structure)
+        is_binary(option) ->
+           %MyApp.Forms.ItemOption{
+             id: Ecto.UUID.generate(),
+             value: option,
+             label: option,
+             order: 0,
+             form_item_id: nil,
+             image_filename: nil,
+             image_id: nil
+           }
+
+        # 其他无法处理的类型
+        true ->
+          Logger.warning("Unsupported option format encountered in format_options_for_component: #{inspect(option)}")
+          nil
+      end
+
+      IO.puts("格式化后: #{inspect(formatted)}")
+      formatted
+    end)
+    |> Enum.filter(&(&1 != nil)) # 过滤掉处理失败的选项
+
+    IO.puts("格式化结果: #{inspect(result)}")
+    result
+  end
+  defp format_options_for_component(nil), do: [] # 确保 nil 返回空列表
+  defp format_options_for_component(_), do: [] # 确保其他类型返回空列表
 end

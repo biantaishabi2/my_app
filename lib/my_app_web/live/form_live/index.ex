@@ -3,7 +3,7 @@ defmodule MyAppWeb.FormLive.Index do
 
   alias MyApp.Forms
   alias MyApp.Forms.Form
-
+  
   # 开发时调试辅助函数
   def debug(socket, message) do
     if Application.get_env(:my_app, :env) == :dev do
@@ -24,7 +24,7 @@ defmodule MyAppWeb.FormLive.Index do
 
     # 获取所有可用的表单项类型和分类
     all_item_types = Forms.list_available_form_item_types()
-
+    
     {:ok, assign(socket,
       forms: forms,
       page_title: "我的表单",
@@ -49,7 +49,7 @@ defmodule MyAppWeb.FormLive.Index do
     |> assign(:page_title, "我的表单")
     |> assign(:form, nil)
   end
-
+  
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "新建表单")
@@ -60,7 +60,7 @@ defmodule MyAppWeb.FormLive.Index do
   defp apply_action(socket, :edit, %{"id" => id}) do
     current_user = socket.assigns.current_user
     form = Forms.get_form(id)
-
+    
     if form && form.user_id == current_user.id do
       socket
       |> assign(:page_title, "编辑表单")
@@ -77,7 +77,7 @@ defmodule MyAppWeb.FormLive.Index do
   @impl true
   def handle_event("cancel_new_form", _params, socket) do
     IO.puts("===> 取消新表单事件被触发")
-    {:noreply,
+    {:noreply, 
       socket
       |> assign(:show_new_form, false)
       |> assign(:form_values, %{})
@@ -89,7 +89,7 @@ defmodule MyAppWeb.FormLive.Index do
   def handle_event("delete_form", %{"id" => id}, socket) do
     current_user = socket.assigns.current_user
     form = Forms.get_form(id)
-
+    
     if form && form.user_id == current_user.id do
       case Forms.delete_form(form) do
         {:ok, _} ->
@@ -98,7 +98,7 @@ defmodule MyAppWeb.FormLive.Index do
             |> put_flash(:info, "表单已删除")
             |> assign(:forms, Forms.list_forms(current_user.id))
           }
-
+        
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "删除失败: #{inspect(reason)}")}
       end
@@ -118,11 +118,11 @@ defmodule MyAppWeb.FormLive.Index do
     {:noreply, push_navigate(socket, to: ~p"/forms/new")}
   end
 
-  @impl true
+  @impl true 
   def handle_event("publish_form", %{"id" => id}, socket) do
     current_user = socket.assigns.current_user
     form = Forms.get_form(id)
-
+    
     if form && form.user_id == current_user.id do
       case Forms.publish_form(form) do
         {:ok, _updated_form} ->
@@ -131,7 +131,7 @@ defmodule MyAppWeb.FormLive.Index do
             |> put_flash(:info, "表单已发布")
             |> assign(:forms, Forms.list_forms(current_user.id))
           }
-
+        
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "发布失败: #{inspect(reason)}")}
       end
@@ -144,14 +144,14 @@ defmodule MyAppWeb.FormLive.Index do
   def handle_event("save_form", %{"form" => form_params}, socket) do
     IO.puts("===> 保存表单事件被触发")
     current_user = socket.assigns.current_user
-
+    
     # 添加用户ID到表单参数
     form_params_with_user = Map.put(form_params, "user_id", current_user.id)
     IO.inspect(form_params_with_user, label: "表单参数")
-
+    
     # 创建 changeset 并验证
     changeset = %Form{} |> Forms.change_form(form_params_with_user)
-
+    
     if changeset.valid? do
       case Forms.create_form(form_params_with_user) do
         {:ok, form} ->
@@ -166,12 +166,12 @@ defmodule MyAppWeb.FormLive.Index do
             |> assign(:show_new_form, false)
             |> push_navigate(to: ~p"/forms/#{form.id}/edit")
           }
-
+        
         {:error, %Ecto.Changeset{} = error_changeset} ->
           IO.puts("===> 表单创建失败")
           errors = format_errors(error_changeset)
           IO.inspect(errors, label: "错误")
-          {:noreply,
+          {:noreply, 
             socket
             |> assign(form_changeset: error_changeset)
             |> assign(form_values: form_params)
@@ -184,8 +184,8 @@ defmodule MyAppWeb.FormLive.Index do
       errors = format_errors(changeset)
       IO.puts("===> 表单验证失败")
       IO.inspect(errors, label: "验证错误")
-
-      {:noreply,
+      
+      {:noreply, 
         socket
         |> assign(form_changeset: changeset)
         |> assign(form_values: form_params)
@@ -201,12 +201,12 @@ defmodule MyAppWeb.FormLive.Index do
       %Form{}
       |> Forms.change_form(form_params)
       |> Map.put(:action, :validate)
-
+    
     # 收集错误信息
     errors = format_errors(changeset)
     IO.inspect(errors, label: "Validation errors")
-
-    {:noreply, socket
+    
+    {:noreply, socket 
       |> assign(form_changeset: changeset)
       |> assign(form_values: form_params)
       |> assign(form_errors: errors)}
@@ -216,14 +216,14 @@ defmodule MyAppWeb.FormLive.Index do
   def handle_event("view_responses", %{"id" => id}, socket) do
     {:noreply, push_navigate(socket, to: ~p"/forms/#{id}/responses")}
   end
-
+  
   # 处理切换分类的事件
   @impl true
   def handle_event("change_category", %{"category" => category}, socket) do
     category_atom = String.to_existing_atom(category)
     {:noreply, assign(socket, active_category: category_atom, search_term: nil)}
   end
-
+  
   # 处理搜索控件类型的事件
   @impl true
   def handle_event("search_item_types", %{"search" => search_term}, socket) do
@@ -236,13 +236,13 @@ defmodule MyAppWeb.FormLive.Index do
       {:noreply, assign(socket, search_term: search_results)}
     end
   end
-
+  
   # 分类显示辅助函数
   defp display_category(:basic), do: "基础控件"
   defp display_category(:personal), do: "个人信息"
   defp display_category(:advanced), do: "高级控件"
   defp display_category(_), do: "未知分类"
-
+  
   # 显示控件类型名称的辅助函数
   defp display_selected_type("text_input"), do: "文本输入"
   defp display_selected_type("textarea"), do: "文本区域"
@@ -260,7 +260,7 @@ defmodule MyAppWeb.FormLive.Index do
   defp display_selected_type("image_choice"), do: "图片选择"
   defp display_selected_type("file_upload"), do: "文件上传"
   defp display_selected_type(other), do: other
-
+  
   # 获取控件图标的辅助函数
   defp get_type_icon(:text_input), do: "fa-keyboard"
   defp get_type_icon(:textarea), do: "fa-align-left"
@@ -285,14 +285,14 @@ defmodule MyAppWeb.FormLive.Index do
       message = Enum.reduce(opts, msg, fn {key, value}, acc ->
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
-
+      
       # 翻译常见错误消息
       case message do
         "can't be blank" -> "不能为空"
         _ -> message
       end
     end)
-
+    
     errors
   end
 end

@@ -3,7 +3,6 @@ defmodule MyAppWeb.FormLive.Edit do
 
   alias MyApp.Forms
   alias MyApp.Forms.FormItem
-  alias MyApp.Forms.FormPage # Add alias for FormPage
   alias MyAppWeb.FormLive.ItemRendererComponent
   alias MyApp.Upload
   alias MyApp.Upload.UploadedFile
@@ -14,9 +13,6 @@ defmodule MyAppWeb.FormLive.Edit do
   import Ecto.Query
   import MyAppWeb.FormComponents
   # Phoenix.LiveView.Upload 的函数已经通过 use MyAppWeb, :live_view 导入
-  # === 添加 Helper 模块导入 ===
-  import MyAppWeb.FormHelpers
-  # === End Helper 模块导入 ===
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -884,10 +880,8 @@ defmodule MyAppWeb.FormLive.Edit do
     IO.puts("Socket中的选项 (:item_options): #{inspect(item_options)}")
 
     # 处理 item 参数 (类型转换, required 标准化)
-    # === 使用导入的 Helper 函数 ===
     clean_item_params = process_item_params(item_params)
-    # === End ===
-    item_type = clean_item_params["type"] # type is now atom
+    item_type = clean_item_params["type"]
 
     # 区分是更新还是添加
     if current_item && (current_item.id || editing_item_id) do
@@ -899,7 +893,6 @@ defmodule MyAppWeb.FormLive.Edit do
         IO.puts("更新现有表单项 ID: #{item_id_to_update}")
 
         # 如果是矩阵类型，确保行列存在
-        # === 使用转换后的 atom 类型比较 ===
         clean_item_params = if item_type == :matrix do
            rows = Map.get(clean_item_params, "matrix_rows") || existing_item.matrix_rows || []
            cols = Map.get(clean_item_params, "matrix_columns") || existing_item.matrix_columns || []
@@ -938,9 +931,7 @@ defmodule MyAppWeb.FormLive.Edit do
       end
     else
       # 添加新表单项
-      # === 使用导入的 Helper 函数 ===
       clean_params = process_item_params(item_params)
-      # === End ===
 
       case Forms.add_form_item(form, clean_params) do
         {:ok, new_item} ->
@@ -1165,64 +1156,141 @@ defmodule MyAppWeb.FormLive.Edit do
 
   # 辅助函数
 
-  # 处理表单项参数 - MOVED to FormHelpers
-  # defp process_item_params(params) do
-  #   # 确保所有键都是字符串
-  #   params = normalize_params(params)
-  #   # 类型转换
-  #   params = convert_type_to_atom(params)
-  #   # 必填项处理
-  #   normalize_required_field(params)
-  # end
+  # 处理表单项参数
+  defp process_item_params(params) do
+    # 确保所有键都是字符串
+    params = normalize_params(params)
 
-  # 检查是否需要选项的表单项类型 - MOVED to FormHelpers
-  # defp requires_options?(item_type) when is_atom(item_type) do
-  #   item_type in [:radio, :checkbox, :dropdown]
-  # end
-  # defp requires_options?(item_type) when is_binary(item_type) do
-  #   item_type in ["radio", "checkbox", "dropdown"]
-  # end
-  # defp requires_options?(_), do: false
+    # 类型转换
+    params = convert_type_to_atom(params)
 
-  # 检查矩阵类型控件是否有行和列 - Keep for now, specific to this LV state/logic
+    # 必填项处理
+    normalize_required_field(params)
+  end
+
+  # 检查是否需要选项的表单项类型
+  defp requires_options?(item_type) when is_atom(item_type) do
+    item_type in [:radio, :checkbox, :dropdown]
+  end
+
+  defp requires_options?(item_type) when is_binary(item_type) do
+    item_type in ["radio", "checkbox", "dropdown"]
+  end
+
+  defp requires_options?(_), do: false
+
+  # 检查矩阵类型控件是否有行和列
   defp validate_matrix(socket, item_type) do
     current_item = socket.assigns.current_item
 
-    # === 使用转换后的 atom 类型比较 ===
-    if item_type == :matrix do
+    if (item_type == :matrix or item_type == "matrix") do
       matrix_rows = current_item.matrix_rows || []
       matrix_columns = current_item.matrix_columns || []
 
       IO.puts("Matrix validation: rows=#{inspect(matrix_rows)}, columns=#{inspect(matrix_columns)}")
 
       # 确保行和列都有默认值
-      matrix_rows = if Enum.empty?(matrix_rows), do: ["问题1", "问题2", "问题3"], else: matrix_rows
-      matrix_columns = if Enum.empty?(matrix_columns), do: ["选项A", "选项B", "选项C"], else: matrix_columns
+      matrix_rows = if Enum.empty?(matrix_rows) do
+        default_rows = ["问题1", "问题2", "问题3"]
+        IO.puts("Using default rows: #{inspect(default_rows)}")
+        default_rows
+      else
+        matrix_rows
+      end
+
+      matrix_columns = if Enum.empty?(matrix_columns) do
+        default_columns = ["选项A", "选项B", "选项C"]
+        IO.puts("Using default columns: #{inspect(default_columns)}")
+        default_columns
+      else
+        matrix_columns
+      end
 
       # 确保原始item有行列字段
       updated_item = current_item
         |> Map.put(:matrix_rows, matrix_rows)
         |> Map.put(:matrix_columns, matrix_columns)
-        |> Map.put(:matrix_type, current_item.matrix_type || :single) # Use atom for default
+        |> Map.put(:matrix_type, current_item.matrix_type || :single)
 
+      # 立即更新socket的current_item
       socket = assign(socket, :current_item, updated_item)
+
+      # 也异步发送更新指令，确保UI能响应
       Process.send_after(self(), {:update_matrix_defaults, updated_item}, 50)
+
+      # 返回更新后的socket，而不是简单的:ok
       {:ok, socket}
     else
       {:ok, socket}
     end
   end
 
-  # 确保所有键都是字符串 - MOVED to FormHelpers (as part of process_item_params)
-  # defp normalize_params(params) do ... end
+  # 确保所有键都是字符串
+  defp normalize_params(params) do
+    params
+    |> Enum.map(fn {k, v} -> {to_string(k), v} end)
+    |> Map.new()
+  end
 
-  # 将类型字符串转换为atom - MOVED to FormHelpers (as part of process_item_params)
-  # defp convert_type_to_atom(params) do ... end
+  # 将类型字符串转换为atom
+  defp convert_type_to_atom(params) do
+    case params["type"] do
+      "text_input" ->
+        IO.puts("转换类型 text_input 为 atom")
+        Map.put(params, "type", :text_input)
+      "textarea" -> Map.put(params, "type", :textarea)
+      "radio" ->
+        IO.puts("转换类型 radio 为 atom")
+        Map.put(params, "type", :radio)
+      "checkbox" -> Map.put(params, "type", :checkbox)
+      "dropdown" -> Map.put(params, "type", :dropdown)
+      "rating" -> Map.put(params, "type", :rating)
+      "number" ->
+        IO.puts("转换类型 number 为 atom")
+        Map.put(params, "type", :number)
+      "email" ->
+        IO.puts("转换类型 email 为 atom")
+        Map.put(params, "type", :email)
+      "phone" ->
+        IO.puts("转换类型 phone 为 atom")
+        Map.put(params, "type", :phone)
+      "date" ->
+        IO.puts("转换类型 date 为 atom")
+        Map.put(params, "type", :date)
+      "time" ->
+        IO.puts("转换类型 time 为 atom")
+        Map.put(params, "type", :time)
+      "region" ->
+        IO.puts("转换类型 region 为 atom")
+        Map.put(params, "type", :region)
+      "matrix" ->
+        IO.puts("转换类型 matrix 为 atom")
+        Map.put(params, "type", :matrix)
+      type when is_binary(type) ->
+        IO.puts("转换其他字符串类型 #{type} 为 atom")
+        Map.put(params, "type", String.to_existing_atom(type))
+      _ ->
+        IO.puts("无法转换类型: #{inspect(params["type"])}")
+        params
+    end
+  end
 
-  # 处理required字段的值 - MOVED to FormHelpers (as part of process_item_params)
-  # defp normalize_required_field(params) do ... end
+  # 处理required字段的值
+  defp normalize_required_field(params) do
+    IO.puts("转换后的类型: #{inspect(params["type"])}, 类型: #{if is_atom(params["type"]), do: "atom", else: "非atom"}")
 
-  # 处理选项图片上传 - Keep for now, specific to Edit LV
+    case params["required"] do
+      "true" -> Map.put(params, "required", true)
+      true -> Map.put(params, "required", true)
+      "on" -> Map.put(params, "required", true)
+      nil -> Map.put(params, "required", false)
+      false -> Map.put(params, "required", false)
+      "false" -> Map.put(params, "required", false)
+      _ -> params
+    end
+  end
+
+  # 处理选项图片上传
   defp process_option_images(socket, options, form_item_id, form_id) do
     IO.puts("\n==== 处理选项图片上传 ====")
 
@@ -1304,7 +1372,7 @@ defmodule MyAppWeb.FormLive.Edit do
     end)
   end
 
-  # 处理选项 (公有函数，可被其他模块导入) - Keep for now, specific DB logic for Edit LV
+  # 处理选项 (公有函数，可被其他模块导入)
   def process_options(item, options_list) do
     # 处理表单项选项
     IO.puts("\n==== 处理表单项选项 ====")
@@ -1382,7 +1450,7 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
 
-  # 调试函数 - 测试选项提取逻辑 - Keep for now or remove if debugging done
+  # 调试函数 - 测试选项提取逻辑
   defp debug_options_extraction(params) do
     IO.puts("\n--- 选项提取调试 ---")
 
@@ -1417,7 +1485,7 @@ defmodule MyAppWeb.FormLive.Edit do
     IO.puts("--- 选项提取调试结束 ---\n")
   end
 
-  # 类型检查辅助函数 - Keep for now or move to a general Utility module if needed elsewhere
+  # 类型检查辅助函数
   defp typeof(x) do
     cond do
       is_binary(x) -> "字符串"
@@ -1432,7 +1500,7 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
 
-  # 从参数中提取选项 - 需要为调试函数保留 - Keep for now or remove if debugging done
+  # 从参数中提取选项 - 需要为调试函数保留
   defp get_options_from_params(%{"options" => options}) when is_list(options) do
     IO.puts("使用分支1: options是列表")
     options
@@ -1459,7 +1527,7 @@ defmodule MyAppWeb.FormLive.Edit do
     []
   end
 
-  # 公共函数：重新加载表单并更新socket - Keep, specific to this LV state
+  # 公共函数：重新加载表单并更新socket
   defp reload_form_and_update_socket(socket, form_id, info_message) do
     # 强制重新加载，确保所有字段都已更新
     updated_form = Forms.get_form(form_id)
@@ -1488,15 +1556,10 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("add_page", _params, socket) do
-    # +++ FIX: Generate and assign changeset +++
-    new_page = %FormPage{form_id: socket.assigns.form.id, title: "新页面"} # Assign form_id
-    changeset = FormPage.changeset(new_page, %{}) # Use FormPage.changeset
-
     {:noreply,
       socket
       |> assign(:editing_page, true)
       |> assign(:current_page, nil)
-      |> assign(:page_changeset, changeset) # Assign the changeset
     }
   end
 
@@ -1504,17 +1567,14 @@ defmodule MyAppWeb.FormLive.Edit do
   def handle_event("edit_page", %{"id" => id}, socket) do
     page = Enum.find(socket.assigns.form.pages, fn p -> p.id == id end)
 
-    # +++ FIX: Generate and assign changeset +++
     if page do
-      changeset = FormPage.changeset(page, %{}) # Use FormPage.changeset
       {:noreply,
-       socket
-       |> assign(:editing_page, true)
-       |> assign(:current_page, page)
-       |> assign(:page_changeset, changeset) # Assign the changeset
+        socket
+        |> assign(:editing_page, true)
+        |> assign(:current_page, page)
       }
     else
-      {:noreply, put_flash(socket, :error, "页面未找到")} # Keep error handling
+      {:noreply, put_flash(socket, :error, "页面不存在")}
     end
   end
 
@@ -1524,7 +1584,6 @@ defmodule MyAppWeb.FormLive.Edit do
       socket
       |> assign(:editing_page, false)
       |> assign(:current_page, nil)
-      |> assign(:page_changeset, nil) # Clear changeset on cancel
     }
   end
 
@@ -1657,26 +1716,26 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
 
-  # 辅助函数：显示选中的控件类型名称 - MOVED to FormHelpers
-  # defp display_selected_type(nil), do: "未选择"
-  # defp display_selected_type("text_input"), do: "文本输入"
-  # defp display_selected_type("textarea"), do: "文本区域"
-  # defp display_selected_type("radio"), do: "单选按钮"
-  # defp display_selected_type("dropdown"), do: "下拉菜单"
-  # defp display_selected_type("checkbox"), do: "复选框"
-  # defp display_selected_type("rating"), do: "评分"
-  # defp display_selected_type("number"), do: "数字输入"
-  # defp display_selected_type("email"), do: "邮箱输入"
-  # defp display_selected_type("phone"), do: "电话号码"
-  # defp display_selected_type("date"), do: "日期选择"
-  # defp display_selected_type("time"), do: "时间选择"
-  # defp display_selected_type("region"), do: "地区选择"
-  # defp display_selected_type("matrix"), do: "矩阵题"
-  # defp display_selected_type("image_choice"), do: "图片选择"
-  # defp display_selected_type("file_upload"), do: "文件上传"
-  # defp display_selected_type(_), do: "未知类型"
+  # 辅助函数：显示选中的控件类型名称
+  defp display_selected_type(nil), do: "未选择"
+  defp display_selected_type("text_input"), do: "文本输入"
+  defp display_selected_type("textarea"), do: "文本区域"
+  defp display_selected_type("radio"), do: "单选按钮"
+  defp display_selected_type("dropdown"), do: "下拉菜单"
+  defp display_selected_type("checkbox"), do: "复选框"
+  defp display_selected_type("rating"), do: "评分"
+  defp display_selected_type("number"), do: "数字输入"
+  defp display_selected_type("email"), do: "邮箱输入"
+  defp display_selected_type("phone"), do: "电话号码"
+  defp display_selected_type("date"), do: "日期选择"
+  defp display_selected_type("time"), do: "时间选择"
+  defp display_selected_type("region"), do: "地区选择"
+  defp display_selected_type("matrix"), do: "矩阵题"
+  defp display_selected_type("image_choice"), do: "图片选择"
+  defp display_selected_type("file_upload"), do: "文件上传"
+  defp display_selected_type(_), do: "未知类型"
 
-  # 条件相关辅助函数（简化版） - Keep for now, specific to Edit LV's condition logic
+  # 条件相关辅助函数（简化版）
   defp find_source_item(nil, _available_items), do: nil
   defp find_source_item(source_id, available_items) do
     Enum.find(available_items, fn item -> item.id == source_id end)
@@ -1943,13 +2002,13 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
 
-  # 辅助函数：将上传错误转换为友好字符串 - Keep or move to Upload helper? Keep for now.
+  # 辅助函数：将上传错误转换为友好字符串
   defp error_to_string(:too_large), do: "文件太大"
   defp error_to_string(:too_many_files), do: "文件数量过多"
   defp error_to_string(:not_accepted), do: "文件类型不被接受"
   defp error_to_string(_), do: "无效的文件"
 
-  # 格式化文件大小 - Keep or move to general Utility module? Keep for now.
+  # 格式化文件大小
   defp format_bytes(bytes) when is_integer(bytes) do
     cond do
       bytes >= 1_048_576 -> # 1 MB
@@ -1961,64 +2020,4 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
   defp format_bytes(_), do: "未知大小"
-
-  @impl true
-  @doc """
-  处理来自 PageEditorComponent 的保存页面消息。
-  接收页面参数，调用相应的业务逻辑来创建或更新页面，并更新 socket 的状态。
-  """
-  def handle_info({:save_page_from_component, page_params}, socket) do
-    form = socket.assigns.form
-    current_page = socket.assigns.current_page
-
-    # Convert all keys to strings to avoid mixed key types
-    normalized_params = for {key, val} <- page_params, into: %{} do
-      {to_string(key), val}
-    end
-
-    result = if current_page do
-      # 更新现有页面
-      Forms.update_form_page(current_page, normalized_params)
-    else
-      # 创建新页面
-      Forms.create_form_page(form, normalized_params)
-    end
-
-    case result do
-      {:ok, page} ->
-        # 获取更新后的表单数据（包含最新的页面列表）
-        updated_form = Forms.get_form_with_full_preload(form.id)
-
-        {:noreply,
-          socket
-          |> assign(:form, updated_form)
-          |> assign(:editing_page, false)
-          |> assign(:current_page, nil)
-          |> assign(:page_changeset, nil)
-          |> put_flash(:info, if(current_page, do: "页面已更新", else: "页面已创建"))
-        }
-
-      {:error, changeset} ->
-        # 保存失败，返回错误消息和无效的changeset
-        {:noreply,
-          socket
-          |> assign(:page_changeset, changeset)
-          |> put_flash(:error, "保存页面失败，请检查输入")
-        }
-    end
-  end
-
-  @impl true
-  @doc """
-  处理来自 PageEditorComponent 的取消编辑页面消息。
-  重置 socket 的状态以关闭页面编辑器。
-  """
-  def handle_info({:cancel_edit_page_from_component}, socket) do
-    {:noreply,
-      socket
-      |> assign(:editing_page, false)
-      |> assign(:current_page, nil)
-      |> assign(:page_changeset, nil)
-    }
-  end
 end
