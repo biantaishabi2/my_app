@@ -363,7 +363,7 @@ defmodule MyAppWeb.FormTemplateLive do
   # 从现有表单构建模板结构
   defp build_template_structure(form) do
     # 选择一些表单项类型作为示例
-    sample_types = [:text_input, :number, :radio, :dropdown, :checkbox, :date, :rating]
+    sample_types = [:text_input, :number, :radio, :dropdown, :checkbox, :date, :time, :region, :rating]
 
     # 从现有表单中筛选出需要的表单项
     filtered_items = form.items
@@ -555,6 +555,10 @@ defmodule MyAppWeb.FormTemplateLive do
         :time -> "时间"
         :rating -> "评分"
         :region -> "地区选择"
+        # 为其他控件类型添加友好名称
+        :file_upload -> "文件上传"
+        :image_choice -> "图片选择"
+        :matrix -> "矩阵问题"
         _ -> "#{original_type}"
       end
       
@@ -590,8 +594,13 @@ defmodule MyAppWeb.FormTemplateLive do
       :radio -> "select"
       :dropdown -> "select"
       :checkbox -> "select"
-      :date -> "text"
-      :rating -> "number"
+      :date -> "date"
+      :time -> "time"
+      :region -> "region"
+      :rating -> "rating"
+      :file_upload -> "file"
+      :image_choice -> "image"
+      :matrix -> "matrix"
       _ -> "text" # 默认为文本类型
     end
   end
