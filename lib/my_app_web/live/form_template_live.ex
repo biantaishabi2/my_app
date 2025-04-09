@@ -4,9 +4,9 @@ defmodule MyAppWeb.FormTemplateLive do
 
   alias MyApp.Forms
   alias MyApp.FormTemplates.FormTemplate
-  
+
   # 使用MyApp.FormTemplates上下文模块的API
-  
+
   # 模板JSON文件路径
   @template_json_path "/home/wangbo/document/wangbo/my_app/priv/static/templates/form_demo_template.json"
 
@@ -19,7 +19,7 @@ defmodule MyAppWeb.FormTemplateLive do
     # 从JSON文件加载模板结构
     template_data = load_template_from_json()
     template_structure = template_data["structure"]
-    
+
     # 创建模板结构预览
     template_preview = build_template_preview(template_structure)
 
@@ -80,8 +80,8 @@ defmodule MyAppWeb.FormTemplateLive do
 
     # 使用模板条件过滤要显示的表单项
     rendered_items = filter_items_by_template(
-      socket.assigns.form.items, 
-      socket.assigns.template_structure, 
+      socket.assigns.form.items,
+      socket.assigns.template_structure,
       form_data
     )
 
@@ -289,59 +289,59 @@ defmodule MyAppWeb.FormTemplateLive do
         %{"structure" => %{"items" => []}}
     end
   end
-  
+
   # 根据模板筛选要显示的表单项
   defp filter_items_by_template(items, template_structure, form_data) do
     # 获取模板中的项目列表
     template_items = template_structure["items"] || []
-    
+
     # 获取字段ID
     first_field_id = Map.get(form_data, "first_field_id")
     second_field_id = Map.get(form_data, "second_field_id")
-    
+
     # 根据模板条件筛选表单项
     items
     |> Enum.with_index()
-    |> Enum.filter(fn {item, index} -> 
+    |> Enum.filter(fn {item, index} ->
       # 找到对应的模板项
       template_item = Enum.at(template_items, index)
-      
+
       if template_item do
         # 获取条件
         condition = template_item["condition"]
-        
+
         # 评估条件
         cond do
           # 没有条件，始终显示
           is_nil(condition) ->
             true
-            
+
           # 有特定的控件类型条件
           template_item["item_type"] == "rating" ->
             # 评分控件：需要同时满足"complex"和"选项B"
-            String.contains?(Map.get(form_data, first_field_id, ""), "complex") and 
+            String.contains?(Map.get(form_data, first_field_id, ""), "complex") and
             Map.get(form_data, second_field_id) == "选项B"
-            
+
           template_item["item_type"] == "region" ->
             # 地区控件：只需要满足"选项B"
             Map.get(form_data, second_field_id) == "选项B"
-            
+
           template_item["item_type"] == "time" or template_item["item_type"] == "date" ->
             # 时间和日期控件：需要满足"complex"
             String.contains?(Map.get(form_data, first_field_id, ""), "complex")
-            
+
           # 包含"index"的条件
           condition["operator"] == "contains" and condition["right"]["value"] == "index" ->
             String.contains?(Map.get(form_data, first_field_id, ""), "index")
-            
+
           # 包含"condition"的条件
           condition["operator"] == "contains" and condition["right"]["value"] == "condition" ->
             String.contains?(Map.get(form_data, first_field_id, ""), "condition")
-            
+
           # 复合条件
           condition["operator"] == "and" ->
             evaluate_compound_condition(condition, form_data)
-            
+
           # 默认情况：不显示
           true ->
             false
@@ -353,16 +353,16 @@ defmodule MyAppWeb.FormTemplateLive do
     end)
     |> Enum.map(fn {item, _} -> item end)
   end
-  
+
   # 评估复合条件
   defp evaluate_compound_condition(condition, form_data) do
     conditions = condition["conditions"] || []
-    
+
     # 计算所有子条件的结果
     results = Enum.map(conditions, fn subcondition ->
       evaluate_simple_condition(subcondition, form_data)
     end)
-    
+
     # 根据操作符组合结果
     case condition["operator"] do
       "and" -> Enum.all?(results)
@@ -370,21 +370,21 @@ defmodule MyAppWeb.FormTemplateLive do
       _ -> false
     end
   end
-  
+
   # 评估简单条件
   defp evaluate_simple_condition(condition, form_data) do
     operator = condition["operator"]
     left = condition["left"]
     right = condition["right"]
-    
+
     # 获取左值
     left_value = case left do
       %{"type" => "field", "name" => field_name} ->
         Map.get(form_data, field_name, "")
-      _ -> 
+      _ ->
         ""
     end
-    
+
     # 获取右值
     right_value = case right do
       %{"type" => "value", "value" => value} ->
@@ -392,7 +392,7 @@ defmodule MyAppWeb.FormTemplateLive do
       _ ->
         ""
     end
-    
+
     # 根据操作符评估
     case operator do
       "contains" ->
@@ -408,14 +408,14 @@ defmodule MyAppWeb.FormTemplateLive do
   defp build_template_preview(template_structure) do
     # 获取模板项
     items = template_structure["items"] || []
-    
+
     # 构建可读的预览文本
     items
     |> Enum.map(fn item ->
       # 获取标签和类型
       label = item["label"] || "未命名项"
       item_type = item["item_type"] || "text"
-      
+
       # 获取条件描述
       condition_text = if item["condition"] do
         condition_desc = cond do
@@ -436,7 +436,7 @@ defmodule MyAppWeb.FormTemplateLive do
       else
         ""
       end
-      
+
       # 类型描述
       type_desc = case item_type do
         "text" -> "文本输入"
@@ -451,7 +451,7 @@ defmodule MyAppWeb.FormTemplateLive do
         "matrix" -> "矩阵问题"
         _ -> item_type
       end
-      
+
       # 组合成预览文本
       "#{label} (#{type_desc}) #{condition_text}"
     end)
