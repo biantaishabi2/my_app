@@ -80,25 +80,10 @@ Hooks.SettingsLayout = {
   }
 };
 
-// --- 新增：定义 Sortable Hook ---
-Hooks.Sortable = {
-  mounted() {
-    console.log("Sortable hook mounted"); // 添加日志确认 Hook 已加载
-    const sorter = new Sortable(this.el, {
-      animation: 150,
-      ghostClass: "sortable-ghost",
-      dragClass: "sortable-drag",
-      onEnd: (evt) => {
-        const orderedIds = Array.from(evt.to.children).map(
-          (item) => item.dataset.id
-        );
-        console.log("Sortable onEnd - New order:", orderedIds);
-        this.pushEvent("update_structure_order", { ordered_ids: orderedIds });
-      },
-    });
-  }
-};
-// --- 结束：定义 Sortable Hook ---
+// --- 注释：Sortable Hook 已在 hooks.js 中定义 ---
+// 为了避免钩子冲突，这里不再定义 Sortable Hook
+// Hooks.Sortable 钩子已经在 hooks.js 中定义，并提供了拖拽排序功能
+// --- 结束注释 ---
 
 
 // --- 修改：正确合并钩子 ---

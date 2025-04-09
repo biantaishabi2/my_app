@@ -193,3 +193,51 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* 表单模板拖拽排序样式 */
+.drag-handle {
+  cursor: move;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[draggable="true"] {
+  transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+}
+
+[draggable="true"]:hover {
+  background-color: #f9fafb;
+}
+
+[draggable="true"].dragging {
+  opacity: 0.6;
+  transform: scale(1.02);
+  background-color: #f3f4f6;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+/* 拖拽位置指示样式 */
+.drag-placeholder {
+  border: 2px dashed #d1d5db;
+  background-color: #f9fafb;
+  height: 3rem;
+  margin: 0.5rem 0;
+  border-radius: 0.375rem;
+}
+
+/* 拖拽目标高亮 */
+.drag-over-top {
+  border-top: 2px solid #4f46e5;
+}
+
+.drag-over-bottom {
+  border-bottom: 2px solid #4f46e5;
+}
+
+/* 禁用文本选择，防止拖拽时选中文本 */
+#structure-list * {
+  user-select: none;
+}
