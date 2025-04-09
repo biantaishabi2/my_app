@@ -2,11 +2,9 @@ defmodule MyAppWeb.FormTemplateLive do
   use MyAppWeb, :live_view
 
   alias MyApp.Forms
-  alias MyApp.FormTemplates
   alias MyApp.FormTemplates.FormTemplate
-
-  # 引入表单项渲染组件
-  alias MyAppWeb.FormLive.ItemRendererComponent
+  
+  # 使用MyApp.FormTemplates上下文模块的API
 
   @impl true
   def mount(_params, _session, socket) do
@@ -29,11 +27,8 @@ defmodule MyAppWeb.FormTemplateLive do
     end)
     second_field_id = if second_item, do: second_item.id, else: nil
 
-    # 初始化表单数据
-    form_data = %{}
-
-    # 创建模板
-    template = %FormTemplate{
+    # 创建模板 (仅作记录，不直接使用)
+    _template = %FormTemplate{
       name: "测试模板",
       description: "从表单自动生成的测试模板",
       structure: template_structure,
@@ -65,7 +60,7 @@ defmodule MyAppWeb.FormTemplateLive do
   end
 
   @impl true
-  def handle_event("update_field", %{"_target" => [field_id | _]} = params, socket) do
+  def handle_event("update_field", %{"_target" => [_field_id | _]} = params, socket) do
     # 从表单参数中提取所有字段值
     form_data = params
       |> Enum.filter(fn {key, _} ->
@@ -337,7 +332,7 @@ defmodule MyAppWeb.FormTemplateLive do
 
                           <% :rating -> %>
                             <div class="flex items-center">
-                              <%= for i <- 1..5 do %>
+                              <%= for _i <- 1..5 do %>
                                 <span class="text-2xl mx-1 cursor-pointer text-gray-300">★</span>
                               <% end %>
                               <span class="ml-2 text-gray-500">请评分</span>
@@ -417,7 +412,7 @@ defmodule MyAppWeb.FormTemplateLive do
           with_options
 
         # 第3-4个表单项：当第一个表单项的值包含"index"时显示
-        index >= 2 and index < 4 and first_item_id ->
+        index >= 2 and index < 4 and is_binary(first_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "contains",
             left: %{type: "field", name: first_item_id},
@@ -425,7 +420,7 @@ defmodule MyAppWeb.FormTemplateLive do
           })
 
         # 第5-6个表单项：当第一个表单项的值包含"condition"时显示
-        index >= 4 and index < 6 and first_item_id ->
+        index >= 4 and index < 6 and is_binary(first_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "contains",
             left: %{type: "field", name: first_item_id},
@@ -433,7 +428,7 @@ defmodule MyAppWeb.FormTemplateLive do
           })
 
         # 日期控件：在输入"complex"时显示
-        item.type == :date and first_item_id ->
+        item.type == :date and is_binary(first_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "contains",
             left: %{type: "field", name: first_item_id},
@@ -441,7 +436,7 @@ defmodule MyAppWeb.FormTemplateLive do
           })
           
         # 时间控件：在输入"complex"时显示
-        item.type == :time and first_item_id ->
+        item.type == :time and is_binary(first_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "contains",
             left: %{type: "field", name: first_item_id},
@@ -449,7 +444,7 @@ defmodule MyAppWeb.FormTemplateLive do
           })
         
         # 地区控件：当选择"选项B"时显示
-        item.type == :region and second_item_id ->
+        item.type == :region and is_binary(second_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "==",
             left: %{type: "field", name: second_item_id},
@@ -457,7 +452,7 @@ defmodule MyAppWeb.FormTemplateLive do
           })
           
         # 评分控件：同时满足"选择选项B"和"输入complex"
-        item.type == :rating and first_item_id and second_item_id ->
+        item.type == :rating and is_binary(first_item_id) and is_binary(second_item_id) ->
           Map.put(with_options, :condition, %{
             operator: "and",
             conditions: [
@@ -570,15 +565,18 @@ defmodule MyAppWeb.FormTemplateLive do
   
   # 反向推导原始控件类型
   defp get_original_type(template_type) do
-    case template_type do
-      "text" -> :text_input
-      "number" -> 
-        # number可能是:number或:rating，默认为:number
-        :number
-      "select" -> 
-        # select可能是:radio, :dropdown, :checkbox，默认为:dropdown
-        :dropdown
-      _ -> String.to_existing_atom(template_type)
+    try do
+      case template_type do
+        "text" -> :text_input
+        "number" -> 
+          # number可能是:number或:rating，默认为:number
+          :number
+        "select" -> 
+          # select可能是:radio, :dropdown, :checkbox，默认为:dropdown
+          :dropdown
+        _ when is_binary(template_type) -> String.to_existing_atom(template_type)
+        _ -> :unknown
+      end
     rescue
       _ -> :unknown
     end
