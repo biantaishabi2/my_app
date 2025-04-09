@@ -9,6 +9,7 @@ defmodule MyApp.FormTemplates.FormTemplate do
     field :name, :string
     field :description, :string
     field :structure, {:array, :map}, default: []
+    field :decoration, {:array, :map}, default: []
     field :version, :integer
     field :is_active, :boolean, default: true
 
@@ -27,7 +28,7 @@ defmodule MyApp.FormTemplates.FormTemplate do
   """
   def changeset(form_template, attrs) do
     form_template
-    |> cast(attrs, [:name, :description, :structure, :version, :is_active, :created_by_id, :updated_by_id])
+    |> cast(attrs, [:name, :description, :structure, :decoration, :version, :is_active, :created_by_id, :updated_by_id])
     |> validate_required([:name, :structure, :version])
     |> unique_constraint(:name)
     |> validate_structure()
