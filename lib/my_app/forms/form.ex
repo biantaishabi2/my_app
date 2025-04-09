@@ -2,6 +2,8 @@ defmodule MyApp.Forms.Form do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias MyApp.FormTemplates.FormTemplate
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "forms" do
@@ -11,6 +13,9 @@ defmodule MyApp.Forms.Form do
     field :status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
 
     belongs_to :user, MyApp.Accounts.User, foreign_key: :user_id, type: :id
+
+    # 添加与 FormTemplate 的关联
+    belongs_to :form_template, FormTemplate, type: :binary_id
 
     # 添加默认页面关联
     belongs_to :default_page, MyApp.Forms.FormPage
@@ -26,9 +31,10 @@ defmodule MyApp.Forms.Form do
   @doc false
   def changeset(form, attrs) do
     form
-    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id])
+    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id, :form_template_id])
     |> validate_required([:title, :status, :user_id])
     |> foreign_key_constraint(:default_page_id)
+    |> foreign_key_constraint(:form_template_id)
     # Add other validations as needed
   end
 end

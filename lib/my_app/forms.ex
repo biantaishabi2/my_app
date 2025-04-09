@@ -27,9 +27,48 @@ defmodule MyApp.Forms do
 
   """
   def create_form(attrs \\ %{}) do
-    %Form{}
-    |> Form.changeset(attrs)
+    # 检查是否已经提供了form_template_id
+    has_template_id = Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
+    
+    # 如果没有关联模板，首先创建一个默认模板
+    {final_attrs, template_result} = if not has_template_id do
+      # 提取用户ID用于创建模板
+      user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
+      
+      if user_id do
+        case MyApp.FormTemplates.create_default_template(%{user_id: user_id}) do
+          {:ok, template} ->
+            # 将模板ID添加到表单属性中
+            {Map.put(attrs, :form_template_id, template.id), {:ok, template}}
+          error ->
+            # 创建模板失败，继续使用原始属性创建表单
+            {attrs, error}
+        end
+      else
+        # 没有用户ID，无法创建模板
+        {attrs, {:error, :missing_user_id}}
+      end
+    else
+      # 已经有模板ID，不需要创建
+      {attrs, nil}
+    end
+    
+    # 创建表单
+    result = %Form{}
+    |> Form.changeset(final_attrs)
     |> Repo.insert()
+    
+    # 记录日志（如果有模板创建结果）
+    if template_result do
+      case template_result do
+        {:ok, template} ->
+          IO.puts("自动创建了默认表单模板 ID: #{template.id} 用于表单")
+        {:error, reason} ->
+          IO.puts("尝试创建默认模板失败: #{inspect(reason)}")
+      end
+    end
+    
+    result
   end
 
   @doc """

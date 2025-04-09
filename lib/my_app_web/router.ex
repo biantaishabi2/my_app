@@ -115,6 +115,8 @@ defmodule MyAppWeb.Router do
       live "/form-templates/demo", FormTemplateLive, :index
       # 新：模板结构拖放 Demo 页面
       live "/form-structures/demo", FormStructureDemoLive, :index
+      # 新：模板结构编辑器页面
+      live "/form-templates/:id/edit", FormTemplateEditorLive, :edit
     end
   end
 

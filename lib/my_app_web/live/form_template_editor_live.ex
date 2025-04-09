@@ -29,6 +29,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:item_options, []) # 控件选项
       |> assign(:search_term, nil) # 搜索关键词
       |> assign(:delete_item_id, nil) # 要删除的控件ID
+      |> assign(:active_tab, "structure") # 当前激活的标签页：structure, conditions, decoration
+      |> assign(:tab_title, "结构设计") # 当前标签页的标题
+      |> assign(:editing_logic_item_id, nil) # 当前正在编辑逻辑的表单项ID
+      |> assign(:logic_type, nil) # 逻辑类型：跳转、显示、隐藏等
+      |> assign(:logic_target_id, nil) # 逻辑跳转目标ID
+      |> assign(:logic_condition, nil) # 条件设置
 
     {:ok, socket}
   end
@@ -80,6 +86,50 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           |> put_flash(:error, "无法保存模板结构")
         }
     end
+  end
+  
+  @impl true
+  def handle_event("change_tab", %{"tab" => tab}, socket) do
+    # 标签页之间切换
+    tab_titles = %{
+      "structure" => "结构设计",
+      "conditions" => "条件逻辑",
+      "decoration" => "页面装饰"
+    }
+    
+    {:noreply, 
+      socket
+      |> assign(:active_tab, tab)
+      |> assign(:tab_title, Map.get(tab_titles, tab, "模板编辑"))
+    }
+  end
+  
+  @impl true
+  def handle_event("next_tab", _params, socket) do
+    # 移动到下一个标签页
+    next_tab = case socket.assigns.active_tab do
+      "structure" -> "conditions"
+      "conditions" -> "decoration"
+      "decoration" -> "structure" # 循环回到第一个标签
+      _ -> "structure"
+    end
+    
+    # 执行标签变更
+    handle_event("change_tab", %{"tab" => next_tab}, socket)
+  end
+  
+  @impl true
+  def handle_event("prev_tab", _params, socket) do
+    # 移动到上一个标签页
+    prev_tab = case socket.assigns.active_tab do
+      "structure" -> "decoration" # 循环到最后一个标签
+      "conditions" -> "structure"
+      "decoration" -> "conditions"
+      _ -> "structure"
+    end
+    
+    # 执行标签变更
+    handle_event("change_tab", %{"tab" => prev_tab}, socket)
   end
   
   # 添加从FormLive.Edit复用的事件处理函数
@@ -251,6 +301,103 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("cancel_delete", _params, socket) do
     {:noreply, assign(socket, :delete_item_id, nil)}
   end
+  
+  @impl true
+  def handle_event("open_logic_editor", %{"id" => item_id}, socket) do
+    # 获取当前标签页
+    current_tab = socket.assigns.active_tab
+    
+    # 根据当前标签页采取不同的行动
+    # 只有在条件逻辑标签页才能编辑逻辑
+    # 如果不是在条件逻辑标签页，直接返回（这将使得只有在条件逻辑标签页才能使用逻辑按钮）
+    if current_tab != "conditions" do
+      # 如果不是在条件逻辑标签页，则不执行任何操作并直接返回
+      {:noreply, socket}
+    else
+    
+    # 打开指定表单项的逻辑编辑器
+    item = Enum.find(socket.assigns.structure, fn item -> item["id"] == item_id end)
+    
+    # 获取当前项目的逻辑（如果有的话）
+    existing_logic = Map.get(item, "logic", nil)
+    
+    {:noreply, 
+      socket
+      |> assign(:editing_logic_item_id, item_id)
+      |> assign(:logic_type, Map.get(existing_logic || %{}, "type", "jump"))
+      |> assign(:logic_target_id, Map.get(existing_logic || %{}, "target_id", nil))
+      |> assign(:logic_condition, Map.get(existing_logic || %{}, "condition", nil))
+    }
+    end
+  end
+  
+  @impl true
+  def handle_event("close_logic_editor", _params, socket) do
+    # 关闭逻辑编辑器
+    {:noreply, 
+      socket
+      |> assign(:editing_logic_item_id, nil)
+      |> assign(:logic_type, nil)
+      |> assign(:logic_target_id, nil)
+      |> assign(:logic_condition, nil)
+    }
+  end
+  
+  @impl true
+  def handle_event("save_logic", %{"logic" => logic_params}, socket) do
+    item_id = socket.assigns.editing_logic_item_id
+    
+    # 仅在编辑项目存在时处理
+    if item_id do
+      # 查找并更新对应的表单项
+      updated_structure = Enum.map(socket.assigns.structure, fn item ->
+        if item["id"] == item_id do
+          # 构建完整的逻辑结构
+          logic = %{
+            "type" => logic_params["type"],
+            "target_id" => logic_params["target_id"],
+            "condition" => %{
+              "operator" => logic_params["condition_operator"],
+              "value" => logic_params["condition_value"]
+            }
+          }
+          
+          # 将逻辑添加到表单项
+          Map.put(item, "logic", logic)
+        else
+          item
+        end
+      end)
+      
+      # 保存更新后的模板结构
+      case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
+        {:ok, updated_template} ->
+          {:noreply, 
+            socket
+            |> assign(:template, updated_template)
+            |> assign(:structure, updated_template.structure)
+            |> assign(:editing_logic_item_id, nil)
+            |> assign(:logic_type, nil)
+            |> assign(:logic_target_id, nil)
+            |> assign(:logic_condition, nil)
+            |> put_flash(:info, "逻辑规则已保存")
+          }
+          
+        {:error, _changeset} ->
+          {:noreply, 
+            socket
+            |> put_flash(:error, "无法保存逻辑规则")
+          }
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  @impl true
+  def handle_event("change_logic_type", %{"type" => logic_type}, socket) do
+    {:noreply, assign(socket, :logic_type, logic_type)}
+  end
 
   @impl true
   def render(assigns) do
@@ -258,8 +405,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     <div class="form-editor-container">
       <!-- 模板编辑页面 -->
       <div style="display: flex; max-width: 100%; overflow-hidden;">
-        <!-- 左侧控件类型选择栏 -->
-        <div style="flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 4rem);">
+        <!-- 左侧控件类型选择栏 - 仅在结构设计标签页显示 -->
+        <div style={"flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 4rem); #{if @active_tab != "structure", do: "display: none;"}"}> 
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">控件类型</h2>
           
           <!-- 分类标签 -->
@@ -582,7 +729,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         <!-- 右侧内容区域 -->
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 模板标题和操作区 -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h1 style="font-size: 1.5rem; font-weight: 700;"><%= @template.name || "未命名模板" %></h1>
             
             <div style="display: flex; gap: 0.75rem;">
@@ -601,6 +748,60 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 保存模板
               </button>
             </div>
+          </div>
+
+          <!-- 标签页导航 -->
+          <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem;">
+            <div style="display: flex; gap: 0.5rem;">
+              <button 
+                type="button"
+                phx-click="change_tab"
+                phx-value-tab="structure"
+                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "structure", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "structure", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "structure", do: "#4f46e5", else: "#6b7280"};"}
+              >
+                结构设计
+              </button>
+              <button 
+                type="button"
+                phx-click="change_tab"
+                phx-value-tab="conditions"
+                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "conditions", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "conditions", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "conditions", do: "#4f46e5", else: "#6b7280"};"}
+              >
+                条件逻辑
+              </button>
+              <button 
+                type="button"
+                phx-click="change_tab"
+                phx-value-tab="decoration"
+                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "decoration", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "decoration", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "decoration", do: "#4f46e5", else: "#6b7280"};"}
+              >
+                页面装饰
+              </button>
+            </div>
+          </div>
+          
+          <!-- 标签页导航按钮 -->
+          <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
+            <button
+              type="button"
+              phx-click="prev_tab"
+              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.25rem;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+              上一步
+            </button>
+            <button
+              type="button"
+              phx-click="next_tab"
+              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+            >
+              下一步
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-left: 0.25rem;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
 
           <!-- 确认删除对话框 -->
@@ -630,103 +831,699 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             </div>
           <% end %>
           
-          <!-- 模板结构列表 -->
-          <div class="form-card">
-            <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">模板元素</h2>
-            
-            <div id="structure-list" phx-hook="Sortable" class="space-y-4">
-              <%= if Enum.empty?(@structure) do %>
-                <div style="text-align: center; padding: 3rem 0;">
-                  <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">模板还没有元素</h3>
-                  <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮</p>
-                </div>
-              <% else %>
-                <%= for element <- @structure do %>
-                  <% 
-                    elem_id = Map.get(element, "id", "unknown")
-                    elem_type = Map.get(element, "type", "unknown")
-                    elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
-                    elem_required = Map.get(element, "required", false)
-                    elem_description = Map.get(element, "description")
-                    
-                    # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
-                    form_item = %{
-                      id: elem_id,
-                      type: safe_to_atom(elem_type),
-                      label: elem_label,
-                      required: elem_required,
-                      description: elem_description,
-                      placeholder: Map.get(element, "placeholder"),
-                      options: format_options(Map.get(element, "options", [])),
-                      min: Map.get(element, "min"),
-                      max: Map.get(element, "max"),
-                      step: Map.get(element, "step"),
-                      max_rating: Map.get(element, "max_rating", 5),
-                      min_date: Map.get(element, "min_date"),
-                      max_date: Map.get(element, "max_date"),
-                      min_time: Map.get(element, "min_time"),
-                      max_time: Map.get(element, "max_time"),
-                      time_format: Map.get(element, "time_format", "24h"),
-                      show_format_hint: Map.get(element, "show_format_hint"),
-                      format_display: Map.get(element, "format_display"),
-                      matrix_rows: Map.get(element, "matrix_rows"),
-                      matrix_columns: Map.get(element, "matrix_columns"),
-                      matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
-                      image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
-                      selection_type: safe_selection_type(Map.get(element, "selection_type")),
-                      multiple_files: Map.get(element, "multiple_files"),
-                      max_files: Map.get(element, "max_files"),
-                      max_file_size: Map.get(element, "max_file_size"),
-                      allowed_extensions: Map.get(element, "allowed_extensions"),
-                      region_level: Map.get(element, "region_level"),
-                      default_province: Map.get(element, "default_province")
-                    }
-                  %>
-                  <div 
-                    id={"item-#{elem_id}"} 
-                    data-id={elem_id} 
-                    class="p-3 border rounded bg-white shadow-sm form-card"
-                  >
-                    <div class="flex justify-between items-center">
-                      <div class="flex items-center">
-                        <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
-                        <div>
+          <!-- 标签页内容区域 -->
+          <%= case @active_tab do %>
+            <% "structure" -> %>
+              <!-- 模板结构列表 -->
+              <div class="form-card">
+                <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">模板结构设计</h2>
+                
+                <div id="structure-list" phx-hook="Sortable" class="space-y-4">
+                  <%= if Enum.empty?(@structure) do %>
+                    <div style="text-align: center; padding: 3rem 0;">
+                      <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">模板还没有元素</h3>
+                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮</p>
+                    </div>
+                  <% else %>
+                    <%= for element <- @structure do %>
+                      <% 
+                        elem_id = Map.get(element, "id", "unknown")
+                        elem_type = Map.get(element, "type", "unknown")
+                        elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
+                        elem_required = Map.get(element, "required", false)
+                        elem_description = Map.get(element, "description")
+                        
+                        # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
+                        form_item = %{
+                          id: elem_id,
+                          type: safe_to_atom(elem_type),
+                          label: elem_label,
+                          required: elem_required,
+                          description: elem_description,
+                          placeholder: Map.get(element, "placeholder"),
+                          options: format_options(Map.get(element, "options", [])),
+                          min: Map.get(element, "min"),
+                          max: Map.get(element, "max"),
+                          step: Map.get(element, "step"),
+                          max_rating: Map.get(element, "max_rating", 5),
+                          min_date: Map.get(element, "min_date"),
+                          max_date: Map.get(element, "max_date"),
+                          min_time: Map.get(element, "min_time"),
+                          max_time: Map.get(element, "max_time"),
+                          time_format: Map.get(element, "time_format", "24h"),
+                          show_format_hint: Map.get(element, "show_format_hint"),
+                          format_display: Map.get(element, "format_display"),
+                          matrix_rows: Map.get(element, "matrix_rows"),
+                          matrix_columns: Map.get(element, "matrix_columns"),
+                          matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
+                          image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                          selection_type: safe_selection_type(Map.get(element, "selection_type")),
+                          multiple_files: Map.get(element, "multiple_files"),
+                          max_files: Map.get(element, "max_files"),
+                          max_file_size: Map.get(element, "max_file_size"),
+                          allowed_extensions: Map.get(element, "allowed_extensions"),
+                          region_level: Map.get(element, "region_level"),
+                          default_province: Map.get(element, "default_province")
+                        }
+                      %>
+                      <div 
+                        id={"item-#{elem_id}"} 
+                        data-id={elem_id} 
+                        class="p-3 border rounded bg-white shadow-sm form-card"
+                      >
+                        <div class="flex justify-between items-center">
                           <div class="flex items-center">
-                            <span class="font-medium text-gray-700"><%= elem_label %></span>
-                            <%= if elem_required do %>
-                              <span class="ml-2 text-red-500">*</span>
-                            <% end %>
+                            <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
+                            <div>
+                              <div class="flex items-center">
+                                <span class="font-medium text-gray-700"><%= elem_label %></span>
+                                <%= if elem_required do %>
+                                  <span class="ml-2 text-red-500">*</span>
+                                <% end %>
+                                <%= if Map.get(element, "logic") do %>
+                                  <span class="ml-2 text-blue-500 text-xs bg-blue-50 px-1 rounded">
+                                    <%= case get_in(element, ["logic", "type"]) do %>
+                                      <% "jump" -> %>跳转
+                                      <% "show" -> %>显示
+                                      <% "hide" -> %>隐藏
+                                      <% "end" -> %>结束
+                                      <% _ -> %>逻辑
+                                    <% end %>
+                                  </span>
+                                <% end %>
+                              </div>
+                              <div class="text-xs text-gray-500 mt-1">
+                                控件类型: <%= display_selected_type(elem_type) %>
+                              </div>
+                            </div>
                           </div>
-                          <div class="text-xs text-gray-500 mt-1">
-                            控件类型: <%= display_selected_type(elem_type) %>
+                          
+                          <div class="flex gap-2">
+                            <button type="button" phx-click="delete_item" phx-value-id={elem_id} style="color: #ef4444; background: none; border: none; cursor: pointer;">
+                              删除
+                            </button>
                           </div>
+                        </div>
+                        
+                        <%= if elem_description do %>
+                          <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
+                        <% end %>
+                        
+                        <!-- 逻辑编辑面板 - 仅在选中时显示 -->
+                        <%= if @editing_logic_item_id == elem_id do %>
+                          <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+                            <div class="flex justify-between items-center mb-3">
+                              <h3 class="font-medium text-blue-800">设置题目逻辑</h3>
+                              <button 
+                                type="button" 
+                                phx-click="close_logic_editor" 
+                                class="text-gray-500 hover:text-gray-800"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <form phx-submit="save_logic" class="space-y-3">
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                                <div class="flex items-center gap-2">
+                                  <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
+                                    <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
+                                    <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                                  </select>
+                                  <input 
+                                    type="text" 
+                                    name="logic[condition_value]" 
+                                    value={get_in(@logic_condition || %{}, ["value"])}
+                                    placeholder="输入答案值" 
+                                    class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                                <div class="flex flex-col gap-2">
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="jump" 
+                                      checked={@logic_type == "jump"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="jump"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">跳转到指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="show" 
+                                      checked={@logic_type == "show"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="show"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">显示指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="hide" 
+                                      checked={@logic_type == "hide"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="hide"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">隐藏指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="end" 
+                                      checked={@logic_type == "end"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="end"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">结束问卷</span>
+                                  </label>
+                                </div>
+                              </div>
+                              
+                              <%= if @logic_type in ["jump", "show", "hide"] do %>
+                                <div>
+                                  <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                                  <select 
+                                    name="logic[target_id]" 
+                                    class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  >
+                                    <option value="">-- 请选择题目 --</option>
+                                    <%= for target_item <- @structure do %>
+                                      <% target_id = Map.get(target_item, "id") %>
+                                      <% target_label = Map.get(target_item, "label") || "未命名题目" %>
+                                      <%= if target_id != elem_id do %>
+                                        <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                                      <% end %>
+                                    <% end %>
+                                  </select>
+                                </div>
+                              <% end %>
+                              
+                              <div class="pt-2 flex justify-end">
+                                <button 
+                                  type="button"
+                                  phx-click="close_logic_editor"
+                                  class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                  取消
+                                </button>
+                                <button 
+                                  type="submit"
+                                  class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                  保存规则
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        <% end %>
+                        
+                        <div class="mt-3 border-t pt-3">
+                          <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                        </div>
+                      </div>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+              
+            <% "conditions" -> %>
+              <!-- 条件逻辑标签页内容 -->
+              <div class="form-card">
+                <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">条件逻辑设置</h2>
+                
+                <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <h3 class="text-md font-medium text-blue-800 mb-2">使用说明</h3>
+                  <p class="text-sm text-blue-700 mb-2">
+                    条件逻辑允许您根据问卷回答创建动态问卷流程。您可以为每个题目添加以下条件：
+                  </p>
+                  <ul class="list-disc list-inside text-sm text-blue-700 space-y-1 mb-2">
+                    <li>跳转逻辑 - 当满足条件时跳到指定题目</li>
+                    <li>显示逻辑 - 当满足条件时显示指定题目</li>
+                    <li>隐藏逻辑 - 当满足条件时隐藏指定题目</li>
+                    <li>结束逻辑 - 当满足条件时结束问卷</li>
+                  </ul>
+                  <p class="text-sm text-blue-700 mt-2">
+                    点击每个题目右侧的<span class="font-semibold">「添加逻辑」</span>或<span class="font-semibold">「编辑逻辑」</span>按钮来设置条件规则。
+                  </p>
+                </div>
+                
+                <!-- 模板结构列表 - 与结构设计标签页相似，但带逻辑按钮 -->
+                <!-- 模板结构列表展示 -->
+                <div id="logic-structure-list" class="space-y-4">
+                  <%= if Enum.empty?(@structure) do %>
+                    <div style="text-align: center; padding: 3rem 0;">
+                      <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">模板还没有元素</h3>
+                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">请先前往「结构设计」标签添加表单元素</p>
+                    </div>
+                  <% else %>
+                    <%= for element <- @structure do %>
+                      <% 
+                        elem_id = Map.get(element, "id", "unknown")
+                        elem_type = Map.get(element, "type", "unknown")
+                        elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
+                        elem_required = Map.get(element, "required", false)
+                        elem_description = Map.get(element, "description")
+                        
+                        # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
+                        form_item = %{
+                          id: elem_id,
+                          type: safe_to_atom(elem_type),
+                          label: elem_label,
+                          required: elem_required,
+                          description: elem_description,
+                          placeholder: Map.get(element, "placeholder"),
+                          options: format_options(Map.get(element, "options", [])),
+                          min: Map.get(element, "min"),
+                          max: Map.get(element, "max"),
+                          step: Map.get(element, "step"),
+                          max_rating: Map.get(element, "max_rating", 5),
+                          min_date: Map.get(element, "min_date"),
+                          max_date: Map.get(element, "max_date"),
+                          min_time: Map.get(element, "min_time"),
+                          max_time: Map.get(element, "max_time"),
+                          time_format: Map.get(element, "time_format", "24h"),
+                          show_format_hint: Map.get(element, "show_format_hint"),
+                          format_display: Map.get(element, "format_display"),
+                          matrix_rows: Map.get(element, "matrix_rows"),
+                          matrix_columns: Map.get(element, "matrix_columns"),
+                          matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
+                          image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                          selection_type: safe_selection_type(Map.get(element, "selection_type")),
+                          multiple_files: Map.get(element, "multiple_files"),
+                          max_files: Map.get(element, "max_files"),
+                          max_file_size: Map.get(element, "max_file_size"),
+                          allowed_extensions: Map.get(element, "allowed_extensions"),
+                          region_level: Map.get(element, "region_level"),
+                          default_province: Map.get(element, "default_province")
+                        }
+                        
+                        # 检查是否有逻辑设置
+                        has_logic = Map.get(element, "logic") != nil
+                        logic = Map.get(element, "logic")
+                        logic_type = if has_logic, do: Map.get(logic, "type"), else: nil
+                        condition = if has_logic, do: Map.get(logic, "condition"), else: nil
+                        condition_op = if condition, do: Map.get(condition, "operator", ""), else: nil
+                        condition_value = if condition, do: Map.get(condition, "value", ""), else: nil
+                        target_id = if has_logic, do: Map.get(logic, "target_id"), else: nil
+                        
+                        # 查找目标题目（如果有）
+                        target_item = if target_id, do: Enum.find(@structure, fn i -> Map.get(i, "id") == target_id end), else: nil
+                        target_label = if target_item, do: Map.get(target_item, "label") || "未命名题目", else: nil
+                        
+                        # 条件操作符显示文本
+                        condition_op_text = case condition_op do
+                          "equals" -> "等于"
+                          "not_equals" -> "不等于"
+                          "contains" -> "包含"
+                          _ -> condition_op
+                        end
+                        
+                        # 逻辑类型显示文本
+                        logic_type_text = case logic_type do
+                          "jump" -> "跳转到"
+                          "show" -> "显示"
+                          "hide" -> "隐藏"
+                          "end" -> "结束问卷"
+                          _ -> logic_type
+                        end
+                      %>
+                      <div 
+                        id={"logic-item-#{elem_id}"} 
+                        class="p-3 border rounded bg-white shadow-sm form-card"
+                      >
+                        <div class="flex justify-between items-center">
+                          <div class="flex items-center">
+                            <div>
+                              <div class="flex items-center">
+                                <span class="font-medium text-gray-700"><%= elem_label %></span>
+                                <%= if elem_required do %>
+                                  <span class="ml-2 text-red-500">*</span>
+                                <% end %>
+                                <%= if has_logic do %>
+                                  <span class="ml-2 text-blue-500 text-xs bg-blue-50 px-1 rounded">
+                                    <%= case logic_type do %>
+                                      <% "jump" -> %>跳转
+                                      <% "show" -> %>显示
+                                      <% "hide" -> %>隐藏
+                                      <% "end" -> %>结束
+                                      <% _ -> %>逻辑
+                                    <% end %>
+                                  </span>
+                                <% end %>
+                              </div>
+                              <div class="text-xs text-gray-500 mt-1">
+                                控件类型: <%= display_selected_type(elem_type) %>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div class="flex gap-2">
+                            <button 
+                              type="button" 
+                              phx-click="open_logic_editor" 
+                              phx-value-id={elem_id} 
+                              style="color: #3b82f6; background: none; border: none; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                              </svg>
+                              <%= if has_logic, do: "编辑逻辑", else: "添加逻辑" %>
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <%= if elem_description do %>
+                          <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
+                        <% end %>
+                        
+                        <%= if has_logic do %>
+                          <div class="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
+                            <p>如果答案<strong><%= condition_op_text %></strong> "<%= condition_value %>" 
+                            则<strong><%= logic_type_text %></strong> <%= if target_label, do: "「#{target_label}」" %></p>
+                          </div>
+                        <% end %>
+                        
+                        <!-- 逻辑编辑面板 - 仅在选中时显示 -->
+                        <%= if @editing_logic_item_id == elem_id do %>
+                          <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+                            <div class="flex justify-between items-center mb-3">
+                              <h3 class="font-medium text-blue-800">设置题目逻辑</h3>
+                              <button 
+                                type="button" 
+                                phx-click="close_logic_editor" 
+                                class="text-gray-500 hover:text-gray-800"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <form phx-submit="save_logic" class="space-y-3">
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                                <div class="flex items-center gap-2">
+                                  <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
+                                    <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
+                                    <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                                  </select>
+                                  <input 
+                                    type="text" 
+                                    name="logic[condition_value]" 
+                                    value={get_in(@logic_condition || %{}, ["value"])}
+                                    placeholder="输入答案值" 
+                                    class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                                <div class="flex flex-col gap-2">
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="jump" 
+                                      checked={@logic_type == "jump"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="jump"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">跳转到指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="show" 
+                                      checked={@logic_type == "show"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="show"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">显示指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="hide" 
+                                      checked={@logic_type == "hide"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="hide"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">隐藏指定题目</span>
+                                  </label>
+                                  <label class="inline-flex items-center">
+                                    <input 
+                                      type="radio" 
+                                      name="logic[type]" 
+                                      value="end" 
+                                      checked={@logic_type == "end"}
+                                      phx-click="change_logic_type"
+                                      phx-value-type="end"
+                                      class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-2 text-gray-700">结束问卷</span>
+                                  </label>
+                                </div>
+                              </div>
+                              
+                              <%= if @logic_type in ["jump", "show", "hide"] do %>
+                                <div>
+                                  <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                                  <select 
+                                    name="logic[target_id]" 
+                                    class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  >
+                                    <option value="">-- 请选择题目 --</option>
+                                    <%= for target_item <- @structure do %>
+                                      <% target_id = Map.get(target_item, "id") %>
+                                      <% target_label = Map.get(target_item, "label") || "未命名题目" %>
+                                      <%= if target_id != elem_id do %>
+                                        <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                                      <% end %>
+                                    <% end %>
+                                  </select>
+                                </div>
+                              <% end %>
+                              
+                              <div class="pt-2 flex justify-end">
+                                <button 
+                                  type="button"
+                                  phx-click="close_logic_editor"
+                                  class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                  取消
+                                </button>
+                                <button 
+                                  type="submit"
+                                  class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                  保存规则
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        <% end %>
+                        
+                        <div class="mt-3 border-t pt-3">
+                          <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                        </div>
+                      </div>
+                    <% end %>
+                  <% end %>
+                </div>
+                
+                <!-- 逻辑编辑面板 - 当存在编辑项时显示 -->
+                <%= if @editing_logic_item_id do %>
+                  <% 
+                    # 查找正在编辑的项目
+                    editing_item = Enum.find(@structure, fn item -> Map.get(item, "id") == @editing_logic_item_id end)
+                    item_label = if editing_item, do: Map.get(editing_item, "label") || "未命名题目", else: "未知题目"
+                  %>
+                  <div class="mt-5 p-4 border border-blue-200 bg-blue-50 rounded-md">
+                    <div class="flex justify-between items-center mb-3">
+                      <h3 class="font-medium text-blue-800">编辑「<%= item_label %>」的逻辑</h3>
+                      <button 
+                        type="button" 
+                        phx-click="close_logic_editor" 
+                        class="text-gray-500 hover:text-gray-800"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <form phx-submit="save_logic" class="space-y-3">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                        <div class="flex items-center gap-2">
+                          <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
+                            <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
+                            <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                          </select>
+                          <input 
+                            type="text" 
+                            name="logic[condition_value]" 
+                            value={get_in(@logic_condition || %{}, ["value"])}
+                            placeholder="输入答案值" 
+                            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          />
                         </div>
                       </div>
                       
-                      <div class="flex gap-2">
-                        <button type="button" phx-click="delete_item" phx-value-id={elem_id} style="color: #ef4444; background: none; border: none; cursor: pointer;">
-                          删除
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                        <div class="flex flex-col gap-2">
+                          <label class="inline-flex items-center">
+                            <input 
+                              type="radio" 
+                              name="logic[type]" 
+                              value="jump" 
+                              checked={@logic_type == "jump"}
+                              phx-click="change_logic_type"
+                              phx-value-type="jump"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">跳转到指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input 
+                              type="radio" 
+                              name="logic[type]" 
+                              value="show" 
+                              checked={@logic_type == "show"}
+                              phx-click="change_logic_type"
+                              phx-value-type="show"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">显示指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input 
+                              type="radio" 
+                              name="logic[type]" 
+                              value="hide" 
+                              checked={@logic_type == "hide"}
+                              phx-click="change_logic_type"
+                              phx-value-type="hide"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">隐藏指定题目</span>
+                          </label>
+                          <label class="inline-flex items-center">
+                            <input 
+                              type="radio" 
+                              name="logic[type]" 
+                              value="end" 
+                              checked={@logic_type == "end"}
+                              phx-click="change_logic_type"
+                              phx-value-type="end"
+                              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            />
+                            <span class="ml-2 text-gray-700">结束问卷</span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <%= if @logic_type in ["jump", "show", "hide"] do %>
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                          <select 
+                            name="logic[target_id]" 
+                            class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          >
+                            <option value="">-- 请选择题目 --</option>
+                            <%= for target_item <- @structure do %>
+                              <% target_id = Map.get(target_item, "id") %>
+                              <% target_label = Map.get(target_item, "label") || "未命名题目" %>
+                              <%= if target_id != @editing_logic_item_id do %>
+                                <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                              <% end %>
+                            <% end %>
+                          </select>
+                        </div>
+                      <% end %>
+                      
+                      <div class="pt-2 flex justify-end">
+                        <button 
+                          type="button"
+                          phx-click="close_logic_editor"
+                          class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          取消
+                        </button>
+                        <button 
+                          type="submit"
+                          class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          保存规则
                         </button>
                       </div>
-                    </div>
-                    
-                    <%= if elem_description do %>
-                      <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
-                    <% end %>
-                    
-                    <div class="mt-3 border-t pt-3">
-                      <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
-                    </div>
+                    </form>
                   </div>
                 <% end %>
-              <% end %>
-            </div>
-          </div>
+              </div>
+              
+            <% "decoration" -> %>
+              <!-- 页面装饰标签页内容 -->
+              <div class="form-card">
+                <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1.5rem;">页面装饰设置</h2>
+                <div style="background-color: #f9fafb; border-radius: 0.5rem; padding: 2rem; text-align: center;">
+                  <div style="margin: 0 auto; height: 4rem; width: 4rem; color: #6b7280; margin-bottom: 1rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                  </div>
+                  <h3 style="font-size: 1.25rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">自定义表单外观</h3>
+                  <p style="color: #6b7280; margin-bottom: 1.5rem;">设置表单页眉、页脚、背景色和样式</p>
+                  <div style="max-width: 24rem; margin: 0 auto;">
+                    <p style="color: #6b7280; text-align: left; margin-bottom: 1rem; font-size: 0.875rem;">
+                      您可以添加企业Logo、品牌色调、自定义页头文本和结束页内容等。
+                    </p>
+                  </div>
+                  
+                  <div style="font-style: italic; color: #9ca3af; margin-top: 2rem;">
+                    此功能正在开发中，敬请期待...
+                  </div>
+                </div>
+              </div>
+          <% end %>
         </div>
       </div>
     </div>

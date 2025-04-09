@@ -99,6 +99,36 @@ defmodule MyApp.FormTemplates do
     |> FormTemplate.changeset(attrs)
     |> Repo.insert()
   end
+  
+  @doc """
+  创建默认的空白表单模板。
+  用于在创建新表单时自动关联一个默认模板。
+
+  ## 示例
+
+      iex> create_default_template(%{user_id: user_id})
+      {:ok, %FormTemplate{}}
+  """
+  def create_default_template(attrs) do
+    default_attrs = %{
+      name: "默认表单模板 #{DateTime.utc_now() |> Calendar.strftime("%Y%m%d%H%M%S")}",
+      description: "自动创建的默认表单模板",
+      structure: [],
+      version: 1
+    }
+    
+    # 合并用户ID和其他可能的属性
+    attrs = Map.merge(default_attrs, attrs)
+    
+    # 确保有created_by_id
+    attrs = if Map.has_key?(attrs, :created_by_id) || Map.has_key?(attrs, "created_by_id") do
+      attrs
+    else
+      Map.put(attrs, :created_by_id, Map.get(attrs, :user_id) || Map.get(attrs, "user_id"))
+    end
+    
+    create_template(attrs)
+  end
 
   @doc """
   更新表单模板。
