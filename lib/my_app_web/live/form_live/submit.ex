@@ -22,13 +22,13 @@ defmodule MyAppWeb.FormLive.Submit do
       %MyApp.Forms.Form{status: :published} = form ->
         # 预加载表单项和选项（已包含页面加载）
         form = Forms.preload_form_items_and_options(form)
-        
+
         # --- 添加详细选项标签日志 (移动到 mount 函数中) ---
         # IO.puts("\\n===== Detailed Option Labels in Submit Mount =====")
         # ... (日志代码保持在原位，但可以在 mount 中访问 form)
         # IO.puts("===== Detailed Option Labels End =====\\n")
         # --- 详细选项标签日志结束 ---
-        
+
         # 这个函数只负责获取和预加载表单，返回 {:ok, form}
         {:ok, form}
 
@@ -40,7 +40,7 @@ defmodule MyAppWeb.FormLive.Submit do
   @impl true
   def mount(%{"id" => id}, session, socket) do
     Logger.info("Mounting FormLive.Submit for form ID: #{id}")
-    
+
     form = Forms.get_form!(id)
     form_items = Forms.list_form_items_by_form_id(id)
     current_user = session["current_user"]
@@ -50,30 +50,30 @@ defmodule MyAppWeb.FormLive.Submit do
     Logger.info("[FormLive.Submit] Existing files map for form #{form.id}: #{inspect(existing_files_map)}")
 
     # 初始化上传配置 - 简化版本
-    {socket, upload_names} = 
+    {socket, upload_names} =
       form_items
       |> Enum.filter(&(&1.type == :file_upload))
       |> Enum.reduce({socket, %{}}, fn item, {acc_socket, acc_names} ->
-          # 使用标准化方式创建上传引用名称 
+          # 使用标准化方式创建上传引用名称
           upload_name = String.to_atom("upload_#{item.id}")
           Logger.info("Allowing upload for item #{item.id} with name: #{upload_name}")
-          
+
           # 使用更安全的默认值
-          accepts = if Enum.empty?(item.allowed_extensions), do: :any, else: parse_allowed_extensions(item.allowed_extensions) 
+          accepts = if Enum.empty?(item.allowed_extensions), do: :any, else: parse_allowed_extensions(item.allowed_extensions)
           max_entries = if item.multiple_files, do: item.max_files || 3, else: 1
           max_size = (item.max_file_size || 5) * 1_000_000
-          
+
           # 配置文件上传 - 添加进度处理回调
-          updated_socket = allow_upload(acc_socket, upload_name, 
+          updated_socket = allow_upload(acc_socket, upload_name,
             accept: accepts,
             max_entries: max_entries,
             max_file_size: max_size,
             auto_upload: true
           )
-          
+
           # 添加到名称映射
           updated_names = Map.put(acc_names, item.id, upload_name)
-          
+
           {updated_socket, updated_names}
       end)
 
@@ -81,7 +81,7 @@ defmodule MyAppWeb.FormLive.Submit do
     current_page = List.first(form.pages || [])
     page_items = get_page_items(form, current_page)
     current_page_idx = 0
-    
+
     # 构建表单项映射，便于后续验证和查询
     items_map = build_items_map(form_items)
 
@@ -104,7 +104,7 @@ defmodule MyAppWeb.FormLive.Submit do
       submitted: false,
       existing_files_map: existing_files_map
     })
-        
+
     {:ok, socket, temporary_assigns: [form_items: []]}
   end
 
@@ -123,7 +123,7 @@ defmodule MyAppWeb.FormLive.Submit do
   def handle_event("validate", %{"form_response" => response_params}, socket) do
     Logger.info("Handling validate event")
     changeset = MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, response_params)
-    
+
     # 这里不需要手动处理 @uploads, LiveView 会自动验证
     {:noreply, assign(socket, changeset: changeset)}
   end
@@ -158,7 +158,7 @@ defmodule MyAppWeb.FormLive.Submit do
       case Responses.create_response(all_data, form_id, socket.assigns.current_user.id) do
         {:ok, response} ->
           Logger.info("Response created successfully: #{response.id}")
-          
+
           # 关联文件到响应
           Enum.each(files_data, fn {item_id, file_entries} ->
             # 对于每个文件上传字段，关联其文件到响应
@@ -167,7 +167,7 @@ defmodule MyAppWeb.FormLive.Submit do
               Upload.associate_files_with_response(form_id, item_id, response.id)
             end
           end)
-          
+
           # 清理上传的文件信息
           socket = clear_uploaded_files_info(socket)
           {:noreply,
@@ -378,12 +378,12 @@ defmodule MyAppWeb.FormLive.Submit do
 
     form_data = params["form"] || %{}
     province = form_data["#{field_id}_province"]
-    
+
     Logger.info("Received handle_province_change event for field '#{field_id}' with province: #{inspect(province)}")
 
     # 更新表单状态
     form_state = socket.assigns.form_state || %{}
-    
+
     # 清空相关的城市和区县选择
     updated_form_state = form_state
       |> Map.put("#{field_id}_province", province)
@@ -391,7 +391,7 @@ defmodule MyAppWeb.FormLive.Submit do
       |> Map.put("#{field_id}_district", nil)
       |> Map.put(field_id, province) # 更新隐藏字段的值
 
-    {:noreply, 
+    {:noreply,
       socket
       |> assign(:form_state, updated_form_state)
       |> maybe_validate_form(updated_form_state)}
@@ -410,16 +410,16 @@ defmodule MyAppWeb.FormLive.Submit do
           |> List.first()
         _ -> nil
       end
-    
+
     form_data = params["form"] || %{}
     city = form_data["#{field_id}_city"]
-    
+
     # 从表单状态获取省份
     form_state = socket.assigns.form_state || %{}
     province = Map.get(form_state, "#{field_id}_province")
-    
+
     Logger.info("Received handle_city_change event for field '#{field_id}' with province: #{inspect(province)} and city: #{inspect(city)}")
-    
+
     # 更新表单状态
     # 清空区县选择，保留省份和城市选择
     updated_form_state = form_state
@@ -427,7 +427,7 @@ defmodule MyAppWeb.FormLive.Submit do
       |> Map.put("#{field_id}_district", nil)
       |> Map.put(field_id, "#{province}-#{city}") # 更新隐藏字段的值
 
-    {:noreply, 
+    {:noreply,
       socket
       |> assign(:form_state, updated_form_state)
       |> maybe_validate_form(updated_form_state)}
@@ -446,25 +446,25 @@ defmodule MyAppWeb.FormLive.Submit do
           |> List.first()
         _ -> nil
       end
-    
+
     form_data = params["form"] || %{}
     district = form_data["#{field_id}_district"]
-    
+
     Logger.info("Received handle_district_change event for field '#{field_id}' with district: #{inspect(district)}")
-    
+
     # 更新表单状态
     form_state = socket.assigns.form_state || %{}
-    
+
     # 获取已选择的省份和城市
     province = Map.get(form_state, "#{field_id}_province")
     city = Map.get(form_state, "#{field_id}_city")
-    
+
     # 更新区县选择和完整的地区值
     updated_form_state = form_state
       |> Map.put("#{field_id}_district", district)
       |> Map.put(field_id, "#{province}-#{city}-#{district}") # 更新隐藏字段的值
 
-    {:noreply, 
+    {:noreply,
       socket
       |> assign(:form_state, updated_form_state)
       |> maybe_validate_form(updated_form_state)}
@@ -507,32 +507,54 @@ defmodule MyAppWeb.FormLive.Submit do
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     # 从 ref 中提取 upload_name
     upload_name = find_upload_name_by_ref(socket.assigns.uploads, ref)
-    
+
     if upload_name do
       Logger.info("Canceling upload for ref: #{ref} under name: #{upload_name}")
       {:noreply, cancel_upload(socket, upload_name, ref)}
     else
       Logger.warning("Could not find upload name for cancel ref: #{ref}")
-      {:noreply, socket} 
+      {:noreply, socket}
     end
   end
 
-  # 删除已上传的文件
+  # 处理文件删除事件
   @impl true
-  def handle_event("remove_file", %{"field-id" => field_id, "file-index" => index_str}, socket) do
-    index = String.to_integer(index_str)
-    form_state = socket.assigns.form_state
+  def handle_event("remove_file", %{"field-id" => item_id, "file-path" => file_path}, socket) do
+    # item_id 直接使用字符串，不再转换为整数
+    Logger.info("[FormLive.Submit] Received remove_file event for item ID: #{item_id}, file path: #{file_path}")
 
-    # 获取字段的当前文件列表
-    field_files = Map.get(form_state, field_id, [])
+    # 调用 Upload 上下文删除文件
+    case MyApp.Upload.delete_uploaded_file(socket.assigns.form.id, file_path) do
+      {:ok, _deleted_file} ->
+        Logger.info("[FormLive.Submit] Successfully deleted file: #{file_path}")
 
-    # 移除指定索引的文件
-    updated_files = List.delete_at(field_files, index)
+        # 安全地更新 @existing_files_map 状态
+        existing_map = socket.assigns.existing_files_map
 
-    # 更新状态
-    updated_form_state = Map.put(form_state, field_id, updated_files)
+        # 检查 item_id 是否存在且值是列表
+        case Map.get(existing_map, item_id) do
+          files when is_list(files) ->
+            # 过滤掉被删除的文件
+            updated_files = Enum.reject(files, &(&1.path == file_path))
 
-    {:noreply, assign(socket, :form_state, updated_form_state)}
+            # 更新 map
+            final_files_map =
+              if Enum.empty?(updated_files) do
+                Map.delete(existing_map, item_id) # 如果列表为空则移除 key
+              else
+                Map.put(existing_map, item_id, updated_files) # 更新 key 对应的列表
+              end
+            {:noreply, assign(socket, existing_files_map: final_files_map)}
+
+          _ -> # item_id 不存在或值不是列表 - 记录警告但不要崩溃
+            Logger.warn("[FormLive.Submit] item_id '#{item_id}' not found in existing_files_map or value was not a list after successful delete. Map not updated.")
+            {:noreply, socket} # 不更新 map
+        end
+
+      {:error, reason} ->
+        Logger.error("[FormLive.Submit] Failed to delete file #{file_path}: #{inspect(reason)}")
+        {:noreply, put_flash(socket, :error, "文件删除失败: #{reason}")}
+    end
   end
 
   # 辅助函数
@@ -865,38 +887,38 @@ defmodule MyAppWeb.FormLive.Submit do
     upload_names = Map.keys(socket.assigns.uploads)
                    |> Enum.filter(&is_atom/1)
                    |> Enum.filter(&(Atom.to_string(&1) |> String.starts_with?("upload_")))
-    
+
     Logger.info("Processing uploads for names: #{inspect(upload_names)}")
-    
+
     # 处理每个上传字段
-    {socket, files_data, errors} = 
+    {socket, files_data, errors} =
       Enum.reduce(upload_names, {socket, %{}, []}, fn upload_name, {current_socket, data, upload_errors} ->
-        item_id = upload_name 
-                 |> Atom.to_string() 
-                 |> String.replace_prefix("upload_", "") 
-        
+        item_id = upload_name
+                 |> Atom.to_string()
+                 |> String.replace_prefix("upload_", "")
+
         form_id = current_socket.assigns.form.id
-        
+
         # 获取已完成的上传
         completed_entries = consume_uploaded_entries(current_socket, upload_name, fn %{path: path}, entry ->
           # 构建目标目录
           dest_dir = Path.join([
-            :code.priv_dir(:my_app), 
-            "static", 
-            "uploads", 
-            to_string(form_id), 
+            :code.priv_dir(:my_app),
+            "static",
+            "uploads",
+            to_string(form_id),
             to_string(item_id)
           ])
           File.mkdir_p!(dest_dir)
-          
+
           # 生成唯一文件名
           ext = Path.extname(entry.client_name)
           filename = "#{Ecto.UUID.generate()}#{ext}"
           dest_path = Path.join(dest_dir, filename)
-          
+
           # 复制文件
           File.cp!(path, dest_path)
-          
+
           # 构建文件信息
           file_info = %{
             original_filename: entry.client_name,
@@ -905,7 +927,7 @@ defmodule MyAppWeb.FormLive.Submit do
             content_type: entry.client_type,
             path: "/uploads/#{form_id}/#{item_id}/#{filename}"
           }
-          
+
           # 保存文件信息到数据库
           case Upload.save_uploaded_file(form_id, item_id, file_info) do
             {:ok, file} ->
@@ -918,17 +940,17 @@ defmodule MyAppWeb.FormLive.Submit do
               Map.put(file_info, :type, file_info.content_type)
           end
         end)
-        
+
         # 更新数据
         updated_data = Map.put(data, item_id, completed_entries)
-        
+
         # 检查是否有错误
         entry_errors = current_socket.assigns.uploads[upload_name].errors
         updated_errors = upload_errors ++ entry_errors
-        
+
         {current_socket, updated_data, updated_errors}
       end)
-    
+
     {socket, files_data, errors}
   end
 
@@ -945,7 +967,7 @@ defmodule MyAppWeb.FormLive.Submit do
   defp upload_name_to_info_key(upload_name) do
     String.to_atom("uploaded_files_info_" <> (Atom.to_string(upload_name) |> String.replace_prefix("upload_", "")))
   end
-  
+
   # 新增：清理所有上传的文件信息 (提交成功后)
   defp clear_uploaded_files_info(socket) do
      Enum.reduce(Map.keys(socket.assigns), socket, fn key, acc_socket ->

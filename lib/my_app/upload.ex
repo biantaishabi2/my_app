@@ -3,7 +3,7 @@ defmodule MyApp.Upload do
   The Upload context handles file uploads and their association with forms and responses.
   """
 
-  import Ecto.Query, warn: false
+  import Ecto.Query, warn: false, only: [from: 2]
   alias MyApp.Repo
   alias MyApp.Upload.UploadedFile
 
@@ -147,7 +147,7 @@ defmodule MyApp.Upload do
     )
     |> Enum.group_by(& &1.form_item_id)
   end
-  
+
   @doc """
   Get a single uploaded file by ID.
 
@@ -165,4 +165,34 @@ defmodule MyApp.Upload do
     Repo.get(UploadedFile, id)
   end
   def get_file(_), do: nil
+
+  @doc """
+  Deletes an uploaded file by its path, ensuring it's associated with the correct form and hasn't been submitted yet.
+
+  ## Parameters
+    - form_id: The ID of the form the file belongs to.
+    - file_path: The path of the file to delete (as stored in the database).
+
+  ## Examples
+      iex> delete_uploaded_file(form_id, "uploads/forms/...")
+      {:ok, %UploadedFile{}}
+
+      iex> delete_uploaded_file(form_id, "non_existent_path")
+      {:error, :not_found}
+  """
+  def delete_uploaded_file(form_id, file_path) do
+    # Use a query with is_nil() for safe nil comparison
+    query = from u in UploadedFile,
+              where: u.form_id == ^form_id and u.path == ^file_path and is_nil(u.response_id)
+
+    case Repo.one(query) do
+      nil ->
+        # If not found (or already submitted, i.e., response_id is not nil), return :not_found
+        Logger.warn("Attempted to delete file with path '#{file_path}' for form '#{form_id}', but it was not found or already submitted.")
+        {:error, :not_found}
+      %UploadedFile{id: file_id} = _file ->
+        # Call the existing delete_file function which handles filesystem and DB deletion
+        delete_file(file_id)
+    end
+  end
 end
