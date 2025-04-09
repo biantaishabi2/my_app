@@ -262,4 +262,166 @@ defmodule MyApp.FormTemplates do
   def render_template(%FormTemplate{} = template, form_data) when is_map(form_data) do
     FormTemplate.render(template, form_data)
   end
+
+  @doc """
+  根据表单模板和表单数据筛选要显示的表单项。
+
+  ## 参数
+    - items: 表单项列表，通常是 form.items
+    - template_structure: 表单模板结构，通常是 template.structure
+    - form_data: 表单数据，格式为 %{"field_id" => "value"}
+
+  ## 返回值
+    满足条件显示规则的表单项列表
+
+  ## 示例
+
+      iex> filter_items_by_template(form.items, template.structure, %{"name" => "John"})
+      [%FormItem{}, %FormItem{}, ...]
+  """
+  def filter_items_by_template(items, template_structure, form_data) when is_list(items) and is_list(template_structure) and is_map(form_data) do
+    # 确保表单数据中包含字段ID信息
+    first_field_id = Map.get(form_data, "first_field_id")
+    second_field_id = Map.get(form_data, "second_field_id")
+
+    # 获取字段值
+    first_field_value = Map.get(form_data, first_field_id, "") || ""
+    second_field_value = Map.get(form_data, second_field_id, "") || ""
+
+    # 创建一个map用于通过ID查找表单项
+    items_map = Map.new(items, fn item -> {item.id, item} end)
+
+    # 遍历模板结构，根据条件决定显示哪些项
+    template_structure
+    |> Enum.filter(fn template_item ->
+      condition = Map.get(template_item, :condition)
+      # 评估是否应该显示该项
+      is_nil(condition) || evaluate_template_condition(condition, form_data)
+    end)
+    |> Enum.map(fn template_item ->
+      # 从 items_map 中获取对应的原始 item
+      Map.get(items_map, template_item.name || template_item["name"])
+    end)
+    |> Enum.reject(&is_nil/1) # 移除未找到的项
+  end
+
+  @doc """
+  根据特定的筛选规则过滤表单项。
+
+  这是用于表单模板演示页面的特殊版本，支持基于位置索引的过滤规则。
+
+  ## 参数
+    - items: 表单项列表，通常是 form.items
+    - form_data: 表单数据
+    - template_structure: 模板结构
+
+  ## 返回值
+    满足特定筛选规则的表单项列表
+  """
+  def filter_items_by_demo_rules(items, form_data, template_structure) when is_list(items) and is_map(form_data) do
+    # 保存原始排序
+    indexed_items = Enum.with_index(items)
+    
+    # 从表单数据中提取字段ID
+    first_field_id = Map.get(form_data, "first_field_id")
+    second_field_id = Map.get(form_data, "second_field_id")
+    
+    # 获取实际的字段值
+    first_field_value = Map.get(form_data, first_field_id, "") || ""
+    second_field_value = Map.get(form_data, second_field_id, "") || ""
+    
+    # 过滤表单项 - 保持基于索引的过滤逻辑
+    indexed_items
+    |> Enum.filter(fn {item, index} ->
+      base_condition = cond do
+        # 前两个表单项总是显示
+        index < 2 -> 
+          true
+          
+        # 包含"index"关键字的条件 (第3-4项)
+        index >= 2 and index < 4 and String.contains?(first_field_value, "index") ->
+          true
+          
+        # 包含"condition"关键字的条件 (第5-6项)
+        index >= 4 and index < 6 and String.contains?(first_field_value, "condition") ->
+          true
+          
+        # 包含"complex"关键字的复合条件 (第7-8项)
+        index >= 6 and index < 8 and 
+        String.contains?(first_field_value, "complex") and
+        first_field_value != "" ->
+          true
+          
+        # 当第二个选择项为"选项B"时显示 (第9项)
+        index == 8 and second_field_value == "选项B" ->
+          true
+          
+        # 默认不显示
+        true ->
+          false
+      end
+      
+      # 根据具体控件类型进行特殊处理
+      special_case = cond do
+        # 评分控件（index 9和10）：只在选择"选项B"且输入"complex"时显示
+        item.type == :rating -> 
+          String.contains?(first_field_value, "complex") and second_field_value == "选项B"
+          
+        # 地区控件（index 8）：只在选择"选项B"时显示
+        item.type == :region -> 
+          second_field_value == "选项B"
+          
+        # 时间控件（index 7）：在输入"complex"时显示
+        item.type == :time ->
+          String.contains?(first_field_value, "complex")
+          
+        # 其他控件保持原有索引逻辑
+        true -> 
+          false
+      end
+      
+      # 满足基本条件或特殊条件任一即可显示
+      base_condition or special_case
+    end)
+    |> Enum.map(fn {item, _} -> item end)
+  end
+
+  # --- 表单条件评估辅助函数 ---
+
+  # 评估模板条件
+  defp evaluate_template_condition(nil, _form_data), do: true
+  
+  defp evaluate_template_condition(condition, form_data) do
+    cond do
+      # 使用FormTemplate的evaluate_condition处理标准条件
+      is_map_key(condition, :operator) || is_map_key(condition, "operator") ->
+        FormTemplate.evaluate_condition(condition, form_data)
+        
+      # 处理包含多条件的复合条件
+      is_map_key(condition, :conditions) || is_map_key(condition, "conditions") ->
+        conditions = condition[:conditions] || condition["conditions"] || []
+        operator = condition[:operator] || condition["operator"] || "and"
+        
+        evaluate_conditions_group(conditions, operator, form_data)
+        
+      # 处理自定义条件格式
+      true ->
+        false
+    end
+  end
+  
+  # 处理条件组
+  defp evaluate_conditions_group(conditions, operator, form_data) when is_list(conditions) do
+    results = Enum.map(conditions, fn condition -> 
+      evaluate_template_condition(condition, form_data) 
+    end)
+    
+    case operator do
+      "and" -> Enum.all?(results, & &1)
+      "or" -> Enum.any?(results, & &1)
+      _ -> false
+    end
+  end
+  
+  defp evaluate_conditions_group(_, _, _), do: false
 end

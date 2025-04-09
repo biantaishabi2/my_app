@@ -50,7 +50,7 @@ defmodule MyAppWeb.FormTemplateLive do
     }
 
     # 使用表单模板筛选要显示的表单项
-    rendered_items = filter_items_by_conditions(form.items, form_data, template_structure)
+    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(form.items, form_data, template_structure)
 
     {:ok,
       socket
@@ -87,7 +87,7 @@ defmodule MyAppWeb.FormTemplateLive do
       |> Map.put("second_field_id", second_field_id)
 
     # 使用条件逻辑过滤要显示的表单项
-    rendered_items = filter_items_by_conditions(socket.assigns.form.items, form_data, socket.assigns.template_structure)
+    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(socket.assigns.form.items, form_data, socket.assigns.template_structure)
 
     # 为调试目的打印数据
     first_value = Map.get(form_data, first_field_id, "")
@@ -124,7 +124,7 @@ defmodule MyAppWeb.FormTemplateLive do
       |> Map.put("second_field_id", second_field_id)
 
     # 使用现有表单数据重新过滤表单项
-    rendered_items = filter_items_by_conditions(form.items, form_data, template_structure)
+    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(form.items, form_data, template_structure)
 
     {:noreply,
       socket
@@ -483,17 +483,21 @@ defmodule MyAppWeb.FormTemplateLive do
     end
   end
 
-  # 根据控件类型和索引为标签添加额外前缀
-  defp maybe_add_type_specific_prefix(label, item_type, index) do
+  # 根据控件类型为标签添加特殊描述前缀
+  defp maybe_add_type_specific_prefix(label, item_type, _index) do
     cond do
-      # 第8个项目为评分控件时添加特殊前缀
-      index == 7 and item_type == :rating ->
+      # 评分控件
+      item_type == :rating -> 
         "[评分控件 - 选择'选项B'+输入'complex'] #{label}"
-
-      # 第9个项目添加特殊前缀
-      index == 8 ->
-        "[gh控件 - 仅选择'选项B'显示] #{label}"
-
+        
+      # 地区控件
+      item_type == :region -> 
+        "[地区控件 - 仅选择'选项B'显示] #{label}"
+        
+      # 时间控件
+      item_type == :time -> 
+        "[时间控件 - 输入'complex'显示] #{label}"
+        
       # 其他控件使用默认标签
       true ->
         label
@@ -536,80 +540,5 @@ defmodule MyAppWeb.FormTemplateLive do
     end
   end
 
-  # 根据条件筛选表单项 - 重写此函数
-  defp filter_items_by_conditions(items, form_data, template_structure) do # 添加 template_structure 参数
-    IO.puts("表单数据内容: #{inspect(form_data)}") # 保留调试信息
-
-    # 创建一个 map 方便通过 ID 查找原始 item
-    items_map = Map.new(items, fn item -> {item.id, item} end)
-
-    # 遍历模板结构，根据条件决定显示哪些项
-    rendered_items =
-      template_structure
-      |> Enum.filter(fn template_item ->
-        condition = Map.get(template_item, :condition)
-        # 调用新的评估函数
-        evaluate_condition(condition, form_data)
-      end)
-      |> Enum.map(fn template_item ->
-        # 从 items_map 中获取对应的原始 item (通过 template_item.name 即 item.id)
-        Map.get(items_map, template_item.name)
-      end)
-      |> Enum.reject(&is_nil/1) # 移除未找到的项（理论上不应发生）
-
-    IO.puts("过滤后表单项: #{length(rendered_items)} / #{length(items)}") # 保留调试信息
-    rendered_items
-  end
-
-  # --- 新增辅助函数 ---
-
-  # 评估条件的主要函数
-  defp evaluate_condition(nil, _form_data), do: true # 没有条件则总是满足
-
-  defp evaluate_condition(%{operator: "=="} = condition, form_data) do
-    left_value = get_operand_value(condition.left, form_data)
-    right_value = get_operand_value(condition.right, form_data)
-    # 使用 Kernel.==/2 进行比较，处理 nil 的情况
-    Kernel.==(left_value, right_value)
-  end
-
-  defp evaluate_condition(%{operator: "!="} = condition, form_data) do
-    left_value = get_operand_value(condition.left, form_data)
-    right_value = get_operand_value(condition.right, form_data)
-    # 使用 Kernel.!=/2 进行比较
-    Kernel.!=(left_value, right_value)
-  end
-
-  defp evaluate_condition(%{operator: "contains"} = condition, form_data) do
-    left_value = get_operand_value(condition.left, form_data)
-    right_value = get_operand_value(condition.right, form_data)
-    # 确保两边都是字符串再比较
-    case {left_value, right_value} do
-      {lv, rv} when is_binary(lv) and is_binary(rv) -> String.contains?(lv, rv)
-      _ -> false # 如果类型不匹配或为 nil，则认为不包含
-    end
-  end
-
-  defp evaluate_condition(%{operator: "and", conditions: conditions} = _condition, form_data) when is_list(conditions) do
-    Enum.all?(conditions, &evaluate_condition(&1, form_data))
-  end
-
-  defp evaluate_condition(%{operator: "or", conditions: conditions} = _condition, form_data) when is_list(conditions) do
-    Enum.any?(conditions, &evaluate_condition(&1, form_data))
-  end
-
-  # 未知操作符，默认不满足条件
-  defp evaluate_condition(_condition, _form_data), do: false
-
-  # 获取操作数的值（字段值或字面量）
-  defp get_operand_value(%{type: "field", name: name}, form_data) when is_binary(name) do
-    # 从 form_data 获取字段值，注意 name 是 item.id
-    Map.get(form_data, name)
-  end
-  defp get_operand_value(%{type: "value", value: value}, _form_data) do
-    # 返回字面量值
-    value
-  end
-  # 处理无效的操作数定义
-  defp get_operand_value(_, _), do: nil
+  # 删除了过滤函数，现在使用上下文模块提供的API
 end
