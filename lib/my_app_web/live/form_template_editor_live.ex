@@ -423,10 +423,302 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     {:noreply, assign(socket, :logic_type, logic_type)}
   end
 
+  # 页面装饰相关的事件处理函数
+  
+  @impl true
+  def handle_event("change_decoration_category", %{"category" => category}, socket) do
+    # 将类别字符串转为原子
+    category_atom = String.to_existing_atom(category)
+    
+    {:noreply,
+     socket
+     |> assign(:decoration_category, category_atom)
+     |> assign(:decoration_search_term, nil) # 切换类别时清空搜索
+    }
+  end
+  
+  @impl true
+  def handle_event("decoration_type_changed", %{"type" => type}, socket) do
+    {:noreply, assign(socket, :decoration_type, type)}
+  end
+  
+  @impl true
+  def handle_event("add_decoration_element", _params, socket) do
+    # 使用当前选择的装饰元素类型
+    decoration_type = socket.assigns.decoration_type
+    
+    # 创建新的装饰元素
+    new_element = case decoration_type do
+      "title" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "title",
+          "title" => "新标题",
+          "level" => 2,
+          "align" => "left"
+        }
+        
+      "paragraph" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "paragraph",
+          "content" => "这是一个段落内容。在这里填写文字说明。"
+        }
+        
+      "section" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "section",
+          "title" => "章节标题",
+          "divider_style" => "solid"
+        }
+        
+      "explanation" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "explanation",
+          "content" => "这里是重要说明内容。",
+          "note_type" => "info"
+        }
+        
+      "header_image" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "header_image",
+          "image_url" => "",
+          "height" => "300px"
+        }
+        
+      "inline_image" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "inline_image",
+          "image_url" => "",
+          "caption" => "图片说明",
+          "width" => "80%",
+          "align" => "center"
+        }
+        
+      "spacer" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "spacer",
+          "height" => "2rem"
+        }
+        
+      _ ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => decoration_type
+        }
+    end
+    
+    # 添加新元素到装饰元素列表
+    updated_decoration = socket.assigns.decoration ++ [new_element]
+    
+    # 保存更新后的模板
+    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+      {:ok, updated_template} ->
+        {:noreply,
+          socket
+          |> assign(:template, updated_template)
+          |> assign(:decoration, updated_template.decoration)
+          |> put_flash(:info, "已添加装饰元素")
+        }
+        
+      {:error, _changeset} ->
+        {:noreply,
+          socket
+          |> put_flash(:error, "无法添加装饰元素")
+        }
+    end
+  end
+  
+  @impl true
+  def handle_event("edit_decoration_element", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :editing_decoration_id, id)}
+  end
+  
+  @impl true
+  def handle_event("close_decoration_editor", _params, socket) do
+    {:noreply, assign(socket, :editing_decoration_id, nil)}
+  end
+  
+  @impl true
+  def handle_event("save_decoration_element", %{"id" => id} = params, socket) do
+    # 找到要编辑的装饰元素
+    decoration = socket.assigns.decoration
+    element_index = Enum.find_index(decoration, fn elem -> (elem["id"] || elem[:id]) == id end)
+    
+    if element_index do
+      # 获取当前元素
+      current_element = Enum.at(decoration, element_index)
+      element_type = current_element["type"] || current_element[:type]
+      
+      # 根据元素类型处理参数
+      updated_element = case element_type do
+        "title" ->
+          title = params["title"] || ""
+          level = params["level"] || "2"
+          # 将 level 转换为整数
+          {level_int, _} = Integer.parse(level)
+          align = params["align"] || "left"
+          
+          current_element
+          |> Map.put("title", title)
+          |> Map.put("level", level_int)
+          |> Map.put("align", align)
+          
+        "paragraph" ->
+          content = params["content"] || ""
+          
+          current_element
+          |> Map.put("content", content)
+          
+        "section" ->
+          title = params["title"] || ""
+          divider_style = params["divider_style"] || "solid"
+          
+          current_element
+          |> Map.put("title", title)
+          |> Map.put("divider_style", divider_style)
+          
+        "explanation" ->
+          content = params["content"] || ""
+          note_type = params["note_type"] || "info"
+          
+          current_element
+          |> Map.put("content", content)
+          |> Map.put("note_type", note_type)
+          
+        "header_image" ->
+          image_url = params["image_url"] || ""
+          height = params["height"] || "300px"
+          
+          current_element
+          |> Map.put("image_url", image_url)
+          |> Map.put("height", height)
+          
+        "inline_image" ->
+          image_url = params["image_url"] || ""
+          caption = params["caption"] || ""
+          width = params["width"] || "100%"
+          align = params["align"] || "center"
+          
+          current_element
+          |> Map.put("image_url", image_url)
+          |> Map.put("caption", caption)
+          |> Map.put("width", width)
+          |> Map.put("align", align)
+          
+        "spacer" ->
+          height = params["height"] || "1rem"
+          
+          current_element
+          |> Map.put("height", height)
+          
+        _ -> current_element
+      end
+      
+      # 更新列表中的元素
+      updated_decoration = List.replace_at(decoration, element_index, updated_element)
+      
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+        {:ok, updated_template} ->
+          {:noreply,
+            socket
+            |> assign(:template, updated_template)
+            |> assign(:decoration, updated_template.decoration)
+            |> assign(:editing_decoration_id, nil)
+            |> put_flash(:info, "装饰元素已更新")
+          }
+          
+        {:error, _changeset} ->
+          {:noreply,
+            socket
+            |> put_flash(:error, "无法更新装饰元素")
+          }
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+  
+  @impl true
+  def handle_event("delete_decoration_element", %{"id" => id}, socket) do
+    # 找到要删除的装饰元素
+    updated_decoration = Enum.reject(socket.assigns.decoration, fn elem -> 
+      (elem["id"] || elem[:id]) == id
+    end)
+    
+    # 保存更新后的模板
+    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+      {:ok, updated_template} ->
+        {:noreply,
+          socket
+          |> assign(:template, updated_template)
+          |> assign(:decoration, updated_template.decoration)
+          |> put_flash(:info, "装饰元素已删除")
+        }
+        
+      {:error, _changeset} ->
+        {:noreply,
+          socket
+          |> put_flash(:error, "无法删除装饰元素")
+        }
+    end
+  end
+  
+  @impl true
+  def handle_event("update_decoration_order", %{"ordered_ids" => ordered_ids}, socket) do
+    # 获取当前模板和装饰元素列表
+    %{template: template, decoration: current_decoration} = socket.assigns
+    
+    # 创建一个ID到装饰元素的映射
+    id_to_element_map = Enum.reduce(current_decoration, %{}, fn elem, acc ->
+      elem_id = elem["id"] || elem[:id]
+      if elem_id, do: Map.put(acc, elem_id, elem), else: acc
+    end)
+    
+    # 按新顺序重组装饰元素
+    reordered_elements = Enum.map(ordered_ids, fn id ->
+      Map.get(id_to_element_map, id)
+    end)
+    |> Enum.filter(&(&1 != nil))
+    
+    # 处理可能不在ordered_ids中的项
+    missing_elements = Enum.filter(current_decoration, fn elem ->
+      elem_id = elem["id"] || elem[:id]
+      elem_id && !Enum.member?(ordered_ids, elem_id)
+    end)
+    
+    # 合并重排序的项和缺失的项
+    updated_decoration = reordered_elements ++ missing_elements
+    
+    # 保存更新后的模板
+    case FormTemplates.update_template(template, %{decoration: updated_decoration}) do
+      {:ok, updated_template} ->
+        {:noreply,
+          socket
+          |> assign(:template, updated_template)
+          |> assign(:decoration, updated_template.decoration)
+          |> put_flash(:info, "装饰元素顺序已更新")
+        }
+        
+      {:error, _changeset} ->
+        {:noreply,
+          socket
+          |> put_flash(:error, "无法更新装饰元素顺序")
+        }
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <div class="form-editor-container">
+    
       <!-- 模板编辑页面 -->
       <div style="display: flex; max-width: 100%; overflow-hidden;">
         <!-- 左侧控件类型选择栏 - 仅在结构设计标签页显示 -->
@@ -1645,24 +1937,269 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
             <% "decoration" -> %>
               <!-- 页面装饰标签页内容 -->
-              <div class="form-card">
-                <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1.5rem;">页面装饰设置</h2>
-                <div style="background-color: #f9fafb; border-radius: 0.5rem; padding: 2rem; text-align: center;">
-                  <div style="margin: 0 auto; height: 4rem; width: 4rem; color: #6b7280; margin-bottom: 1rem;">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                  </div>
-                  <h3 style="font-size: 1.25rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">自定义表单外观</h3>
-                  <p style="color: #6b7280; margin-bottom: 1.5rem;">设置表单页眉、页脚、背景色和样式</p>
-                  <div style="max-width: 24rem; margin: 0 auto;">
-                    <p style="color: #6b7280; text-align: left; margin-bottom: 1rem; font-size: 0.875rem;">
-                      您可以添加企业Logo、品牌色调、自定义页头文本和结束页内容等。
-                    </p>
+              <div style="display: flex; max-width: 100%; overflow-hidden;">
+                <!-- 左侧装饰元素类型选择栏 -->
+                <div style="flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 10rem);">
+                  <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">装饰元素类型</h2>
+
+                  <!-- 分类标签 -->
+                  <div style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;">
+                    <button
+                      phx-click="change_decoration_category"
+                      phx-value-category="content"
+                      data-category="content"
+                      style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :content, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :content, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                      </svg>
+                      内容
+                    </button>
+                    <button
+                      phx-click="change_decoration_category"
+                      phx-value-category="visual"
+                      data-category="visual"
+                      style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :visual, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :visual, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      视觉
+                    </button>
+                    <button
+                      phx-click="change_decoration_category"
+                      phx-value-category="layout"
+                      data-category="layout"
+                      style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :layout, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :layout, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                      </svg>
+                      布局
+                    </button>
                   </div>
 
-                  <div style="font-style: italic; color: #9ca3af; margin-top: 2rem;">
-                    此功能正在开发中，敬请期待...
+                  <!-- 装饰元素类型选择 -->
+                  <%= if @decoration_category == :content do %>
+                    <div style="margin-bottom: 1rem;">
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">内容元素</h3>
+                      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="title"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "title", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "title", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "title", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14M5 12h14M5 19h9" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">标题</div>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="paragraph"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "paragraph", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">段落</div>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="section"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "section", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "section", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "section", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">章节分隔</div>
+                        </button>
+
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="explanation"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "explanation", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "explanation", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "explanation", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">解释框</div>
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%= if @decoration_category == :visual do %>
+                    <div style="margin-bottom: 1rem;">
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">视觉元素</h3>
+                      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="header_image"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "header_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "header_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "header_image", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">题图</div>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="inline_image"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "inline_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">中间插图</div>
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%= if @decoration_category == :layout do %>
+                    <div style="margin-bottom: 1rem;">
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">布局元素</h3>
+                      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                        <button
+                          type="button"
+                          phx-click="decoration_type_changed"
+                          phx-value-type="spacer"
+                          style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "spacer", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "spacer", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "spacer", do: "#4f46e5", else: "#1f2937"};"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11v8m4-16v16m4-11v11" />
+                          </svg>
+                          <div style="font-size: 0.75rem; white-space: nowrap;">空间</div>
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <!-- 添加装饰元素按钮 -->
+                  <div style="margin-top: 1rem;">
+                    <button
+                      type="button"
+                      id="add-decoration-element-button"
+                      phx-click="add_decoration_element"
+                      disabled={is_nil(@decoration_type)}
+                      style={"width: 100%; padding: 0.75rem; border: none; border-radius: 0.375rem; background-color: #{if is_nil(@decoration_type), do: "#d1d5db", else: "#4f46e5"}; color: white; font-weight: 500; cursor: #{if is_nil(@decoration_type), do: "not-allowed", else: "pointer"}; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                      添加装饰元素
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 右侧内容区域 -->
+                <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 10rem);">
+                  <div class="form-card">
+                    <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">页面装饰元素</h2>
+
+                    <div id="decoration-list" phx-hook="DecorationSortable" class="space-y-4">
+                      <%= if Enum.empty?(@decoration) do %>
+                        <div style="text-align: center; padding: 3rem 0;">
+                          <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                            </svg>
+                          </div>
+                          <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">暂无装饰元素</h3>
+                          <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择装饰元素类型并点击"添加装饰元素"按钮</p>
+                        </div>
+                      <% else %>
+                        <%= for element <- @decoration do %>
+                          <% 
+                            elem_id = element["id"] || element[:id]
+                            elem_type = element["type"] || element[:type]
+                            elem_title = case elem_type do
+                              "title" -> element["title"] || element[:title] || "未命名标题"
+                              "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
+                              "section" -> element["title"] || element[:title] || "章节分隔"
+                              "explanation" -> element["content"] || element[:content] || "解释框"
+                              "header_image" -> "题图"
+                              "inline_image" -> element["caption"] || element[:caption] || "插图"
+                              "spacer" -> "空间"
+                              _ -> "未知元素"
+                            end
+                          %>
+                          <div
+                            id={"decoration-#{elem_id}"}
+                            data-id={elem_id}
+                            class="p-3 border rounded bg-white shadow-sm form-card"
+                          >
+                            <div class="flex justify-between items-center">
+                              <div class="flex items-center">
+                                <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
+                                <div>
+                                  <div class="flex items-center">
+                                    <span class="font-medium text-gray-700"><%= elem_title %></span>
+                                  </div>
+                                  <div class="text-xs text-gray-500 mt-1">
+                                    元素类型: <%= display_decoration_type(elem_type) %>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div class="flex gap-2">
+                                <button 
+                                  type="button" 
+                                  phx-click="edit_decoration_element" 
+                                  phx-value-id={elem_id}
+                                  style="color: #3b82f6; background: none; border: none; cursor: pointer;"
+                                >
+                                  编辑
+                                </button>
+                                <button 
+                                  type="button" 
+                                  phx-click="delete_decoration_element" 
+                                  phx-value-id={elem_id}
+                                  style="color: #ef4444; background: none; border: none; cursor: pointer;"
+                                >
+                                  删除
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- 预览区域 -->
+                            <div class="mt-3 border-t pt-3">
+                              <%= render_decoration_preview(element) %>
+                            </div>
+
+                            <!-- 编辑面板 - 仅在选中时显示 -->
+                            <%= if @editing_decoration_id == elem_id do %>
+                              <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+                                <div class="flex justify-between items-center mb-3">
+                                  <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
+                                  <button
+                                    type="button"
+                                    phx-click="close_decoration_editor"
+                                    class="text-gray-500 hover:text-gray-800"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                <%= render_decoration_editor(element) %>
+                              </div>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1779,6 +2316,27 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   # 辅助函数：显示选中的控件类型名称
   defp display_selected_type(nil), do: "未选择"
   defp display_selected_type("text_input"), do: "文本输入"
+  
+  # 辅助函数：显示装饰元素类型
+  defp display_decoration_type(nil), do: "未知类型"
+  defp display_decoration_type("title"), do: "标题"
+  defp display_decoration_type("paragraph"), do: "段落"
+  defp display_decoration_type("section"), do: "章节分隔"
+  defp display_decoration_type("explanation"), do: "解释框"
+  defp display_decoration_type("header_image"), do: "题图"
+  defp display_decoration_type("inline_image"), do: "插图"
+  defp display_decoration_type("spacer"), do: "空间"
+  defp display_decoration_type(_), do: "未知类型"
+  
+  # 截取字符串的辅助函数
+  defp truncate(text, max_length) when is_binary(text) do
+    if String.length(text) > max_length do
+      String.slice(text, 0, max_length) <> "..."
+    else
+      text
+    end
+  end
+  defp truncate(_, _), do: ""
 
   # 根据表单项类型渲染适当的条件值输入控件
   defp render_condition_value_input(form_item_data, logic_condition) do
@@ -1921,8 +2479,453 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp display_selected_type("image_choice"), do: "图片选择"
   defp display_selected_type("file_upload"), do: "文件上传"
   defp display_selected_type(_), do: "未知类型"
+  
+  # 渲染装饰元素预览
+  defp render_decoration_preview(element) do
+    type = element["type"] || element[:type]
+    
+    case type do
+      "title" ->
+        title = element["title"] || element[:title] || "未命名标题"
+        level = element["level"] || element[:level] || 1
+        align = element["align"] || element[:align] || "left"
+        
+        assigns = %{title: title, level: level, align: align}
+        ~H"""
+        <div style={"text-align: #{@align};"}>
+          <%= case @level do %>
+            <% 1 -> %><h1 style="font-size: 1.5rem; font-weight: 700;"><%= @title %></h1>
+            <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= @title %></h2>
+            <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= @title %></h3>
+            <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= @title %></h4>
+          <% end %>
+        </div>
+        """
+        
+      "paragraph" ->
+        content = element["content"] || element[:content] || ""
+        
+        assigns = %{content: content}
+        ~H"""
+        <div class="text-gray-700">
+          <%= Phoenix.HTML.raw(@content) %>
+        </div>
+        """
+        
+      "section" ->
+        title = element["title"] || element[:title]
+        divider_style = element["divider_style"] || element[:divider_style] || "solid"
+        
+        assigns = %{title: title, divider_style: divider_style}
+        ~H"""
+        <div>
+          <hr style={"border-style: #{@divider_style}; border-color: #e5e7eb;"} />
+          <%= if @title do %>
+            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= @title %></h3>
+          <% end %>
+        </div>
+        """
+        
+      "explanation" ->
+        content = element["content"] || element[:content] || ""
+        type = element["note_type"] || element[:note_type] || "info"
+        
+        bg_color = case type do
+          "warning" -> "#fff7ed"
+          "tip" -> "#f0fdf4"
+          _ -> "#f0f9ff"  # info 默认
+        end
+        
+        border_color = case type do
+          "warning" -> "#fdba74"
+          "tip" -> "#86efac"
+          _ -> "#bae6fd"  # info 默认
+        end
+        
+        icon = case type do
+          "warning" -> "⚠️"
+          "tip" -> "💡"
+          _ -> "ℹ️"  # info 默认
+        end
+        
+        assigns = %{content: content, bg_color: bg_color, border_color: border_color, icon: icon, type: type}
+        ~H"""
+        <div style={"background-color: #{@bg_color}; border-left: 4px solid #{@border_color}; padding: 1rem; border-radius: 0.25rem;"}>
+          <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+            <div style="font-size: 1.25rem; line-height: 1.25;"><%= @icon %></div>
+            <div>
+              <div style="font-weight: 500; margin-bottom: 0.25rem;"><%= String.capitalize(@type) %></div>
+              <div class="text-gray-700">
+                <%= Phoenix.HTML.raw(@content) %>
+              </div>
+            </div>
+          </div>
+        </div>
+        """
+        
+      "header_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        height = element["height"] || element[:height] || "300px"
+        
+        assigns = %{image_url: image_url, height: height}
+        ~H"""
+        <div>
+          <%= if @image_url != "" do %>
+            <img src={@image_url} alt="题图" style={"height: #{@height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
+          <% else %>
+            <div style={"height: #{@height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL</span>
+            </div>
+          <% end %>
+        </div>
+        """
+        
+      "inline_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        caption = element["caption"] || element[:caption] || ""
+        width = element["width"] || element[:width] || "100%"
+        align = element["align"] || element[:align] || "center"
+        
+        assigns = %{image_url: image_url, caption: caption, width: width, align: align}
+        ~H"""
+        <div style={"text-align: #{@align};"}>
+          <%= if @image_url != "" do %>
+            <img src={@image_url} alt={@caption} style={"width: #{@width}; max-width: 100%; border-radius: 0.25rem;"} />
+          <% else %>
+            <div style={"width: #{@width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
+              <span class="text-gray-400">请设置图片URL</span>
+            </div>
+          <% end %>
+          <%= if @caption != "" do %>
+            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= @caption %></div>
+          <% end %>
+        </div>
+        """
+        
+      "spacer" ->
+        height = element["height"] || element[:height] || "1rem"
+        
+        assigns = %{height: height}
+        ~H"""
+        <div style={"height: #{@height};"} class="spacer"></div>
+        """
+        
+      _ ->
+        assigns = %{}
+        ~H"""
+        <div class="text-gray-500">未知元素类型</div>
+        """
+    end
+  end
 
-  # 从 edit.ex 复制的选项处理函数
+  # 渲染装饰元素编辑器
+  defp render_decoration_editor(element) do
+    type = element["type"] || element[:type]
+    id = element["id"] || element[:id]
+    
+    case type do
+      "title" ->
+        title = element["title"] || element[:title] || ""
+        level = element["level"] || element[:level] || 1
+        align = element["align"] || element[:align] || "left"
+        
+        assigns = %{id: id, title: title, level: level, align: align}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">标题文本</label>
+              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">标题级别</label>
+              <select name="level" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="1" selected={@level == 1}>大标题 (H1)</option>
+                <option value="2" selected={@level == 2}>中标题 (H2)</option>
+                <option value="3" selected={@level == 3}>小标题 (H3)</option>
+                <option value="4" selected={@level == 4}>微标题 (H4)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
+              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="left" selected={@align == "left"}>左对齐</option>
+                <option value="center" selected={@align == "center"}>居中</option>
+                <option value="right" selected={@align == "right"}>右对齐</option>
+              </select>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "paragraph" ->
+        content = element["content"] || element[:content] || ""
+        
+        assigns = %{id: id, content: content}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">段落内容</label>
+              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "section" ->
+        title = element["title"] || element[:title] || ""
+        divider_style = element["divider_style"] || element[:divider_style] || "solid"
+        
+        assigns = %{id: id, title: title, divider_style: divider_style}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">章节标题（可选）</label>
+              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">分隔线样式</label>
+              <select name="divider_style" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="solid" selected={@divider_style == "solid"}>实线</option>
+                <option value="dashed" selected={@divider_style == "dashed"}>虚线</option>
+                <option value="dotted" selected={@divider_style == "dotted"}>点线</option>
+                <option value="double" selected={@divider_style == "double"}>双线</option>
+              </select>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "explanation" ->
+        content = element["content"] || element[:content] || ""
+        note_type = element["note_type"] || element[:note_type] || "info"
+        
+        assigns = %{id: id, content: content, note_type: note_type}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">说明内容</label>
+              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">提示类型</label>
+              <select name="note_type" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="info" selected={@note_type == "info"}>信息 (蓝色)</option>
+                <option value="tip" selected={@note_type == "tip"}>提示 (绿色)</option>
+                <option value="warning" selected={@note_type == "warning"}>警告 (黄色)</option>
+              </select>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "header_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        height = element["height"] || element[:height] || "300px"
+        
+        assigns = %{id: id, image_url: image_url, height: height}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
+              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">高度</label>
+              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 300px, 20rem 或 50vh</p>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "inline_image" ->
+        image_url = element["image_url"] || element[:image_url] || ""
+        caption = element["caption"] || element[:caption] || ""
+        width = element["width"] || element[:width] || "100%"
+        align = element["align"] || element[:align] || "center"
+        
+        assigns = %{id: id, image_url: image_url, caption: caption, width: width, align: align}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
+              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片说明</label>
+              <input type="text" name="caption" value={@caption} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">图片宽度</label>
+              <input type="text" name="width" value={@width} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 50%, 300px</p>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
+              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="left" selected={@align == "left"}>左对齐</option>
+                <option value="center" selected={@align == "center"}>居中</option>
+                <option value="right" selected={@align == "right"}>右对齐</option>
+              </select>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      "spacer" ->
+        height = element["height"] || element[:height] || "1rem"
+        
+        assigns = %{id: id, height: height}
+        ~H"""
+        <form phx-submit="save_decoration_element" phx-value-id={@id}>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">空间高度</label>
+              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <p class="mt-1 text-xs text-gray-500">例如: 1rem, 20px, 2em</p>
+            </div>
+            
+            <div class="pt-2 flex justify-end">
+              <button
+                type="button"
+                phx-click="close_decoration_editor"
+                class="mr-2 bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                class="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </form>
+        """
+        
+      _ ->
+        assigns = %{}
+        ~H"""
+        <div class="text-gray-500">无法编辑未知类型的元素</div>
+        """
+    end
+  end
+
   defp process_item_params(params) do
     # 确保所有键都是字符串
     params = normalize_params(params)
