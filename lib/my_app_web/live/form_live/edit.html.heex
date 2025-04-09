@@ -626,7 +626,25 @@
           <% end %>
         </div>
       </div>
-      
+
+      <!-- +++ ADDED PAGE EDITOR +++ -->
+      <%= if @editing_page do %>
+        <div class="form-card" style="margin-bottom: 1.5rem; border: 1px solid #c7d2fe; background-color: #f5f3ff; padding: 1.5rem; border-radius: 0.5rem;">
+          <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">
+            <%= if @current_page, do: "编辑页面 - #{@current_page.title}", else: "添加新页面" %>
+          </h2>
+
+          <.live_component
+            module={MyAppWeb.FormLive.PageEditorComponent}
+            id={"page-editor-#{@current_page && @current_page.id || "new"}"}
+            page_changeset={@page_changeset}
+            current_page={@current_page}
+            on_save="save_page"
+            on_cancel="cancel_edit_page" />
+        </div>
+      <% end %>
+      <!-- +++ END ADDED PAGE EDITOR +++ -->
+
       <!-- 确认删除页面对话框 -->
       <%= if @delete_page_id do %>
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

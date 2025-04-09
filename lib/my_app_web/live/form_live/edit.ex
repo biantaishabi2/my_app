@@ -3,6 +3,7 @@ defmodule MyAppWeb.FormLive.Edit do
 
   alias MyApp.Forms
   alias MyApp.Forms.FormItem
+  alias MyApp.Forms.FormPage # Add alias for FormPage
   alias MyAppWeb.FormLive.ItemRendererComponent
   alias MyApp.Upload
   alias MyApp.Upload.UploadedFile
@@ -1487,10 +1488,15 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("add_page", _params, socket) do
+    # +++ FIX: Generate and assign changeset +++
+    new_page = %FormPage{form_id: socket.assigns.form.id, title: "新页面"} # Assign form_id
+    changeset = FormPage.changeset(new_page, %{}) # Use FormPage.changeset
+
     {:noreply,
       socket
       |> assign(:editing_page, true)
       |> assign(:current_page, nil)
+      |> assign(:page_changeset, changeset) # Assign the changeset
     }
   end
 
@@ -1498,14 +1504,17 @@ defmodule MyAppWeb.FormLive.Edit do
   def handle_event("edit_page", %{"id" => id}, socket) do
     page = Enum.find(socket.assigns.form.pages, fn p -> p.id == id end)
 
+    # +++ FIX: Generate and assign changeset +++
     if page do
+      changeset = FormPage.changeset(page, %{}) # Use FormPage.changeset
       {:noreply,
-        socket
-        |> assign(:editing_page, true)
-        |> assign(:current_page, page)
+       socket
+       |> assign(:editing_page, true)
+       |> assign(:current_page, page)
+       |> assign(:page_changeset, changeset) # Assign the changeset
       }
     else
-      {:noreply, put_flash(socket, :error, "页面不存在")}
+      {:noreply, put_flash(socket, :error, "页面未找到")} # Keep error handling
     end
   end
 
@@ -1515,6 +1524,7 @@ defmodule MyAppWeb.FormLive.Edit do
       socket
       |> assign(:editing_page, false)
       |> assign(:current_page, nil)
+      |> assign(:page_changeset, nil) # Clear changeset on cancel
     }
   end
 
@@ -1951,4 +1961,64 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
   defp format_bytes(_), do: "未知大小"
+
+  @impl true
+  @doc """
+  处理来自 PageEditorComponent 的保存页面消息。
+  接收页面参数，调用相应的业务逻辑来创建或更新页面，并更新 socket 的状态。
+  """
+  def handle_info({:save_page_from_component, page_params}, socket) do
+    form = socket.assigns.form
+    current_page = socket.assigns.current_page
+
+    # Convert all keys to strings to avoid mixed key types
+    normalized_params = for {key, val} <- page_params, into: %{} do
+      {to_string(key), val}
+    end
+
+    result = if current_page do
+      # 更新现有页面
+      Forms.update_form_page(current_page, normalized_params)
+    else
+      # 创建新页面
+      Forms.create_form_page(form, normalized_params)
+    end
+
+    case result do
+      {:ok, page} ->
+        # 获取更新后的表单数据（包含最新的页面列表）
+        updated_form = Forms.get_form_with_full_preload(form.id)
+
+        {:noreply,
+          socket
+          |> assign(:form, updated_form)
+          |> assign(:editing_page, false)
+          |> assign(:current_page, nil)
+          |> assign(:page_changeset, nil)
+          |> put_flash(:info, if(current_page, do: "页面已更新", else: "页面已创建"))
+        }
+
+      {:error, changeset} ->
+        # 保存失败，返回错误消息和无效的changeset
+        {:noreply,
+          socket
+          |> assign(:page_changeset, changeset)
+          |> put_flash(:error, "保存页面失败，请检查输入")
+        }
+    end
+  end
+
+  @impl true
+  @doc """
+  处理来自 PageEditorComponent 的取消编辑页面消息。
+  重置 socket 的状态以关闭页面编辑器。
+  """
+  def handle_info({:cancel_edit_page_from_component}, socket) do
+    {:noreply,
+      socket
+      |> assign(:editing_page, false)
+      |> assign(:current_page, nil)
+      |> assign(:page_changeset, nil)
+    }
+  end
 end
