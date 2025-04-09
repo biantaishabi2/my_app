@@ -410,7 +410,7 @@ defmodule MyAppWeb.FormTemplateLive do
         base_structure
       end
 
-      # 基于索引添加不同类型的条件
+      # 基于控件类型和索引添加不同类型的条件
       cond do
         # 前两个表单项无条件显示
         index < 2 ->
@@ -432,8 +432,32 @@ defmodule MyAppWeb.FormTemplateLive do
             right: %{type: "value", value: "condition"}
           })
 
-        # 第7-8个表单项：复杂条件 (AND条件)
-        index >= 6 and index < 8 and first_item_id ->
+        # 日期控件：在输入"complex"时显示
+        item.type == :date and first_item_id ->
+          Map.put(with_options, :condition, %{
+            operator: "contains",
+            left: %{type: "field", name: first_item_id},
+            right: %{type: "value", value: "complex"}
+          })
+          
+        # 时间控件：在输入"complex"时显示
+        item.type == :time and first_item_id ->
+          Map.put(with_options, :condition, %{
+            operator: "contains",
+            left: %{type: "field", name: first_item_id},
+            right: %{type: "value", value: "complex"}
+          })
+        
+        # 地区控件：当选择"选项B"时显示
+        item.type == :region and second_item_id ->
+          Map.put(with_options, :condition, %{
+            operator: "==",
+            left: %{type: "field", name: second_item_id},
+            right: %{type: "value", value: "选项B"}
+          })
+          
+        # 评分控件：同时满足"选择选项B"和"输入complex"
+        item.type == :rating and first_item_id and second_item_id ->
           Map.put(with_options, :condition, %{
             operator: "and",
             conditions: [
@@ -443,21 +467,13 @@ defmodule MyAppWeb.FormTemplateLive do
                 right: %{type: "value", value: "complex"}
               },
               %{
-                operator: "!=",
-                left: %{type: "field", name: first_item_id},
-                right: %{type: "value", value: ""}
+                operator: "==",
+                left: %{type: "field", name: second_item_id},
+                right: %{type: "value", value: "选项B"}
               }
             ]
           })
-
-        # 第9个表单项：当第二个选择项选择"选项B"时显示
-        index == 8 and second_item_id ->
-          Map.put(with_options, :condition, %{
-            operator: "==",
-            left: %{type: "field", name: second_item_id},
-            right: %{type: "value", value: "选项B"}
-          })
-
+          
         # 默认情况
         true ->
           with_options
@@ -508,22 +524,64 @@ defmodule MyAppWeb.FormTemplateLive do
   defp build_template_preview(template_structure) do
     template_structure
     |> Enum.map(fn item ->
+      # 获取原始类型
+      original_type = get_original_type(item.type)
+      
+      # 获取条件文本
       condition_text = if Map.has_key?(item, :condition) do
-        "（条件显示）"
+        # 提取条件详情，使描述更具体
+        condition_desc = case item.type do
+          "text" -> "输入特定关键字时显示"
+          "number" -> "输入特定关键字时显示"
+          "select" -> "输入特定关键字时显示"
+          _ -> "满足特定条件时显示"
+        end
+        "（#{condition_desc}）"
       else
         ""
       end
-
+      
+      # 获取选项文本
       options_text = if Map.has_key?(item, :options) do
         options_str = Enum.join(item.options, ", ")
         "选项: [#{options_str}]"
       else
         ""
       end
-
-      "#{item.label} (#{item.type}) #{options_text} #{condition_text}"
+      
+      # 构建控件描述，确保显示正确的控件类型
+      type_desc = case original_type do
+        :text_input -> "文本输入"
+        :number -> "数字"
+        :radio -> "单选"
+        :dropdown -> "下拉选择"
+        :checkbox -> "多选"
+        :date -> "日期"
+        :time -> "时间"
+        :rating -> "评分"
+        :region -> "地区选择"
+        _ -> "#{original_type}"
+      end
+      
+      "#{item.label} (#{type_desc}) #{options_text} #{condition_text}"
     end)
     |> Enum.join("\n")
+  end
+  
+  # 反向推导原始控件类型
+  defp get_original_type(template_type) do
+    case template_type do
+      "text" -> :text_input
+      "number" -> 
+        # number可能是:number或:rating，默认为:number
+        :number
+      "select" -> 
+        # select可能是:radio, :dropdown, :checkbox，默认为:dropdown
+        :dropdown
+      _ -> String.to_existing_atom(template_type)
+    rescue
+      _ -> :unknown
+    end
   end
 
   # 转换表单项类型到模板类型
