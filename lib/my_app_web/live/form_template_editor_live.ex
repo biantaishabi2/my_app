@@ -20,12 +20,25 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     form_with_data = Forms.get_form_with_full_preload(form.id)
     form_items = form_with_data.items || [] # 提取表单项列表
 
+    # 获取或初始化装饰元素列表
+    decoration = Map.get(template, :decoration, []) # Use Map.get for safe access
+
+    # 确保 decoration 是一个列表
+    decoration = if is_list(decoration), do: decoration, else: []
+
     socket = socket
       |> assign(:template, template)
       |> assign(:structure, template.structure || [])
+      |> assign(:decoration, decoration) # 页面装饰元素列表
       |> assign(:form_items, form_items) # 使用从 form_with_data 加载的 items
       |> assign(:editing_item_id, nil)
       |> assign(:item_type, "text_input")
+      |> assign(:decoration_category, :content) # 默认选中内容装饰分类
+      |> assign(:decoration_type, "title") # 默认装饰元素类型
+      |> assign(:editing_decoration_id, nil) # 当前正在编辑的装饰元素ID
+      |> assign(:current_decoration, nil) # 当前编辑的装饰元素
+      |> assign(:decoration_search_term, nil) # 装饰元素搜索关键词
+      |> assign(:delete_decoration_id, nil) # 要删除的装饰元素ID
       |> assign(:search_term, nil)
       |> assign(:tab_title, "结构设计")
       |> assign(:active_tab, "structure") # 添加：默认激活结构设计标签页
@@ -740,8 +753,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         <!-- 右侧内容区域 -->
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 模板标题和操作区 -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h1 style="font-size: 1.5rem; font-weight: 700;"><%= @template.name || "未命名模板" %></h1>
+          <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;">
+            <%# <h1 style=\"font-size: 1.5rem; font-weight: 700;\">Template Name Removed</h1> REMOVED %>
 
             <div style="display: flex; gap: 0.75rem;">
               <.link
@@ -763,56 +776,68 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
           <!-- 标签页导航 -->
           <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem;">
-            <div style="display: flex; gap: 0.5rem;">
+            <%# Changed: Use flex to distribute space, remove gap %>
+            <div style="display: flex; width: 100%;">
               <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="structure"
-                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "structure", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "structure", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "structure", do: "#4f46e5", else: "#6b7280"};"}
+                style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "structure", do: "#f3f4f6", else: "transparent"}; font-size: 0.95rem; font-weight: #{if @active_tab == "structure", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "structure", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "structure", do: "#4f46e5", else: "#6b7280"};"}
               >
-                结构设计
+                1. 结构设计 <%# Changed: Added number %>
               </button>
               <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="conditions"
-                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "conditions", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "conditions", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "conditions", do: "#4f46e5", else: "#6b7280"};"}
+                style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "conditions", do: "#f3f4f6", else: "transparent"}; font-size: 0.95rem; font-weight: #{if @active_tab == "conditions", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "conditions", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "conditions", do: "#4f46e5", else: "#6b7280"};"}
               >
-                条件逻辑
+                2. 条件逻辑 <%# Changed: Added number %>
               </button>
               <button
                 type="button"
                 phx-click="change_tab"
                 phx-value-tab="decoration"
-                style={"padding: 0.75rem 1rem; border: none; background: none; font-size: 0.95rem; font-weight: #{if @active_tab == "decoration", do: "600", else: "400"}; cursor: pointer; border-bottom: 2px solid #{if @active_tab == "decoration", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "decoration", do: "#4f46e5", else: "#6b7280"};"}
+                style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "decoration", do: "#f3f4f6", else: "transparent"}; font-size: 0.95rem; font-weight: #{if @active_tab == "decoration", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "decoration", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "decoration", do: "#4f46e5", else: "#6b7280"};"}
               >
-                页面装饰
+                3. 页面装饰 <%# Changed: Added number %>
               </button>
             </div>
           </div>
 
           <!-- 标签页导航按钮 -->
           <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
-            <button
-              type="button"
-              phx-click="prev_tab"
-              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              上一步
-            </button>
-            <button
-              type="button"
-              phx-click="next_tab"
-              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
-            >
-              下一步
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-left: 0.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            <%= if @active_tab != "structure" do %>
+              <button
+                type="button"
+                phx-click="prev_tab"
+                style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.25rem;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                上一步
+              </button>
+            <% else %>
+              <!-- 在第一个标签页时占位或不显示 -->
+              <div></div>
+            <% end %>
+
+            <%= if @active_tab != "decoration" do %>
+              <button
+                type="button"
+                phx-click="next_tab"
+                style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
+              >
+                下一步
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-left: 0.25rem;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            <% else %>
+              <!-- 在最后一个标签页时占位或不显示 -->
+              <div></div>
+            <% end %>
           </div>
 
           <!-- 确认删除对话框 -->
@@ -1756,62 +1781,57 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp display_selected_type("text_input"), do: "文本输入"
 
   # 根据表单项类型渲染适当的条件值输入控件
-  defp render_condition_value_input(passed_item, logic_condition) do
-    # passed_item 可能是 Struct 或 Map
+  defp render_condition_value_input(form_item_data, logic_condition) do
+    # form_item_data is either a FormItem struct or a map constructed in render/1
 
-    # 1. 统一获取 ID
-    item_id = case passed_item do
-                %MyApp.Forms.FormItem{id: id} -> id # 处理 Struct
-                %{id: id} -> id # 处理 Map (假设 render/1 中 fallback 使用 atom key)
+    # 1. Safely extract needed data from form_item_data (struct or map)
+    item_id = case form_item_data do
+                %MyApp.Forms.FormItem{id: id} -> id
+                %{id: id} -> id # Assumes atom key :id from fallback map
                 _ -> nil
               end
 
-    form_item = if item_id do
-      # 2. 查找数据库记录 (添加保护，防止 @form_items 为 nil)
-      db_item = if is_list(@form_items), do: Enum.find(@form_items, fn fi -> fi.id == item_id end), else: nil
+    item_type = case form_item_data do
+                  %MyApp.Forms.FormItem{type: type} -> type
+                  %{type: type} -> type # Assumes atom type in map
+                  _ -> nil
+                end
 
-      if db_item do
-        db_item # 使用数据库 Struct
-      else
-        # 3. 回退逻辑 (仅当 passed_item 是 Map 时有意义)
-        if is_map(passed_item) do
-          %{
-            id: Map.get(passed_item, :id, Ecto.UUID.generate()), # 使用 atom key
-            type: safe_to_atom(Map.get(passed_item, :type)),
-            options: format_options_for_component(Map.get(passed_item, :options, [])),
-            max_rating: Map.get(passed_item, :max_rating, 5)
-            # Add other necessary fields if render logic needs them
-          }
-        else
-          Logger.error("Fallback in render_condition_value_input received non-map: #{inspect(passed_item)}")
-          nil # 无法回退
-        end
-      end
-    else
-      nil # 无法获取 ID
-    end
+    # Get options safely, handling both struct and map, ensuring it's a list
+    options = case form_item_data do
+                %MyApp.Forms.FormItem{options: opts} when is_list(opts) -> opts # Already ItemOption structs
+                %{options: opts} when is_list(opts) -> opts # Assumes list of ItemOption structs/maps from fallback
+                _ -> []
+              end
 
-    if is_nil(form_item) do
-      # 如果找不到表单项，返回普通文本输入框
+    max_rating = case form_item_data do
+                   %MyApp.Forms.FormItem{max_rating: rating} -> rating
+                   %{max_rating: rating} -> rating # Assumes atom key :max_rating
+                   _ -> 5 # Default
+                 end
+
+    # Check if we could determine the item type
+    if is_nil(item_type) do
+      # Render disabled text input if type couldn't be determined or item data was bad
       assigns = %{current_value: get_in(logic_condition || %{}, ["value"])}
       ~H"""
       <input
         type="text"
         name="logic[condition_value]"
         value={@current_value}
-        placeholder="输入答案值"
-        class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        placeholder="无法确定控件类型"
+        class="block w-2/3 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        disabled
       />
       """
     else
-      item_type = form_item.type
+      # We have a valid item type, proceed with rendering the correct input
       current_value = get_in(logic_condition || %{}, ["value"])
 
       cond do
         # 选择题类型 (单选、多选、下拉菜单)
         item_type in [:radio, :checkbox, :dropdown] ->
-          # !!! FIX: Use form_item.options !!!
-          local_options = form_item.options || [] # 使用 form_item.options
+          local_options = options # Use the safely extracted options list
 
           assigns = %{current_value: current_value}
           ~H"""
@@ -1821,16 +1841,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           >
             <option value="">-- 请选择选项 --</option>
             <%= for option <- local_options do %>
-              <%# Handle both ItemOption struct and map format from fallback %>
-              <option value={option.value || Map.get(option, :value)} selected={@current_value == (option.value || Map.get(option, :value))}><%= option.label || Map.get(option, :label) %></option>
+              <%# Access fields safely for struct or map %>
+              <% opt_value = option.value || Map.get(option, :value) %>
+              <% opt_label = option.label || Map.get(option, :label) %>
+              <option value={opt_value} selected={@current_value == opt_value}><%= opt_label %></option>
             <% end %>
           </select>
           """
 
         # 评分题
         item_type == :rating ->
-          max_rating = form_item.max_rating || 5
-          assigns = %{max_rating: max_rating, current_value: current_value}
+          local_max_rating = max_rating || 5
+          assigns = %{max_rating: local_max_rating, current_value: current_value}
           ~H"""
           <select
             name="logic[condition_value]"
