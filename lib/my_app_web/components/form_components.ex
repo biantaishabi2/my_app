@@ -9,20 +9,20 @@ defmodule MyAppWeb.FormComponents do
   # 保留以备将来扩展组件功能时使用
   # HTML标记处理 - 用于HTML转义和安全处理
   # import Phoenix.HTML
-  
+
   # 表单辅助函数 - 用于生成表单和表单元素
   # import Phoenix.HTML.Form
-  
+
   # LiveView辅助函数 - 用于事件处理和DOM操作
   # import Phoenix.LiveView.Helpers  # 未使用
-  
+
   # 条件逻辑编辑器组件
   attr :id, :string, required: true
   attr :condition, :map, default: nil
   attr :available_items, :list, default: []
   attr :show_delete_button, :boolean, default: true
   attr :target, :string, default: nil
-  
+
   def condition_editor(assigns) do
     ~H"""
     <div class="condition-editor" id={@id} phx-hook="ConditionLogicEditor">
@@ -44,7 +44,7 @@ defmodule MyAppWeb.FormComponents do
                   </option>
                 <% end %>
               </select>
-              
+
               <!-- 条件操作符选择 -->
               <select
                 class="condition-operator-select form-select"
@@ -59,7 +59,7 @@ defmodule MyAppWeb.FormComponents do
                 <option value="less_than" selected={@condition.operator == "less_than"}>小于</option>
                 <option value="less_than_or_equal" selected={@condition.operator == "less_than_or_equal"}>小于等于</option>
               </select>
-              
+
               <!-- 条件值输入 -->
               <input
                 type="text"
@@ -69,7 +69,7 @@ defmodule MyAppWeb.FormComponents do
                 value={@condition.value}
                 placeholder="输入值"
               />
-              
+
               <!-- 删除条件按钮 -->
               <%= if @show_delete_button do %>
                 <button
@@ -97,7 +97,7 @@ defmodule MyAppWeb.FormComponents do
                 <option value="and" selected={@condition.operator == "and"}>全部满足</option>
                 <option value="or" selected={@condition.operator == "or"}>任一满足</option>
               </select>
-              
+
               <%= if @show_delete_button do %>
                 <button
                   type="button"
@@ -111,7 +111,7 @@ defmodule MyAppWeb.FormComponents do
                 </button>
               <% end %>
             </div>
-            
+
             <div class="pl-4 border-l-2 border-indigo-300">
               <!-- 显示子条件 -->
               <%= for {child, index} <- Enum.with_index(@condition.conditions) do %>
@@ -123,7 +123,7 @@ defmodule MyAppWeb.FormComponents do
                   target: @target
                 }) %>
               <% end %>
-              
+
               <!-- 添加子条件按钮 -->
               <div class="flex space-x-2 mt-2">
                 <button
@@ -175,7 +175,7 @@ defmodule MyAppWeb.FormComponents do
     </div>
     """
   end
-  
+
   # 辅助函数：获取控件类型图标
   def get_type_icon(type) do
     case type do
@@ -197,7 +197,7 @@ defmodule MyAppWeb.FormComponents do
       _ -> "fa-question"
     end
   end
-  
+
   # 辅助函数：获取控件类别名称
   def display_category(:basic), do: "基础控件"
   def display_category(:personal), do: "个人信息"
@@ -206,7 +206,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染表单头部，包括标题和描述
-  
+
   ## 示例
       <.form_header form={@form} />
   """
@@ -225,7 +225,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染文本输入字段组件
-  
+
   ## 示例
       <.text_input_field
         field={@field}
@@ -236,7 +236,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def text_input_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -245,7 +245,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <input 
+      <input
         type="text"
         id={@field.id}
         name={@field.id}
@@ -264,7 +264,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染单选按钮字段组件
-  
+
   ## 示例
       <.radio_field
         field={@field}
@@ -276,7 +276,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def radio_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <fieldset>
@@ -289,15 +289,15 @@ defmodule MyAppWeb.FormComponents do
         <div class="space-y-2">
           <%= for option <- @options do %>
             <div class="flex items-center form-item-option">
-              <input 
-                type="radio" 
+              <input
+                type="radio"
                 id={"#{@field.id}_#{option.id}"}
                 name={@field.id}
                 value={option.value}
                 checked={Map.get(@form_state, @field.id) == option.value}
                 required={@field.required}
                 disabled={@disabled}
-                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 phx-debounce="blur"
               />
               <label for={"#{@field.id}_#{option.id}"} class="ml-2 text-sm text-gray-700">
@@ -316,7 +316,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染表单构建器组件，用于管理表单项
-  
+
   ## 示例
       <.form_builder
         form={@form}
@@ -356,7 +356,7 @@ defmodule MyAppWeb.FormComponents do
           <% end %>
         <% end %>
       </div>
-      
+
       <div class="form-controls flex justify-center mt-4">
         <button type="button" phx-click={@on_add_item} class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -368,10 +368,10 @@ defmodule MyAppWeb.FormComponents do
     </div>
     """
   end
-  
+
   @doc """
   表单项编辑组件，用于添加或编辑表单项
-  
+
   ## 示例
       <.form_item_editor
         item={@current_item}
@@ -388,12 +388,12 @@ defmodule MyAppWeb.FormComponents do
       <h3 class="text-lg font-medium mb-4" id="item-editor-title">
         <%= if @item.id, do: "编辑表单项", else: "添加新表单项" %>
       </h3>
-      
+
       <form id="form-item-form" phx-submit={@on_save} phx-change="form_change" class="space-y-4">
         <%= if @item.id do %>
           <input type="hidden" name="item[id]" value={@item.id} />
         <% end %>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
@@ -489,7 +489,7 @@ defmodule MyAppWeb.FormComponents do
               </div>
             <% end %>
           </div>
-          
+
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">标签 <span class="text-red-500">*</span></label>
             <input
@@ -561,7 +561,7 @@ defmodule MyAppWeb.FormComponents do
                 + 添加选项
               </button>
             </div>
-            
+
             <div id="options-container" class="space-y-2">
               <%# 注意：已从此处移除 phx-update="append"，建议使用 LiveView.JS 或 streams 来代替 %>
               <%= for {option, index} <- Enum.with_index(@options || []) do %>
@@ -600,7 +600,7 @@ defmodule MyAppWeb.FormComponents do
                 </div>
               <% end %>
             </div>
-            
+
             <%= if Enum.empty?(@options || []) do %>
               <div class="text-sm text-gray-500 bg-gray-50 p-3 rounded-md mt-2">
                 请添加至少一个选项
@@ -608,7 +608,7 @@ defmodule MyAppWeb.FormComponents do
             <% end %>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :rating || @item_type == "rating" do %>
           <div class="pt-4 border-t border-gray-200">
             <div class="mb-4">
@@ -625,7 +625,7 @@ defmodule MyAppWeb.FormComponents do
                 <% end %>
               </select>
             </div>
-            
+
             <div class="rating-preview p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
               <div class="flex items-center">
@@ -637,37 +637,37 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :number || @item_type == "number" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">数值范围设置</label>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm text-gray-600 mb-1">最小值</label>
-                <input 
-                  type="number" 
-                  name="item[min]" 
-                  value={@item.min} 
+                <input
+                  type="number"
+                  name="item[min]"
+                  value={@item.min}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="不限制"
                 />
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">最大值</label>
-                <input 
-                  type="number" 
-                  name="item[max]" 
-                  value={@item.max} 
+                <input
+                  type="number"
+                  name="item[max]"
+                  value={@item.max}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="不限制"
                 />
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">步长</label>
-                <input 
-                  type="number" 
-                  name="item[step]" 
-                  value={@item.step || 1} 
+                <input
+                  type="number"
+                  name="item[step]"
+                  value={@item.step || 1}
                   min="0.001"
                   step="0.001"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -709,26 +709,26 @@ defmodule MyAppWeb.FormComponents do
             <div class="mt-2 text-sm text-gray-500">启用后将显示格式提示并验证手机号格式</div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :date || @item_type == "date" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">日期范围设置</label>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm text-gray-600 mb-1">最早可选日期</label>
-                <input 
-                  type="date" 
-                  name="item[min_date]" 
-                  value={@item.min_date} 
+                <input
+                  type="date"
+                  name="item[min_date]"
+                  value={@item.min_date}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">最晚可选日期</label>
-                <input 
-                  type="date" 
-                  name="item[max_date]" 
-                  value={@item.max_date} 
+                <input
+                  type="date"
+                  name="item[max_date]"
+                  value={@item.max_date}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -747,26 +747,26 @@ defmodule MyAppWeb.FormComponents do
             <div class="mt-2 text-sm text-gray-500">指定日期范围和显示格式</div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :time || @item_type == "time" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">时间范围设置</label>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm text-gray-600 mb-1">开始时间</label>
-                <input 
-                  type="time" 
-                  name="item[min_time]" 
-                  value={@item.min_time || "09:00"} 
+                <input
+                  type="time"
+                  name="item[min_time]"
+                  value={@item.min_time || "09:00"}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
                 <label class="block text-sm text-gray-600 mb-1">结束时间</label>
-                <input 
-                  type="time" 
-                  name="item[max_time]" 
-                  value={@item.max_time || "18:00"} 
+                <input
+                  type="time"
+                  name="item[max_time]"
+                  value={@item.max_time || "18:00"}
                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -784,7 +784,7 @@ defmodule MyAppWeb.FormComponents do
             <div class="mt-2 text-sm text-gray-500">指定可选时间范围和显示格式</div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :region || @item_type == "region" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">地区选择设置</label>
@@ -807,7 +807,7 @@ defmodule MyAppWeb.FormComponents do
               >
                 <option value="" selected={is_nil(@item.default_province)}>无默认值</option>
                 <%= for province <- MyApp.Regions.get_provinces() do %>
-                  <option 
+                  <option
                     value={province.name}
                     selected={@item.default_province == province.name}
                   >
@@ -817,29 +817,29 @@ defmodule MyAppWeb.FormComponents do
               </select>
             </div>
             <div class="mt-2 text-sm text-gray-500">配置地区选择的级别和默认值</div>
-            
+
             <div class="mt-4 p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
               <div class="flex gap-2">
-                <select 
-                  disabled 
+                <select
+                  disabled
                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
                 >
                   <option><%= @item.default_province || "请选择省份" %></option>
                 </select>
-                
+
                 <%= if @item.region_level == nil || @item.region_level >= 2 do %>
-                  <select 
-                    disabled 
+                  <select
+                    disabled
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
                   >
                     <option>请选择城市</option>
                   </select>
                 <% end %>
-                
+
                 <%= if @item.region_level == nil || @item.region_level >= 3 do %>
-                  <select 
-                    disabled 
+                  <select
+                    disabled
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white"
                   >
                     <option>请选择区县</option>
@@ -850,30 +850,30 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :matrix || @item_type == "matrix" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">矩阵题设置</label>
-            
+
             <!-- 矩阵类型选择 -->
             <div class="mb-4">
               <label class="block text-sm text-gray-600 mb-1">选择类型</label>
               <div class="flex space-x-4">
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[matrix_type]" 
-                    value="single" 
+                  <input
+                    type="radio"
+                    name="item[matrix_type]"
+                    value="single"
                     checked={@item.matrix_type == :single || @item.matrix_type == nil}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span class="ml-2 text-sm text-gray-700">单选 (每行只能选择一个)</span>
                 </label>
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[matrix_type]" 
-                    value="multiple" 
+                  <input
+                    type="radio"
+                    name="item[matrix_type]"
+                    value="multiple"
                     checked={@item.matrix_type == :multiple}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
@@ -881,7 +881,7 @@ defmodule MyAppWeb.FormComponents do
                 </label>
               </div>
             </div>
-            
+
             <!-- 矩阵行设置 -->
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
@@ -890,20 +890,20 @@ defmodule MyAppWeb.FormComponents do
                   + 添加行
                 </button>
               </div>
-              
+
               <div class="space-y-2">
                 <%= for {row, index} <- Enum.with_index(@item.matrix_rows || ["问题1", "问题2", "问题3"]) do %>
                   <div class="flex items-center gap-2">
-                    <input 
-                      type="text" 
-                      name={"item[matrix_rows][#{index}]"} 
+                    <input
+                      type="text"
+                      name={"item[matrix_rows][#{index}]"}
                       value={row}
                       placeholder="行标题"
                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <button 
-                      type="button" 
-                      phx-click="remove_matrix_row" 
+                    <button
+                      type="button"
+                      phx-click="remove_matrix_row"
                       phx-value-index={index}
                       class="text-red-500 hover:text-red-700"
                       title="删除行"
@@ -917,7 +917,7 @@ defmodule MyAppWeb.FormComponents do
                 <% end %>
               </div>
             </div>
-            
+
             <!-- 矩阵列设置 -->
             <div class="mb-4">
               <div class="flex justify-between items-center mb-2">
@@ -926,20 +926,20 @@ defmodule MyAppWeb.FormComponents do
                   + 添加列
                 </button>
               </div>
-              
+
               <div class="space-y-2">
                 <%= for {column, index} <- Enum.with_index(@item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
                   <div class="flex items-center gap-2">
-                    <input 
-                      type="text" 
-                      name={"item[matrix_columns][#{index}]"} 
+                    <input
+                      type="text"
+                      name={"item[matrix_columns][#{index}]"}
                       value={column}
                       placeholder="列标题"
                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <button 
-                      type="button" 
-                      phx-click="remove_matrix_column" 
+                    <button
+                      type="button"
+                      phx-click="remove_matrix_column"
                       phx-value-index={index}
                       class="text-red-500 hover:text-red-700"
                       title="删除列"
@@ -953,7 +953,7 @@ defmodule MyAppWeb.FormComponents do
                 <% end %>
               </div>
             </div>
-            
+
             <!-- 矩阵预览 -->
             <div class="mt-4 p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
@@ -993,30 +993,30 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :image_choice || @item_type == "image_choice" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">图片选择设置</label>
-            
+
             <!-- 选择类型设置 -->
             <div class="mb-4">
               <label class="block text-sm text-gray-600 mb-1">选择类型</label>
               <div class="flex space-x-4">
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[selection_type]" 
-                    value="single" 
+                  <input
+                    type="radio"
+                    name="item[selection_type]"
+                    value="single"
                     checked={@item.selection_type == :single || @item.selection_type == nil}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span class="ml-2 text-sm text-gray-700">单选 (只能选择一张图片)</span>
                 </label>
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[selection_type]" 
-                    value="multiple" 
+                  <input
+                    type="radio"
+                    name="item[selection_type]"
+                    value="multiple"
                     checked={@item.selection_type == :multiple}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
@@ -1024,36 +1024,36 @@ defmodule MyAppWeb.FormComponents do
                 </label>
               </div>
             </div>
-            
+
             <!-- 图片标题位置设置 -->
             <div class="mb-4">
               <label class="block text-sm text-gray-600 mb-1">图片标题位置</label>
               <div class="flex space-x-4">
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[image_caption_position]" 
-                    value="top" 
+                  <input
+                    type="radio"
+                    name="item[image_caption_position]"
+                    value="top"
                     checked={@item.image_caption_position == :top}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span class="ml-2 text-sm text-gray-700">图片上方</span>
                 </label>
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[image_caption_position]" 
-                    value="bottom" 
+                  <input
+                    type="radio"
+                    name="item[image_caption_position]"
+                    value="bottom"
                     checked={@item.image_caption_position == :bottom || @item.image_caption_position == nil}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span class="ml-2 text-sm text-gray-700">图片下方</span>
                 </label>
                 <label class="inline-flex items-center">
-                  <input 
-                    type="radio" 
-                    name="item[image_caption_position]" 
-                    value="none" 
+                  <input
+                    type="radio"
+                    name="item[image_caption_position]"
+                    value="none"
                     checked={@item.image_caption_position == :none}
                     class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
@@ -1061,11 +1061,11 @@ defmodule MyAppWeb.FormComponents do
                 </label>
               </div>
             </div>
-            
+
             <!-- 图片选项管理部分 -->
             <div class="mt-4">
               <label class="block text-sm font-medium text-gray-700 mb-2">图片选项</label>
-              
+
               <!-- 选项列表 -->
               <div class="space-y-4">
                 <%= for {option, index} <- Enum.with_index(@options || []) do %>
@@ -1075,9 +1075,9 @@ defmodule MyAppWeb.FormComponents do
                       <div class="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
                         <%= if option.image_id do %>
                           <!-- 显示已上传的图片 -->
-                          <img 
-                            src={"/uploads/#{option.image_filename}"} 
-                            alt={option.label} 
+                          <img
+                            src={"/uploads/#{option.image_filename}"}
+                            alt={option.label}
                             class="h-full w-full object-cover"
                           />
                         <% else %>
@@ -1087,14 +1087,14 @@ defmodule MyAppWeb.FormComponents do
                           </svg>
                         <% end %>
                       </div>
-                      
+
                       <!-- 选项详情 -->
                       <div class="ml-4 flex-1">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label class="block text-xs text-gray-500 mb-1">选项标签</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               name={"options[#{index}][label]"}
                               value={option.label}
                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
@@ -1103,8 +1103,8 @@ defmodule MyAppWeb.FormComponents do
                           </div>
                           <div>
                             <label class="block text-xs text-gray-500 mb-1">选项值</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               name={"options[#{index}][value]"}
                               value={option.value}
                               class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md"
@@ -1112,26 +1112,26 @@ defmodule MyAppWeb.FormComponents do
                             />
                           </div>
                         </div>
-                        
+
                         <!-- 隐藏字段，保存图片ID -->
-                        <input 
-                          type="hidden" 
+                        <input
+                          type="hidden"
                           name={"options[#{index}][image_id]"}
                           value={option.image_id}
                         />
-                        
+
                         <!-- 隐藏字段，保存图片文件名 -->
-                        <input 
-                          type="hidden" 
+                        <input
+                          type="hidden"
                           name={"options[#{index}][image_filename]"}
                           value={option.image_filename}
                         />
-                        
+
                         <!-- 图片上传按钮 -->
                         <div class="mt-2 flex items-center">
-                          <button 
-                            type="button" 
-                            phx-click="select_image_for_option" 
+                          <button
+                            type="button"
+                            phx-click="select_image_for_option"
                             phx-value-index={index}
                             class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                           >
@@ -1140,11 +1140,11 @@ defmodule MyAppWeb.FormComponents do
                             </svg>
                             <%= if option.image_id, do: "更换图片", else: "选择图片" %>
                           </button>
-                          
+
                           <%= if option.image_id do %>
-                            <button 
-                              type="button" 
-                              phx-click="remove_image_from_option" 
+                            <button
+                              type="button"
+                              phx-click="remove_image_from_option"
                               phx-value-index={index}
                               class="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium rounded-md border border-gray-300 bg-white text-red-600 hover:bg-red-50"
                             >
@@ -1156,13 +1156,13 @@ defmodule MyAppWeb.FormComponents do
                           <% end %>
                         </div>
                       </div>
-                      
+
                       <!-- 删除选项按钮 -->
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         phx-click={@on_remove_option}
                         phx-value-index={index}
-                        class="ml-2 text-gray-500 hover:text-red-500" 
+                        class="ml-2 text-gray-500 hover:text-red-500"
                         aria-label="删除此选项"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1173,7 +1173,7 @@ defmodule MyAppWeb.FormComponents do
                   </div>
                 <% end %>
               </div>
-              
+
               <!-- 无选项时的提示 -->
               <%= if Enum.empty?(@options || []) do %>
                 <div class="p-4 border border-dashed border-gray-300 rounded-md text-center text-gray-500">
@@ -1181,10 +1181,10 @@ defmodule MyAppWeb.FormComponents do
                   <p class="text-sm mt-1">请使用下方按钮添加图片选项</p>
                 </div>
               <% end %>
-              
+
               <!-- 添加图片选项按钮 -->
-              <button 
-                type="button" 
+              <button
+                type="button"
                 phx-click={@on_add_option}
                 class="mt-3 flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
               >
@@ -1194,7 +1194,7 @@ defmodule MyAppWeb.FormComponents do
                 添加图片选项
               </button>
             </div>
-            
+
             <!-- 图片选择预览 -->
             <div class="mt-6 p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
@@ -1212,14 +1212,14 @@ defmodule MyAppWeb.FormComponents do
                     <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
                   <% end %>
                   <div class="p-1 border-t border-gray-300 bg-white text-center">
-                    <input 
-                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"} 
-                      disabled 
+                    <input
+                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"}
+                      disabled
                       class="h-4 w-4 text-indigo-600"
                     />
                   </div>
                 </div>
-                
+
                 <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
                   <%= if @item.image_caption_position == :top do %>
                     <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
@@ -1233,16 +1233,16 @@ defmodule MyAppWeb.FormComponents do
                     <div class="p-2 text-center bg-white text-sm">示例图片标题</div>
                   <% end %>
                   <div class="p-1 border-t border-gray-300 bg-white text-center">
-                    <input 
-                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"} 
-                      disabled 
+                    <input
+                      type={if @item.selection_type == :multiple, do: "checkbox", else: "radio"}
+                      disabled
                       class="h-4 w-4 text-indigo-600"
                     />
                   </div>
                 </div>
               </div>
               <div class="text-xs text-gray-500 mt-2">
-                选择类型: <%= if @item.selection_type == :multiple, do: "多选", else: "单选" %>, 
+                选择类型: <%= if @item.selection_type == :multiple, do: "多选", else: "单选" %>,
                 标题位置: <%= case @item.image_caption_position do %>
                   <% :top -> %>图片上方
                   <% :bottom -> %>图片下方
@@ -1253,17 +1253,17 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
         <% end %>
-        
+
         <%= if @item.type == :file_upload || @item_type == "file_upload" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">文件上传设置</label>
-            
+
             <!-- 文件扩展名设置 -->
             <div class="mb-4">
               <label class="block text-sm text-gray-600 mb-1">允许的文件类型 (多个类型用逗号分隔)</label>
-              <input 
-                type="text" 
-                name="item[allowed_extensions]" 
+              <input
+                type="text"
+                name="item[allowed_extensions]"
                 value={if is_list(@item.allowed_extensions), do: Enum.join(@item.allowed_extensions, ", "), else: ""}
                 placeholder=".pdf, .doc, .docx, .jpg, .png"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1272,13 +1272,13 @@ defmodule MyAppWeb.FormComponents do
                 例如: .pdf, .doc, .docx, .jpg, .png (必须以点号开头)
               </div>
             </div>
-            
+
             <!-- 文件大小限制设置 -->
             <div class="mb-4">
               <label class="block text-sm text-gray-600 mb-1">最大文件大小 (MB)</label>
-              <input 
-                type="number" 
-                name="item[max_file_size]" 
+              <input
+                type="number"
+                name="item[max_file_size]"
                 value={@item.max_file_size || 5}
                 min="0.1"
                 max="20"
@@ -1289,7 +1289,7 @@ defmodule MyAppWeb.FormComponents do
                 每个文件的最大大小限制 (最大20MB)
               </div>
             </div>
-            
+
             <!-- 多文件上传设置 -->
             <div class="mb-4">
               <div class="flex items-center">
@@ -1302,13 +1302,13 @@ defmodule MyAppWeb.FormComponents do
                 />
                 <label for="multiple-files" class="ml-2 text-sm text-gray-700">允许上传多个文件</label>
               </div>
-              
+
               <%= if @item.multiple_files do %>
                 <div class="mt-3 ml-6">
                   <label class="block text-sm text-gray-600 mb-1">最大文件数量</label>
-                  <input 
-                    type="number" 
-                    name="item[max_files]" 
+                  <input
+                    type="number"
+                    name="item[max_files]"
                     value={@item.max_files || 3}
                     min="1"
                     max="10"
@@ -1320,7 +1320,7 @@ defmodule MyAppWeb.FormComponents do
                 </div>
               <% end %>
             </div>
-            
+
             <!-- 文件上传预览 -->
             <div class="mt-4 p-3 bg-gray-50 rounded-md">
               <div class="text-sm text-gray-700 mb-2">预览:</div>
@@ -1354,7 +1354,7 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
         <% end %>
-        
+
         <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
@@ -1387,16 +1387,16 @@ defmodule MyAppWeb.FormComponents do
   defp display_item_type(:email), do: "邮箱输入"
   defp display_item_type(:phone), do: "电话号码"
   defp display_item_type(:date), do: "日期选择"
-  defp display_item_type(:time), do: "时间选择" 
+  defp display_item_type(:time), do: "时间选择"
   defp display_item_type(:region), do: "地区选择"
   defp display_item_type(:matrix), do: "矩阵题"
   defp display_item_type(:image_choice), do: "图片选择"
   defp display_item_type(:file_upload), do: "文件上传"
   defp display_item_type(_), do: "未知类型"
-  
+
   @doc """
   渲染矩阵题字段组件
-  
+
   ## 示例
       <.matrix_field
         field={@field}
@@ -1407,7 +1407,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def matrix_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-6">
       <label class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
@@ -1416,11 +1416,11 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      
+
       <%= if @field.description do %>
         <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
       <% end %>
-      
+
       <div class="overflow-x-auto">
         <table class="w-full border-collapse rounded-lg overflow-hidden">
           <thead>
@@ -1440,8 +1440,8 @@ defmodule MyAppWeb.FormComponents do
                 <%= for {_column, col_idx} <- Enum.with_index(@field.matrix_columns || []) do %>
                   <td class="p-2 border border-gray-300 text-center">
                     <%= if @field.matrix_type == :multiple do %>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         id={"#{@field.id}_#{row_idx}_#{col_idx}"}
                         name={"#{@field.id}[#{row_idx}][#{col_idx}]"}
                         value="true"
@@ -1450,12 +1450,12 @@ defmodule MyAppWeb.FormComponents do
                         phx-value-field-id={@field.id}
                         phx-value-row-idx={row_idx}
                         phx-value-col-idx={col_idx}
-                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                         disabled={@disabled}
                       />
                     <% else %>
-                      <input 
-                        type="radio" 
+                      <input
+                        type="radio"
                         id={"#{@field.id}_#{row_idx}_#{col_idx}"}
                         name={"#{@field.id}[#{row_idx}]"}
                         value={col_idx}
@@ -1465,7 +1465,7 @@ defmodule MyAppWeb.FormComponents do
                         phx-value-row-idx={row_idx}
                         phx-value-col-idx={col_idx}
                         required={@field.required}
-                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                         disabled={@disabled}
                       />
                     <% end %>
@@ -1476,19 +1476,19 @@ defmodule MyAppWeb.FormComponents do
           </tbody>
         </table>
       </div>
-      
+
       <!-- 隐藏的输入字段，用于存储矩阵值 -->
       <% matrix_value = Map.get(@form_state || %{}, @field.id) || %{} %>
       <% json_value = Phoenix.HTML.html_escape(Jason.encode!(matrix_value)) %>
       <input type="hidden" id={@field.id} name={@field.id} value={json_value} />
-      
+
       <%= if @error do %>
         <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
       <% end %>
     </div>
     """
   end
-  
+
   # 辅助函数：获取矩阵单选题的值
   defp get_matrix_value(form_state, field_id, row_idx) do
     case form_state do
@@ -1497,7 +1497,7 @@ defmodule MyAppWeb.FormComponents do
       _ -> nil
     end
   end
-  
+
   # 辅助函数：获取矩阵多选题的值
   defp get_matrix_value(form_state, field_id, row_idx, col_idx) do
     case form_state do
@@ -1507,10 +1507,10 @@ defmodule MyAppWeb.FormComponents do
       _ -> false
     end
   end
-  
+
   @doc """
   渲染图片选择字段组件
-  
+
   ## 示例
       <.image_choice_field
         field={@field}
@@ -1523,7 +1523,7 @@ defmodule MyAppWeb.FormComponents do
   def image_choice_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     assigns = assign_new(assigns, :options, fn -> [] end)
-    
+
     ~H"""
     <div class="form-field form-item mb-6">
       <fieldset>
@@ -1533,23 +1533,23 @@ defmodule MyAppWeb.FormComponents do
             <span class="form-item-required text-red-500">*</span>
           <% end %>
         </legend>
-        
+
         <%= if @field.description do %>
           <div class="text-sm text-gray-500 mb-2"><%= @field.description %></div>
         <% end %>
-        
+
         <div class="flex flex-wrap gap-4">
           <%= for {option, index} <- Enum.with_index(@options) do %>
             <div class="w-40 border border-gray-300 rounded-md overflow-hidden">
               <%= if @field.image_caption_position == :top do %>
                 <div class="p-2 text-center bg-white text-sm"><%= option.label %></div>
               <% end %>
-              
+
               <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
                 <%= if option.image_filename do %>
-                  <img 
-                    src={"/uploads/#{option.image_filename}"} 
-                    alt={option.label} 
+                  <img
+                    src={"/uploads/#{option.image_filename}"}
+                    alt={option.label}
                     class="h-full w-full object-contain"
                   />
                 <% else %>
@@ -1558,14 +1558,14 @@ defmodule MyAppWeb.FormComponents do
                   </svg>
                 <% end %>
               </div>
-              
+
               <%= if @field.image_caption_position == :bottom || @field.image_caption_position == nil do %>
                 <div class="p-2 text-center bg-white text-sm"><%= option.label %></div>
               <% end %>
-              
+
               <div class="p-1 border-t border-gray-300 bg-white text-center">
                 <%= if @field.selection_type == :multiple do %>
-                  <input 
+                  <input
                     type="checkbox"
                     id={"#{@field.id}_#{index}"}
                     name={"#{@field.id}[]"}
@@ -1576,7 +1576,7 @@ defmodule MyAppWeb.FormComponents do
                     phx-debounce="blur"
                   />
                 <% else %>
-                  <input 
+                  <input
                     type="radio"
                     id={"#{@field.id}_#{index}"}
                     name={@field.id}
@@ -1591,14 +1591,14 @@ defmodule MyAppWeb.FormComponents do
               </div>
             </div>
           <% end %>
-          
+
           <%= if Enum.empty?(@options) do %>
             <div class="w-full p-4 bg-gray-50 rounded-md text-center text-gray-500">
               暂无图片选项，请在编辑模式下添加图片选项
             </div>
           <% end %>
         </div>
-        
+
         <%= if @error do %>
           <div class="text-red-500 text-sm mt-1 field-error error-message"><%= @error %></div>
         <% end %>
@@ -1606,7 +1606,7 @@ defmodule MyAppWeb.FormComponents do
     </div>
     """
   end
-  
+
   @doc """
   渲染文件上传字段组件
 
@@ -1622,7 +1622,7 @@ defmodule MyAppWeb.FormComponents do
   def file_upload_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     assigns = assign_new(assigns, :form_id, fn -> nil end)
-    
+
     ~H"""
     <div class="form-field form-item mb-6 file-upload-container">
       <label for={@field.id} class={"block text-sm font-medium mb-2 #{if @field.required, do: "required", else: ""}"}>
@@ -1631,18 +1631,18 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      
+
       <%= if @field.description do %>
         <div class="text-sm text-gray-500 mb-3"><%= @field.description %></div>
       <% end %>
-      
+
       <div class="file-upload-dropzone" id={"dropzone-#{@field.id}"} phx-hook="FileUploadDropzone">
         <svg xmlns="http://www.w3.org/2000/svg" class="file-upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
         </svg>
-        
+
         <h3 class="file-upload-text">点击上传或拖放文件</h3>
-        
+
         <p class="file-upload-hint">
           <%= if @field.allowed_extensions && length(@field.allowed_extensions) > 0 do %>
             <span class="font-medium">允许的文件类型:</span> <%= Enum.join(@field.allowed_extensions, ", ") %>
@@ -1650,22 +1650,22 @@ defmodule MyAppWeb.FormComponents do
             允许上传任何类型的文件
           <% end %>
         </p>
-        
+
         <p class="file-upload-hint">
           <%= if @field.multiple_files do %>
             <span class="font-medium">最多可上传:</span> <%= @field.max_files || 5 %> 个文件
           <% else %>
             只能上传单个文件
           <% end %>
-          
+
           <%= if @field.max_file_size do %>
             <span class="file-size-badge">每个文件最大 <%= @field.max_file_size %>MB</span>
           <% end %>
         </p>
-          
+
         <div class="flex justify-center mt-4">
-          <a 
-            href={"/test-upload/#{@form_id}/#{@field.id}?return_to=#{URI.encode("/forms/#{@form_id}/submit")}"} 
+          <a
+            href={"/test-upload/#{@form_id}/#{@field.id}?return_to=#{URI.encode("/forms/#{@form_id}/submit")}"}
             class="file-upload-button"
             id={"upload-button-#{@field.id}"}
           >
@@ -1679,7 +1679,7 @@ defmodule MyAppWeb.FormComponents do
             <% end %>
           </a>
         </div>
-        
+
         <%= if @form_state && @form_state[@field.id] && length(@form_state[@field.id]) > 0 do %>
           <div class="file-list-container">
             <h4 class="file-list-header">
@@ -1715,7 +1715,7 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
       </div>
-      
+
       <%= if @error do %>
         <div class="file-upload-error">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -1730,7 +1730,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染文本区域字段组件
-  
+
   ## 示例
       <.textarea_field
         field={@field}
@@ -1742,7 +1742,7 @@ defmodule MyAppWeb.FormComponents do
   def textarea_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     assigns = assign_new(assigns, :rows, fn -> 4 end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -1751,7 +1751,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <textarea 
+      <textarea
         id={@field.id}
         name={@field.id}
         rows={@rows}
@@ -1769,7 +1769,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染下拉菜单字段组件
-  
+
   ## 示例
       <.dropdown_field
         field={@field}
@@ -1781,7 +1781,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def dropdown_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -1790,7 +1790,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <select 
+      <select
         id={@field.id}
         name={@field.id}
         required={@field.required}
@@ -1814,7 +1814,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染复选框字段组件
-  
+
   ## 示例
       <.checkbox_field
         field={@field}
@@ -1826,7 +1826,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def checkbox_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <fieldset>
@@ -1839,14 +1839,14 @@ defmodule MyAppWeb.FormComponents do
         <div class="space-y-2">
           <%= for option <- @options do %>
             <div class="flex items-center form-item-option">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id={"#{@field.id}_#{option.id}"}
                 name={"#{@field.id}[]"}
                 value={option.value}
                 checked={is_list(Map.get(@form_state, @field.id)) && option.value in Map.get(@form_state, @field.id, [])}
                 disabled={@disabled}
-                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 phx-debounce="blur"
               />
               <label for={"#{@field.id}_#{option.id}"} class="ml-2 text-sm text-gray-700">
@@ -1862,10 +1862,10 @@ defmodule MyAppWeb.FormComponents do
     </div>
     """
   end
-  
+
   @doc """
   渲染评分控件组件
-  
+
   ## 示例
       <.rating_field
         field={@field}
@@ -1878,7 +1878,7 @@ defmodule MyAppWeb.FormComponents do
   def rating_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
     assigns = assign_new(assigns, :max_rating, fn -> 5 end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -1904,8 +1904,8 @@ defmodule MyAppWeb.FormComponents do
               ★
             </button>
           <% end %>
-          <input 
-            type="hidden" 
+          <input
+            type="hidden"
             id={@field.id}
             name={@field.id}
             value={Map.get(@form_state, @field.id, "")}
@@ -1925,7 +1925,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染数字输入字段组件
-  
+
   ## 示例
       <.number_field
         field={@field}
@@ -1936,7 +1936,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def number_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -1945,7 +1945,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <input 
+      <input
         type="number"
         id={@field.id}
         name={@field.id}
@@ -1970,7 +1970,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染邮箱输入字段组件
-  
+
   ## 示例
       <.email_field
         field={@field}
@@ -1981,7 +1981,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def email_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -1990,7 +1990,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <input 
+      <input
         type="email"
         id={@field.id}
         name={@field.id}
@@ -2012,7 +2012,7 @@ defmodule MyAppWeb.FormComponents do
 
   @doc """
   渲染电话号码输入字段组件
-  
+
   ## 示例
       <.phone_field
         field={@field}
@@ -2023,7 +2023,7 @@ defmodule MyAppWeb.FormComponents do
   """
   def phone_field(assigns) do
     assigns = assign_new(assigns, :disabled, fn -> false end)
-    
+
     ~H"""
     <div class="form-field form-item mb-4">
       <label for={@field.id} class={"block text-sm font-medium mb-1 #{if @field.required, do: "required", else: ""}"}>
@@ -2032,7 +2032,7 @@ defmodule MyAppWeb.FormComponents do
           <span class="form-item-required text-red-500">*</span>
         <% end %>
       </label>
-      <input 
+      <input
         type="tel"
         id={@field.id}
         name={@field.id}

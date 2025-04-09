@@ -4,11 +4,11 @@ defmodule MyApp.FormTemplates do
 
   提供表单模板的创建、查询、编辑、删除等操作，以及表单模板渲染等功能。
   """
-  
+
   import Ecto.Query, warn: false
   alias MyApp.Repo
   alias MyApp.FormTemplates.FormTemplate
-  
+
   @doc """
   返回所有表单模板的列表。
 
@@ -26,13 +26,13 @@ defmodule MyApp.FormTemplates do
   """
   def list_templates(opts \\[]) do
     query = from(t in FormTemplate)
-    
+
     query = if Keyword.get(opts, :active_only, false) do
       from t in query, where: t.is_active == true
     else
       query
     end
-    
+
     Repo.all(query)
   end
 
@@ -99,7 +99,7 @@ defmodule MyApp.FormTemplates do
     |> FormTemplate.changeset(attrs)
     |> Repo.insert()
   end
-  
+
   @doc """
   创建默认的空白表单模板。
   用于在创建新表单时自动关联一个默认模板。
@@ -116,17 +116,17 @@ defmodule MyApp.FormTemplates do
       structure: [],
       version: 1
     }
-    
+
     # 合并用户ID和其他可能的属性
     attrs = Map.merge(default_attrs, attrs)
-    
+
     # 确保有created_by_id
     attrs = if Map.has_key?(attrs, :created_by_id) || Map.has_key?(attrs, "created_by_id") do
       attrs
     else
       Map.put(attrs, :created_by_id, Map.get(attrs, :user_id) || Map.get(attrs, "user_id"))
     end
-    
+
     create_template(attrs)
   end
 
@@ -209,10 +209,10 @@ defmodule MyApp.FormTemplates do
       status: :draft,
       user_id: Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
     }
-    
+
     # 合并额外属性
     form_attrs = Map.merge(form_attrs, attrs)
-    
+
     # 创建表单
     case MyApp.Forms.create_form(form_attrs) do
       {:ok, form} ->
@@ -227,27 +227,27 @@ defmodule MyApp.FormTemplates do
             placeholder: get_element_placeholder(element),
             required: get_element_required(element)
           }
-          
+
           # 添加表单项
           case MyApp.Forms.add_form_item(form, item_attrs) do
             {:ok, _} -> {:cont, {:ok, form}}
             {:error, changeset} -> {:halt, {:error, changeset}}
           end
         end)
-        
+
         case result do
           {:ok, form} -> {:ok, MyApp.Forms.get_form_with_full_preload(form.id)}
           error -> error
         end
-        
+
       error -> error
     end
   end
-  
+
   # 从模板元素中提取字段
   defp get_element_type(element) do
     type = Map.get(element, :type) || Map.get(element, "type")
-    
+
     try do
       case type do
         "text" -> :text_input
@@ -261,15 +261,15 @@ defmodule MyApp.FormTemplates do
       _ -> :text_input # 默认类型
     end
   end
-  
+
   defp get_element_label(element) do
     Map.get(element, :label) || Map.get(element, "label") || "未命名字段"
   end
-  
+
   defp get_element_placeholder(element) do
     Map.get(element, :placeholder) || Map.get(element, "placeholder") || ""
   end
-  
+
   defp get_element_required(element) do
     Map.get(element, :required) || Map.get(element, "required") || false
   end
@@ -351,65 +351,65 @@ defmodule MyApp.FormTemplates do
   def filter_items_by_demo_rules(items, form_data, template_structure) when is_list(items) and is_map(form_data) do
     # 保存原始排序
     indexed_items = Enum.with_index(items)
-    
+
     # 从表单数据中提取字段ID
     first_field_id = Map.get(form_data, "first_field_id")
     second_field_id = Map.get(form_data, "second_field_id")
-    
+
     # 获取实际的字段值
     first_field_value = Map.get(form_data, first_field_id, "") || ""
     second_field_value = Map.get(form_data, second_field_id, "") || ""
-    
+
     # 过滤表单项 - 保持基于索引的过滤逻辑
     indexed_items
     |> Enum.filter(fn {item, index} ->
       base_condition = cond do
         # 前两个表单项总是显示
-        index < 2 -> 
+        index < 2 ->
           true
-          
+
         # 包含"index"关键字的条件 (第3-4项)
         index >= 2 and index < 4 and String.contains?(first_field_value, "index") ->
           true
-          
+
         # 包含"condition"关键字的条件 (第5-6项)
         index >= 4 and index < 6 and String.contains?(first_field_value, "condition") ->
           true
-          
+
         # 包含"complex"关键字的复合条件 (第7-8项)
-        index >= 6 and index < 8 and 
+        index >= 6 and index < 8 and
         String.contains?(first_field_value, "complex") and
         first_field_value != "" ->
           true
-          
+
         # 当第二个选择项为"选项B"时显示 (第9项)
         index == 8 and second_field_value == "选项B" ->
           true
-          
+
         # 默认不显示
         true ->
           false
       end
-      
+
       # 根据具体控件类型进行特殊处理
       special_case = cond do
         # 评分控件（index 9和10）：只在选择"选项B"且输入"complex"时显示
-        item.type == :rating -> 
+        item.type == :rating ->
           String.contains?(first_field_value, "complex") and second_field_value == "选项B"
-          
+
         # 地区控件（index 8）：只在选择"选项B"时显示
-        item.type == :region -> 
+        item.type == :region ->
           second_field_value == "选项B"
-          
+
         # 时间控件（index 7）：在输入"complex"时显示
         item.type == :time ->
           String.contains?(first_field_value, "complex")
-          
+
         # 其他控件保持原有索引逻辑
-        true -> 
+        true ->
           false
       end
-      
+
       # 满足基本条件或特殊条件任一即可显示
       base_condition or special_case
     end)
@@ -420,38 +420,38 @@ defmodule MyApp.FormTemplates do
 
   # 评估模板条件
   defp evaluate_template_condition(nil, _form_data), do: true
-  
+
   defp evaluate_template_condition(condition, form_data) do
     cond do
       # 使用FormTemplate的evaluate_condition处理标准条件
       is_map_key(condition, :operator) || is_map_key(condition, "operator") ->
         FormTemplate.evaluate_condition(condition, form_data)
-        
+
       # 处理包含多条件的复合条件
       is_map_key(condition, :conditions) || is_map_key(condition, "conditions") ->
         conditions = condition[:conditions] || condition["conditions"] || []
         operator = condition[:operator] || condition["operator"] || "and"
-        
+
         evaluate_conditions_group(conditions, operator, form_data)
-        
+
       # 处理自定义条件格式
       true ->
         false
     end
   end
-  
+
   # 处理条件组
   defp evaluate_conditions_group(conditions, operator, form_data) when is_list(conditions) do
-    results = Enum.map(conditions, fn condition -> 
-      evaluate_template_condition(condition, form_data) 
+    results = Enum.map(conditions, fn condition ->
+      evaluate_template_condition(condition, form_data)
     end)
-    
+
     case operator do
       "and" -> Enum.all?(results, & &1)
       "or" -> Enum.any?(results, & &1)
       _ -> false
     end
   end
-  
+
   defp evaluate_conditions_group(_, _, _), do: false
 end

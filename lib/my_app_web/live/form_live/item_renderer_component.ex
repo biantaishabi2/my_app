@@ -17,7 +17,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
     assigns = Map.put_new(assigns, :mode, :display)
     assigns = Map.put_new(assigns, :form_data, %{})
     assigns = Map.put_new(assigns, :errors, %{})
-    
+
     ~H"""
     <%# Component to render a single form item based on mode %>
     <% item = @item %>
@@ -92,8 +92,8 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             >
               <option value="" disabled selected={is_preview || !Map.get(form_data, item.id)}>请选择...</option>
               <%= for option <- item.options || [] do %>
-                <option 
-                  value={option.value} 
+                <option
+                  value={option.value}
                   disabled={is_preview}
                   selected={!is_preview && Map.get(form_data, item.id) == option.value}
                 >
@@ -114,7 +114,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
           <% :checkbox -> %>
             <div class="space-y-2">
               <%= for option <- item.options || [] do %>
-                <% 
+                <%
                   selected_values = if !is_preview, do: Map.get(form_data, item.id, []), else: []
                   selected_values = if is_list(selected_values), do: selected_values, else: []
                   checked = if !is_preview, do: option.value in selected_values, else: false
@@ -172,23 +172,23 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
 
           <% :rating -> %>
             <div class="form-rating flex items-center space-x-1">
-              <% 
-                max_rating = item.max_rating || 5 
+              <%
+                max_rating = item.max_rating || 5
                 selected_rating = if !is_preview, do: Map.get(form_data, item.id, "0") |> to_string() |> String.to_integer(), else: 0
               %>
               <%= for i <- 1..max_rating do %>
                 <div class="rating-option mr-2">
-                  <input 
-                    type="radio" 
-                    id={if !is_preview, do: "#{item.id}_#{i}", else: nil} 
+                  <input
+                    type="radio"
+                    id={if !is_preview, do: "#{item.id}_#{i}", else: nil}
                     name={if !is_preview, do: "form_data[#{item.id}]", else: nil}
-                    value={i} 
-                    checked={!is_preview && selected_rating == i} 
-                    class="hidden" 
+                    value={i}
+                    checked={!is_preview && selected_rating == i}
+                    class="hidden"
                     disabled={is_preview}
                   />
-                  <label 
-                    for={if !is_preview, do: "#{item.id}_#{i}", else: nil} 
+                  <label
+                    for={if !is_preview, do: "#{item.id}_#{i}", else: nil}
                     class={"rating-star text-2xl #{if !is_preview, do: "cursor-pointer", else: "cursor-default"} #{if i <= selected_rating || (!is_preview && i == 1), do: "text-yellow-400", else: "text-gray-300"}"}
                   >
                     ★
@@ -314,7 +314,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
               </div>
             <% else %>
               <%# 实际表单中的地区控件 %>
-              <div class="region-selector grid grid-cols-2 md:grid-cols-3 gap-2" 
+              <div class="region-selector grid grid-cols-2 md:grid-cols-3 gap-2"
                    id={"region-selector-#{item.id}"}
                    phx-hook="RegionSelect"
                    data-field-id={item.id}>
@@ -329,7 +329,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                   <option value="">请选择省份</option>
                   <!-- 省份选项会由JS钩子加载 -->
                 </select>
-                
+
                 <select
                   id={"#{item.id}_city"}
                   name={"form_data[#{item.id}_city]"}
@@ -342,7 +342,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                   <option value="">请选择城市</option>
                   <!-- 城市选项会由JS钩子加载 -->
                 </select>
-                
+
                 <%= if item.region_level == nil || item.region_level >= 3 do %>
                   <select
                     id={"#{item.id}_district"}
@@ -357,7 +357,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                     <!-- 区县选项会由JS钩子加载 -->
                   </select>
                 <% end %>
-                
+
                 <!-- 隐藏字段用于保存完整地址值 -->
                 <input type="hidden" id={item.id} name={"form_data[#{item.id}]"} value={Map.get(form_data, item.id, "")} />
               </div>
@@ -380,11 +380,11 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                       <tr>
                         <td class="border border-gray-300 p-2 font-medium"><%= row %></td>
                         <%= for {column, col_index} <- Enum.with_index(item.matrix_columns || ["选项A", "选项B", "选项C"]) do %>
-                          <% 
+                          <%
                             input_id = "#{item.id}_#{row_index}_#{col_index}"
                             input_name = if item.matrix_type == :multiple, do: "form_data[#{item.id}][#{row_index}][]", else: "form_data[#{item.id}][#{row_index}]"
                             input_value = column
-                            
+
                             # 在实际表单中获取已选值
                             # 先安全地获取item.id对应的表单数据，确保是map
                             item_data = if !is_preview && is_map(form_data), do: Map.get(form_data, item.id), else: nil
@@ -398,8 +398,8 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                           %>
                           <td class="border border-gray-300 p-2 text-center">
                             <%= if item.matrix_type == :multiple do %>
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 id={if !is_preview, do: input_id, else: nil}
                                 name={if !is_preview, do: input_name, else: nil}
                                 value={input_value}
@@ -408,8 +408,8 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                               />
                             <% else %>
-                              <input 
-                                type="radio" 
+                              <input
+                                type="radio"
                                 id={if !is_preview, do: input_id, else: nil}
                                 name={if !is_preview, do: input_name, else: nil}
                                 value={input_value}
@@ -436,12 +436,12 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             <div class={"space-y-2 #{is_preview && "opacity-60 pointer-events-none"}"}>
                <div class="flex flex-wrap gap-4">
                  <%= if Enum.any?(item.options || []) do %>
-                   <% 
+                   <%
                      # 在预览模式下最多显示2个，实际表单显示所有
-                     display_options = if is_preview, 
+                     display_options = if is_preview,
                                         do: Enum.take(item.options || [], min(2, length(item.options || []))),
                                         else: item.options || []
-                     
+
                      # 获取选择值（仅实际表单）
                      selected_values = if !is_preview, do: Map.get(form_data, item.id, []), else: []
                      selected_values = if is_list(selected_values), do: selected_values, else: [selected_values]
@@ -452,7 +452,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                        <%= if item.image_caption_position == :top do %>
                          <div class="p-2 text-center text-sm"><%= option.label %></div>
                        <% end %>
-                       
+
                        <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
                          <%= if option.image_filename do %>
                            <img
@@ -471,23 +471,23 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                        <% end %>
                        <div class="p-1 border-t border-gray-300 text-center">
                          <%= if item.selection_type == :multiple do %>
-                           <input 
-                             type="checkbox" 
+                           <input
+                             type="checkbox"
                              id={if !is_preview, do: "#{item.id}_#{option.value}", else: nil}
                              name={if !is_preview, do: "form_data[#{item.id}][]", else: nil}
                              value={option.value}
                              checked={checked}
-                             disabled={is_preview} 
+                             disabled={is_preview}
                              class="h-4 w-4 text-indigo-600"
                            />
                          <% else %>
-                           <input 
-                             type="radio" 
+                           <input
+                             type="radio"
                              id={if !is_preview, do: "#{item.id}_#{option.value}", else: nil}
                              name={if !is_preview, do: "form_data[#{item.id}]", else: nil}
                              value={option.value}
                              checked={checked}
-                             disabled={is_preview} 
+                             disabled={is_preview}
                              class="h-4 w-4 text-indigo-600"
                            />
                          <% end %>
@@ -504,7 +504,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                      <%= if item.image_caption_position == :top do %>
                        <div class="p-2 text-center text-sm">示例图片选项</div>
                      <% end %>
-                     
+
                      <div class="h-32 bg-gray-100 flex items-center justify-center overflow-hidden">
                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -575,22 +575,22 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                       允许上传任何类型的文件
                     <% end %>
                   </p>
-                  
+
                   <p class="text-gray-600 mb-4">
                     <%= if item.multiple_files do %>
                       最多可上传 <%= item.max_files || 5 %> 个文件
                     <% else %>
                       只能上传单个文件
                     <% end %>
-                    
+
                     <%= if item.max_file_size do %>
                       (每个文件最大 <%= item.max_file_size %>MB)
                     <% end %>
                   </p>
                 </div>
-                  
+
                 <div class="flex justify-center mt-4">
-                  <a 
+                  <a
                     href="/uploads"
                     class="file-upload-button px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 inline-block"
                     id={"file-trigger-#{item.id}"}
@@ -605,7 +605,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                   </a>
                   <input type="file" id={"file-upload-input-#{item.id}"} class="hidden" multiple={item.multiple_files} />
                 </div>
-                
+
                 <%= if is_map(form_data) && Map.has_key?(form_data, item.id) && is_list(Map.get(form_data, item.id)) && length(Map.get(form_data, item.id)) > 0 do %>
                   <div class="mt-4 border-t pt-4">
                     <h4 class="font-medium text-sm mb-2">已上传的文件:</h4>
