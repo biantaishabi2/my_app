@@ -1372,8 +1372,8 @@ defmodule MyAppWeb.FormLive.Edit do
     end)
   end
 
-  # 处理选项
-  defp process_options(item, options_list) do
+  # 处理选项 (公有函数，可被其他模块导入)
+  def process_options(item, options_list) do
     # 处理表单项选项
     IO.puts("\n==== 处理表单项选项 ====")
     IO.puts("表单项: #{inspect(item)}")

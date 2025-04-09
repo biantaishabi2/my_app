@@ -2,6 +2,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   use MyAppWeb, :live_view
   import MyAppWeb.FormLive.ItemRendererComponent
   import MyAppWeb.FormComponents
+  # 导入FormLive.Edit中的函数，特别是process_options
+  import MyAppWeb.FormLive.Edit, only: [process_options: 2]
   alias MyApp.FormTemplates
   alias MyApp.Forms.FormItem
 
@@ -307,20 +309,29 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # 获取当前标签页
     current_tab = socket.assigns.active_tab
     
-    # 根据当前标签页采取不同的行动
-    # 只有在条件逻辑标签页才能编辑逻辑
-    # 如果不是在条件逻辑标签页，直接返回（这将使得只有在条件逻辑标签页才能使用逻辑按钮）
-    if current_tab != "conditions" do
-      # 如果不是在条件逻辑标签页，则不执行任何操作并直接返回
-      {:noreply, socket}
-    else
-    
-    # 打开指定表单项的逻辑编辑器
+    # 查找要编辑的项目
     item = Enum.find(socket.assigns.structure, fn item -> item["id"] == item_id end)
     
     # 获取当前项目的逻辑（如果有的话）
     existing_logic = Map.get(item, "logic", nil)
     
+    # 如果不在条件逻辑标签页，先切换到该标签页
+    socket = if current_tab != "conditions" do
+      # 设置标签页标题
+      tab_titles = %{
+        "structure" => "结构设计",
+        "conditions" => "条件逻辑",
+        "decoration" => "页面装饰"
+      }
+      
+      socket
+      |> assign(:active_tab, "conditions")
+      |> assign(:tab_title, Map.get(tab_titles, "conditions", "条件逻辑"))
+    else
+      socket
+    end
+    
+    # 打开逻辑编辑器
     {:noreply, 
       socket
       |> assign(:editing_logic_item_id, item_id)
@@ -328,7 +339,6 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:logic_target_id, Map.get(existing_logic || %{}, "target_id", nil))
       |> assign(:logic_condition, Map.get(existing_logic || %{}, "condition", nil))
     }
-    end
   end
   
   @impl true
@@ -959,13 +969,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                                     <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                                   </select>
-                                  <input 
-                                    type="text" 
-                                    name="logic[condition_value]" 
-                                    value={get_in(@logic_condition || %{}, ["value"])}
-                                    placeholder="输入答案值" 
-                                    class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  />
+                                  <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
                                 </div>
                               </div>
                               
@@ -1257,13 +1261,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                     <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                                     <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                                   </select>
-                                  <input 
-                                    type="text" 
-                                    name="logic[condition_value]" 
-                                    value={get_in(@logic_condition || %{}, ["value"])}
-                                    placeholder="输入答案值" 
-                                    class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                  />
+                                  <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
                                 </div>
                               </div>
                               
@@ -1397,13 +1395,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
                             <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
                           </select>
-                          <input 
-                            type="text" 
-                            name="logic[condition_value]" 
-                            value={get_in(@logic_condition || %{}, ["value"])}
-                            placeholder="输入答案值" 
-                            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          />
+                          <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == @editing_logic_item_id end), @logic_condition) %>
                         </div>
                       </div>
                       
@@ -1559,15 +1551,54 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   # 将模板选项格式化为FormItem需要的格式
   defp format_options(options) when is_list(options) do
-    Enum.map(options, fn option ->
-      %{
-        id: Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate(),
-        value: Map.get(option, "value") || Map.get(option, :value) || "",
-        label: Map.get(option, "label") || Map.get(option, :label) || "",
-        image_filename: Map.get(option, "image_filename") || Map.get(option, :image_filename)
-      }
+    IO.puts("\n==== 格式化选项 ====")
+    IO.puts("选项列表: #{inspect(options)}")
+    
+    result = Enum.map(options, fn option ->
+      IO.puts("处理选项: #{inspect(option)}")
+      
+      formatted = cond do
+        # 处理Map类型的选项
+        is_map(option) ->
+          # 获取id，确保有值
+          id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
+          # 获取value，确保有值
+          value = Map.get(option, "value") || Map.get(option, :value) || ""
+          # 获取label，如果没有则使用value
+          label = Map.get(option, "label") || Map.get(option, :label) || value || ""
+          # 图片文件名可能为nil
+          image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
+          
+          %{
+            id: id,
+            value: value,
+            label: label,
+            image_filename: image_filename
+          }
+          
+        # 处理字符串或其他非Map类型选项
+        true ->
+          option_str = to_string(option)
+          %{
+            id: Ecto.UUID.generate(),
+            value: option_str,
+            label: option_str,
+            image_filename: nil
+          }
+      end
+      
+      IO.puts("格式化后: #{inspect(formatted)}")
+      formatted
     end)
+    
+    IO.puts("格式化结果: #{inspect(result)}")
+    result
   end
+  # 对于非列表选项，返回默认选项
+  defp format_options(nil), do: [
+    %{id: Ecto.UUID.generate(), label: "选项A", value: "option_a", image_filename: nil},
+    %{id: Ecto.UUID.generate(), label: "选项B", value: "option_b", image_filename: nil}
+  ]
   defp format_options(_), do: []
 
   # 根据新的顺序重排结构项
@@ -1597,6 +1628,213 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   # 辅助函数：显示选中的控件类型名称
   defp display_selected_type(nil), do: "未选择"
   defp display_selected_type("text_input"), do: "文本输入"
+  
+  # 根据表单项类型渲染适当的条件值输入控件
+  defp render_condition_value_input(item, logic_condition) do
+    # 打印调试信息以检查传入的项目
+    IO.inspect(item, label: "表单项数据")
+    
+    # 检查所有选择题类型的表单项结构
+    if !is_nil(item) && Map.get(item, "type") in ["radio", "checkbox", "dropdown"] do
+      options = Map.get(item, "options", [])
+      IO.puts("\n==== 选择题类型项目数据分析 ====")
+      IO.puts("项目ID: #{Map.get(item, "id", "未知")}")
+      IO.puts("项目类型: #{Map.get(item, "type", "未知")}")
+      IO.puts("选项数量: #{length(options)}")
+      IO.puts("选项数据结构: #{inspect(options)}")
+      
+      # 直接尝试遍历选项
+      if is_list(options) && length(options) > 0 do
+        IO.puts("\n==== 选项详情 ====")
+        Enum.each(options, fn option ->
+          cond do
+            is_map(option) ->
+              id = Map.get(option, "id") || Map.get(option, :id, "未知")
+              value = Map.get(option, "value") || Map.get(option, :value, "未知")
+              label = Map.get(option, "label") || Map.get(option, :label, "未知")
+              IO.puts("选项: id=#{id}, value=#{value}, label=#{label}")
+            true ->
+              IO.puts("非Map选项: #{inspect(option)}")
+          end
+        end)
+      end
+    end
+    
+    if is_nil(item) do
+      # 如果找不到表单项，返回普通文本输入框
+      assigns = %{current_value: get_in(logic_condition || %{}, ["value"])}
+      ~H"""
+      <input 
+        type="text" 
+        name="logic[condition_value]" 
+        value={@current_value}
+        placeholder="输入答案值" 
+        class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+      />
+      """
+    else
+      item_type = Map.get(item, "type")
+      current_value = get_in(logic_condition || %{}, ["value"])
+      
+      # 直接调试输出完整的项目内容
+      IO.puts("项目类型: #{item_type}")
+      IO.puts("完整项目数据: #{inspect(item)}")
+      
+      # 创建预处理选项
+      default_options = [
+        %{id: Ecto.UUID.generate(), label: "选项A", value: "option_a"},
+        %{id: Ecto.UUID.generate(), label: "选项B", value: "option_b"}
+      ]
+      
+      cond do
+        # 选择题类型 (单选、多选、下拉菜单)
+        item_type in ["radio", "checkbox", "dropdown"] ->
+          # 获取选项
+          options = Map.get(item, "options", [])
+          IO.puts("原始选项: #{inspect(options)}")
+          
+          # 转换为FormItem结构，以便能使用process_options处理
+          form_item = %FormItem{
+            id: Map.get(item, "id", Ecto.UUID.generate()),
+            type: safe_to_atom(item_type),
+            options: []  # 初始为空列表，稍后通过format_options处理
+          }
+          
+          # 先预处理选项，确保格式一致
+          formatted_options = format_options(options)
+          
+          # 打印中间结果
+          IO.puts("\n======== 选项预处理结果 ========")
+          IO.inspect(formatted_options, label: "格式化后的选项")
+          
+          # 直接使用formatted_options，不尝试数据库操作
+          # 这里不使用process_options，因为它会尝试进行数据库操作
+          processed_options = 
+            if Enum.empty?(formatted_options) do
+              # 如果没有选项，使用默认选项
+              IO.puts("使用默认选项...")
+              default_options
+            else
+              IO.puts("使用格式化后的选项...")
+              formatted_options
+            end
+          
+          # 打印处理后的选项，用于调试
+          IO.puts("格式化后选项: #{inspect(formatted_options)}")
+          
+          IO.inspect(processed_options, label: "处理后的选项列表")
+          
+          # 额外处理一下，确保options里面的每个选项都是map，且有label和value字段
+          final_options = Enum.map(processed_options, fn option ->
+            IO.inspect(option, label: "处理前的选项")
+            
+            # 处理不同格式的选项
+            processed = cond do
+              # 已经是map且有:label和:value
+              is_map(option) && (Map.has_key?(option, :label) || Map.has_key?(option, "label")) ->
+                label = Map.get(option, :label) || Map.get(option, "label", "") 
+                value = Map.get(option, :value) || Map.get(option, "value", "")
+                %{label: label, value: value}
+                
+              # 是字符串
+              is_binary(option) -> 
+                %{label: option, value: option}
+                
+              # 其他情况
+              true -> 
+                %{label: inspect(option), value: to_string(option)}
+            end
+            
+            IO.inspect(processed, label: "处理后的选项")
+            processed
+          end)
+          
+          IO.inspect(final_options, label: "最终的选项列表")
+          
+          # 渲染下拉框
+          assigns = %{options: final_options, current_value: current_value}
+          ~H"""
+          <select 
+            name="logic[condition_value]" 
+            class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="">-- 请选择选项 --</option>
+            <%= for option <- @options do %>
+              <% 
+                # 调试每个选项
+                option_str = inspect(option)
+                IO.puts("渲染选项: #{option_str}")
+                
+                # 处理选项值和标签
+                option_value = Map.get(option, :value) || Map.get(option, "value", "")
+                option_label = Map.get(option, :label) || Map.get(option, "label", option_value)
+                
+                IO.puts("选项值: #{option_value}, 选项标签: #{option_label}")
+              %>
+              <option value={option_value} selected={@current_value == option_value}><%= option_label %></option>
+            <% end %>
+          </select>
+          """
+        
+      # 评分题
+      item_type == "rating" ->
+        max_rating = Map.get(item, "max_rating", 5)
+        IO.inspect(max_rating, label: "评分题最大评分")
+        assigns = %{max_rating: max_rating, current_value: current_value}
+        ~H"""
+        <select 
+          name="logic[condition_value]" 
+          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        >
+          <option value="">-- 请选择评分 --</option>
+          <%= for rating <- 1..@max_rating do %>
+            <option value={Integer.to_string(rating)} selected={@current_value == Integer.to_string(rating)}><%= rating %> 分</option>
+          <% end %>
+        </select>
+        """
+
+      # 日期选择
+      item_type == "date" ->
+        assigns = %{current_value: current_value}
+        ~H"""
+        <input 
+          type="date" 
+          name="logic[condition_value]" 
+          value={@current_value}
+          placeholder="YYYY-MM-DD" 
+          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        />
+        """
+        
+      # 时间选择
+      item_type == "time" ->
+        assigns = %{current_value: current_value}
+        ~H"""
+        <input 
+          type="time" 
+          name="logic[condition_value]" 
+          value={@current_value}
+          placeholder="HH:MM" 
+          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        />
+        """
+        
+      # 默认使用文本输入框
+      true ->
+        IO.inspect(item_type, label: "使用默认文本输入框的项目类型")
+        assigns = %{current_value: current_value}
+        ~H"""
+        <input 
+          type="text" 
+          name="logic[condition_value]" 
+          value={@current_value}
+          placeholder="输入答案值" 
+          class="block w-2/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        />
+        """
+      end
+    end
+  end
   defp display_selected_type("textarea"), do: "文本区域"
   defp display_selected_type("radio"), do: "单选按钮"
   defp display_selected_type("dropdown"), do: "下拉菜单"
