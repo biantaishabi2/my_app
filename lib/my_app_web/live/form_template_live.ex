@@ -6,6 +6,9 @@ defmodule MyAppWeb.FormTemplateLive do
   alias MyApp.FormTemplates.FormTemplate
   
   # 使用MyApp.FormTemplates上下文模块的API
+  
+  # 模板JSON文件路径
+  @template_json_path "/home/wangbo/document/wangbo/my_app/priv/static/templates/form_demo_template.json"
 
   @impl true
   def mount(_params, _session, socket) do
@@ -13,9 +16,10 @@ defmodule MyAppWeb.FormTemplateLive do
     form_id = "b8fd73c1-c966-43e6-935f-06a893313ebd"
     form = Forms.get_form_with_full_preload(form_id)
 
-    # 初始化模板结构
-    template_structure = build_template_structure(form)
-
+    # 从JSON文件加载模板结构
+    template_data = load_template_from_json()
+    template_structure = template_data["structure"]
+    
     # 创建模板结构预览
     template_preview = build_template_preview(template_structure)
 
@@ -28,14 +32,6 @@ defmodule MyAppWeb.FormTemplateLive do
     end)
     second_field_id = if second_item, do: second_item.id, else: nil
 
-    # 创建模板 (仅作记录，不直接使用)
-    _template = %FormTemplate{
-      name: "测试模板",
-      description: "从表单自动生成的测试模板",
-      structure: template_structure,
-      is_active: true
-    }
-
     # 为调试目的输出字段IDs
     IO.puts("Mount: 第一个字段ID=#{first_field_id}, 第二个字段ID=#{second_field_id}")
 
@@ -46,7 +42,7 @@ defmodule MyAppWeb.FormTemplateLive do
     }
 
     # 使用表单模板筛选要显示的表单项
-    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(form.items, form_data, template_structure)
+    rendered_items = filter_items_by_template(form.items, template_structure, form_data)
 
     {:ok,
       socket
@@ -77,13 +73,17 @@ defmodule MyAppWeb.FormTemplateLive do
     first_field_id = socket.assigns.first_field_id
     second_field_id = socket.assigns.second_field_id
 
-    # 添加字段ID到表单数据，确保filter_items_by_conditions能够找到正确的字段
+    # 添加字段ID到表单数据，确保过滤条件能够找到正确的字段
     form_data = form_data
       |> Map.put("first_field_id", first_field_id)
       |> Map.put("second_field_id", second_field_id)
 
-    # 使用条件逻辑过滤要显示的表单项
-    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(socket.assigns.form.items, form_data, socket.assigns.template_structure)
+    # 使用模板条件过滤要显示的表单项
+    rendered_items = filter_items_by_template(
+      socket.assigns.form.items, 
+      socket.assigns.template_structure, 
+      form_data
+    )
 
     # 为调试目的打印数据
     first_value = Map.get(form_data, first_field_id, "")
@@ -106,8 +106,9 @@ defmodule MyAppWeb.FormTemplateLive do
     form_id = socket.assigns.form.id
     form = Forms.get_form_with_full_preload(form_id)
 
-    # 重建模板结构
-    template_structure = build_template_structure(form)
+    # 重新从JSON文件加载模板结构
+    template_data = load_template_from_json()
+    template_structure = template_data["structure"]
     template_preview = build_template_preview(template_structure)
 
     # 获取字段ID
@@ -120,7 +121,7 @@ defmodule MyAppWeb.FormTemplateLive do
       |> Map.put("second_field_id", second_field_id)
 
     # 使用现有表单数据重新过滤表单项
-    rendered_items = MyApp.FormTemplates.filter_items_by_demo_rules(form.items, form_data, template_structure)
+    rendered_items = filter_items_by_template(form.items, template_structure, form_data)
 
     {:noreply,
       socket
@@ -129,7 +130,7 @@ defmodule MyAppWeb.FormTemplateLive do
       |> assign(:template_preview, template_preview)
       |> assign(:rendered_items, rendered_items)
       |> assign(:form_data, form_data)
-      |> put_flash(:info, "模板已刷新")
+      |> put_flash(:info, "模板已从JSON文件重新加载")
     }
   end
 
@@ -267,250 +268,193 @@ defmodule MyAppWeb.FormTemplateLive do
     """
   end
 
-  # 从现有表单构建模板结构
-  defp build_template_structure(form) do
-    # 选择一些表单项类型作为示例
-    sample_types = [:text_input, :number, :radio, :dropdown, :checkbox, :date, :time, :region, :rating]
-
-    # 从现有表单中筛选出需要的表单项
-    filtered_items = form.items
-      |> Enum.filter(fn item -> item.type in sample_types end)
-      |> Enum.take(10) # 使用更多表单项来展示不同条件
-
-    # 确保至少有一个文本输入类型
-    text_item = Enum.find(filtered_items, fn item -> item.type == :text_input end)
-    first_item_id = if text_item, do: text_item.id, else: nil
-
-    # 找到第二个表单项，最好是下拉选择或单选按钮类型
-    second_item = Enum.find(Enum.drop(filtered_items, 1), fn item ->
-      item.type in [:radio, :dropdown, :checkbox] and length(item.options) > 0
-    end)
-    second_item_id = if second_item, do: second_item.id, else: nil
-
-    # 构建模板结构，包含不同类型的条件显示
-    filtered_items
-    |> Enum.with_index()
-    |> Enum.map(fn {item, index} ->
-      # 转换到模板结构格式
-      base_label = get_label_with_prefix(item.label, index)
-
-      # 为特殊控件类型添加更清晰的标签，根据索引位置处理
-      enhanced_label = maybe_add_type_specific_prefix(base_label, item.type, index)
-
-      base_structure = %{
-        type: convert_type(item.type),
-        name: item.id,
-        # 添加前缀以便更容易识别条件类型
-        label: enhanced_label
-      }
-
-      # 添加选项（如果有）
-      with_options = if item.type in [:radio, :dropdown, :checkbox] and length(item.options) > 0 do
-        options = Enum.map(item.options, fn opt -> opt.label end)
-        Map.put(base_structure, :options, options)
-      else
-        base_structure
-      end
-
-      # 基于控件类型和索引添加不同类型的条件
-      cond do
-        # 前两个表单项无条件显示
-        index < 2 ->
-          with_options
-
-        # 第3-4个表单项：当第一个表单项的值包含"index"时显示
-        index >= 2 and index < 4 and is_binary(first_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "contains",
-            left: %{type: "field", name: first_item_id},
-            right: %{type: "value", value: "index"}
-          })
-
-        # 第5-6个表单项：当第一个表单项的值包含"condition"时显示
-        index >= 4 and index < 6 and is_binary(first_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "contains",
-            left: %{type: "field", name: first_item_id},
-            right: %{type: "value", value: "condition"}
-          })
-
-        # 日期控件：在输入"complex"时显示
-        item.type == :date and is_binary(first_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "contains",
-            left: %{type: "field", name: first_item_id},
-            right: %{type: "value", value: "complex"}
-          })
-          
-        # 时间控件：在输入"complex"时显示
-        item.type == :time and is_binary(first_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "contains",
-            left: %{type: "field", name: first_item_id},
-            right: %{type: "value", value: "complex"}
-          })
-        
-        # 地区控件：当选择"选项B"时显示
-        item.type == :region and is_binary(second_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "==",
-            left: %{type: "field", name: second_item_id},
-            right: %{type: "value", value: "选项B"}
-          })
-          
-        # 评分控件：同时满足"选择选项B"和"输入complex"
-        item.type == :rating and is_binary(first_item_id) and is_binary(second_item_id) ->
-          Map.put(with_options, :condition, %{
-            operator: "and",
-            conditions: [
-              %{
-                operator: "contains",
-                left: %{type: "field", name: first_item_id},
-                right: %{type: "value", value: "complex"}
-              },
-              %{
-                operator: "==",
-                left: %{type: "field", name: second_item_id},
-                right: %{type: "value", value: "选项B"}
-              }
-            ]
-          })
-          
-        # 默认情况
-        true ->
-          with_options
-      end
-    end)
-  end
-
-  # 根据索引为标签添加前缀
-  defp get_label_with_prefix(label, index) do
-    cond do
-      index < 2 ->
-        "[始终显示] #{label}"
-      index >= 2 and index < 4 ->
-        "[输入'index'显示] #{label}"
-      index >= 4 and index < 6 ->
-        "[输入'condition'显示] #{label}"
-      index >= 6 and index < 8 ->
-        "[输入'complex'显示] #{label}"
-      index == 8 ->
-        "[第二题选择'选项B'显示] #{label}"
-      true ->
-        label
+  # 从JSON文件加载模板
+  defp load_template_from_json do
+    case File.read(@template_json_path) do
+      {:ok, content} ->
+        # 解析JSON内容
+        case Jason.decode(content) do
+          {:ok, json_data} ->
+            # 成功解析JSON
+            IO.puts("成功加载模板JSON: #{json_data["name"]}")
+            json_data
+          {:error, reason} ->
+            # JSON解析错误
+            IO.puts("模板JSON解析错误: #{inspect(reason)}")
+            %{"structure" => %{"items" => []}}
+        end
+      {:error, reason} ->
+        # 文件读取错误
+        IO.puts("模板文件读取错误: #{inspect(reason)}")
+        %{"structure" => %{"items" => []}}
     end
   end
-
-  # 根据控件类型为标签添加特殊描述前缀
-  defp maybe_add_type_specific_prefix(label, item_type, _index) do
-    cond do
-      # 评分控件
-      item_type == :rating -> 
-        "[评分控件 - 选择'选项B'+输入'complex'] #{label}"
+  
+  # 根据模板筛选要显示的表单项
+  defp filter_items_by_template(items, template_structure, form_data) do
+    # 获取模板中的项目列表
+    template_items = template_structure["items"] || []
+    
+    # 获取字段ID
+    first_field_id = Map.get(form_data, "first_field_id")
+    second_field_id = Map.get(form_data, "second_field_id")
+    
+    # 根据模板条件筛选表单项
+    items
+    |> Enum.with_index()
+    |> Enum.filter(fn {item, index} -> 
+      # 找到对应的模板项
+      template_item = Enum.at(template_items, index)
+      
+      if template_item do
+        # 获取条件
+        condition = template_item["condition"]
         
-      # 地区控件
-      item_type == :region -> 
-        "[地区控件 - 仅选择'选项B'显示] #{label}"
-        
-      # 时间控件
-      item_type == :time -> 
-        "[时间控件 - 输入'complex'显示] #{label}"
-        
-      # 其他控件使用默认标签
-      true ->
-        label
+        # 评估条件
+        cond do
+          # 没有条件，始终显示
+          is_nil(condition) ->
+            true
+            
+          # 有特定的控件类型条件
+          template_item["item_type"] == "rating" ->
+            # 评分控件：需要同时满足"complex"和"选项B"
+            String.contains?(Map.get(form_data, first_field_id, ""), "complex") and 
+            Map.get(form_data, second_field_id) == "选项B"
+            
+          template_item["item_type"] == "region" ->
+            # 地区控件：只需要满足"选项B"
+            Map.get(form_data, second_field_id) == "选项B"
+            
+          template_item["item_type"] == "time" or template_item["item_type"] == "date" ->
+            # 时间和日期控件：需要满足"complex"
+            String.contains?(Map.get(form_data, first_field_id, ""), "complex")
+            
+          # 包含"index"的条件
+          condition["operator"] == "contains" and condition["right"]["value"] == "index" ->
+            String.contains?(Map.get(form_data, first_field_id, ""), "index")
+            
+          # 包含"condition"的条件
+          condition["operator"] == "contains" and condition["right"]["value"] == "condition" ->
+            String.contains?(Map.get(form_data, first_field_id, ""), "condition")
+            
+          # 复合条件
+          condition["operator"] == "and" ->
+            evaluate_compound_condition(condition, form_data)
+            
+          # 默认情况：不显示
+          true ->
+            false
+        end
+      else
+        # 如果没有对应的模板项，不显示
+        false
+      end
+    end)
+    |> Enum.map(fn {item, _} -> item end)
+  end
+  
+  # 评估复合条件
+  defp evaluate_compound_condition(condition, form_data) do
+    conditions = condition["conditions"] || []
+    
+    # 计算所有子条件的结果
+    results = Enum.map(conditions, fn subcondition ->
+      evaluate_simple_condition(subcondition, form_data)
+    end)
+    
+    # 根据操作符组合结果
+    case condition["operator"] do
+      "and" -> Enum.all?(results)
+      "or" -> Enum.any?(results)
+      _ -> false
+    end
+  end
+  
+  # 评估简单条件
+  defp evaluate_simple_condition(condition, form_data) do
+    operator = condition["operator"]
+    left = condition["left"]
+    right = condition["right"]
+    
+    # 获取左值
+    left_value = case left do
+      %{"type" => "field", "name" => field_name} ->
+        Map.get(form_data, field_name, "")
+      _ -> 
+        ""
+    end
+    
+    # 获取右值
+    right_value = case right do
+      %{"type" => "value", "value" => value} ->
+        value
+      _ ->
+        ""
+    end
+    
+    # 根据操作符评估
+    case operator do
+      "contains" ->
+        String.contains?(left_value, right_value)
+      "==" ->
+        left_value == right_value
+      _ ->
+        false
     end
   end
 
   # 构建模板预览（格式化为易读文本）
   defp build_template_preview(template_structure) do
-    template_structure
+    # 获取模板项
+    items = template_structure["items"] || []
+    
+    # 构建可读的预览文本
+    items
     |> Enum.map(fn item ->
-      # 获取原始类型
-      original_type = get_original_type(item.type)
+      # 获取标签和类型
+      label = item["label"] || "未命名项"
+      item_type = item["item_type"] || "text"
       
-      # 获取条件文本
-      condition_text = if Map.has_key?(item, :condition) do
-        # 提取条件详情，使描述更具体
-        condition_desc = case item.type do
-          "text" -> "输入特定关键字时显示"
-          "number" -> "输入特定关键字时显示"
-          "select" -> "输入特定关键字时显示"
-          _ -> "满足特定条件时显示"
+      # 获取条件描述
+      condition_text = if item["condition"] do
+        condition_desc = cond do
+          item_type == "rating" ->
+            "当同时满足'选择选项B'和'输入complex'时显示"
+          item_type == "region" ->
+            "当选择'选项B'时显示"
+          item_type == "time" || item_type == "date" ->
+            "当输入'complex'时显示"
+          item["condition"]["right"]["value"] == "index" ->
+            "当输入'index'时显示"
+          item["condition"]["right"]["value"] == "condition" ->
+            "当输入'condition'时显示"
+          true ->
+            "满足特定条件时显示"
         end
         "（#{condition_desc}）"
       else
         ""
       end
       
-      # 获取选项文本
-      options_text = if Map.has_key?(item, :options) do
-        options_str = Enum.join(item.options, ", ")
-        "选项: [#{options_str}]"
-      else
-        ""
+      # 类型描述
+      type_desc = case item_type do
+        "text" -> "文本输入"
+        "number" -> "数字"
+        "select" -> "选择"
+        "date" -> "日期"
+        "time" -> "时间"
+        "rating" -> "评分"
+        "region" -> "地区选择"
+        "file" -> "文件上传"
+        "image" -> "图片选择"
+        "matrix" -> "矩阵问题"
+        _ -> item_type
       end
       
-      # 构建控件描述，确保显示正确的控件类型
-      type_desc = case original_type do
-        :text_input -> "文本输入"
-        :number -> "数字"
-        :radio -> "单选"
-        :dropdown -> "下拉选择"
-        :checkbox -> "多选"
-        :date -> "日期"
-        :time -> "时间"
-        :rating -> "评分"
-        :region -> "地区选择"
-        # 为其他控件类型添加友好名称
-        :file_upload -> "文件上传"
-        :image_choice -> "图片选择"
-        :matrix -> "矩阵问题"
-        _ -> "#{original_type}"
-      end
-      
-      "#{item.label} (#{type_desc}) #{options_text} #{condition_text}"
+      # 组合成预览文本
+      "#{label} (#{type_desc}) #{condition_text}"
     end)
     |> Enum.join("\n")
   end
-  
-  # 反向推导原始控件类型
-  defp get_original_type(template_type) do
-    try do
-      case template_type do
-        "text" -> :text_input
-        "number" -> 
-          # number可能是:number或:rating，默认为:number
-          :number
-        "select" -> 
-          # select可能是:radio, :dropdown, :checkbox，默认为:dropdown
-          :dropdown
-        _ when is_binary(template_type) -> String.to_existing_atom(template_type)
-        _ -> :unknown
-      end
-    rescue
-      _ -> :unknown
-    end
-  end
-
-  # 转换表单项类型到模板类型
-  defp convert_type(form_type) do
-    case form_type do
-      :text_input -> "text"
-      :number -> "number"
-      :radio -> "select"
-      :dropdown -> "select"
-      :checkbox -> "select"
-      :date -> "date"
-      :time -> "time"
-      :region -> "region"
-      :rating -> "rating"
-      :file_upload -> "file"
-      :image_choice -> "image"
-      :matrix -> "matrix"
-      _ -> "text" # 默认为文本类型
-    end
-  end
-
-  # 删除了过滤函数，现在使用上下文模块提供的API
 end
