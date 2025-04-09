@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormTemplateEditorLive do
   use MyAppWeb, :live_view
+  import MyAppWeb.FormLive.ItemRendererComponent
   alias MyApp.FormTemplates
 
   @impl true
@@ -89,7 +90,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       <.flash_group flash={@flash} />
 
       <h2 class="text-xl font-semibold">结构元素</h2>
-      <div id="structure-list" phx-hook="Sortable" class="space-y-2 border p-4 rounded bg-gray-50 min-h-[100px]">
+      <div id="structure-list" phx-hook="Sortable" class="space-y-4 border p-4 rounded bg-gray-50 min-h-[100px]">
         <%= if Enum.empty?(@structure) do %>
           <p class="text-gray-500 italic text-center py-4">此模板结构为空。请添加元素。</p>
         <% else %>
@@ -99,29 +100,69 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               elem_type = Map.get(element, "type", "unknown")
               elem_label = Map.get(element, "label") || Map.get(element, "title", "未命名元素")
               elem_required = Map.get(element, "required", false)
+              elem_description = Map.get(element, "description")
+              
+              # 将模板项转换为FormItem结构，以便重用ItemRendererComponent
+              form_item = %{
+                id: elem_id,
+                type: safe_to_atom(elem_type),
+                label: elem_label,
+                required: elem_required,
+                description: elem_description,
+                placeholder: Map.get(element, "placeholder"),
+                options: format_options(Map.get(element, "options", [])),
+                min: Map.get(element, "min"),
+                max: Map.get(element, "max"),
+                step: Map.get(element, "step"),
+                max_rating: Map.get(element, "max_rating", 5),
+                min_date: Map.get(element, "min_date"),
+                max_date: Map.get(element, "max_date"),
+                min_time: Map.get(element, "min_time"),
+                max_time: Map.get(element, "max_time"),
+                time_format: Map.get(element, "time_format", "24h"),
+                show_format_hint: Map.get(element, "show_format_hint"),
+                format_display: Map.get(element, "format_display"),
+                matrix_rows: Map.get(element, "matrix_rows"),
+                matrix_columns: Map.get(element, "matrix_columns"),
+                matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
+                image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                selection_type: safe_selection_type(Map.get(element, "selection_type")),
+                multiple_files: Map.get(element, "multiple_files"),
+                max_files: Map.get(element, "max_files"),
+                max_file_size: Map.get(element, "max_file_size"),
+                allowed_extensions: Map.get(element, "allowed_extensions"),
+                region_level: Map.get(element, "region_level"),
+                default_province: Map.get(element, "default_province")
+              }
             %>
             <div 
               id={"item-#{elem_id}"} 
               data-id={elem_id} 
-              class="flex items-center p-3 border rounded bg-white shadow-sm hover:bg-gray-50 transition duration-150 ease-in-out"
+              class="p-3 border rounded bg-white shadow-sm hover:bg-gray-50 transition duration-150 ease-in-out"
             >
-              <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
-              <div class="flex-grow">
-                <div class="flex items-center">
-                  <span class="font-medium text-gray-800 mr-2">
-                    [<%= elem_type %>]
-                  </span>
-                  <span class="text-gray-700"><%= elem_label %></span>
-                  <%= if elem_required do %>
-                    <span class="ml-2 text-red-500">*</span>
-                  <% end %>
+              <div class="flex items-center">
+                <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
+                <div class="flex-grow">
+                  <div class="flex items-center">
+                    <span class="font-medium text-gray-800 mr-2">
+                      [<%= elem_type %>]
+                    </span>
+                    <span class="text-gray-700 font-medium"><%= elem_label %></span>
+                    <%= if elem_required do %>
+                      <span class="ml-2 text-red-500">*</span>
+                    <% end %>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    ID: <%= elem_id %>
+                    <%= if elem_description do %>
+                      | <%= elem_description %>
+                    <% end %>
+                  </div>
                 </div>
-                <div class="text-xs text-gray-500 mt-1">
-                  ID: <%= elem_id %>
-                  <%= if description = Map.get(element, "description") do %>
-                    | <%= description %>
-                  <% end %>
-                </div>
+              </div>
+              
+              <div class="mt-3 border-t pt-3">
+                <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
               </div>
             </div>
           <% end %>
@@ -150,6 +191,46 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     </div>
     """
   end
+  
+  # 安全地将字符串转换为atom，如果转换失败则返回默认值:text_input
+  defp safe_to_atom(type_str) when is_binary(type_str) do
+    try do
+      String.to_existing_atom(type_str)
+    rescue
+      ArgumentError -> :text_input
+    end
+  end
+  defp safe_to_atom(_), do: :text_input
+
+  # 安全处理matrix_type值
+  defp safe_matrix_type("multiple"), do: :multiple
+  defp safe_matrix_type(:multiple), do: :multiple
+  defp safe_matrix_type(_), do: :single
+
+  # 安全处理selection_type值
+  defp safe_selection_type("multiple"), do: :multiple
+  defp safe_selection_type(:multiple), do: :multiple
+  defp safe_selection_type(_), do: :single
+
+  # 安全处理image_caption_position值
+  defp safe_caption_position("top"), do: :top
+  defp safe_caption_position(:top), do: :top
+  defp safe_caption_position("none"), do: :none
+  defp safe_caption_position(:none), do: :none
+  defp safe_caption_position(_), do: :bottom
+
+  # 将模板选项格式化为FormItem需要的格式
+  defp format_options(options) when is_list(options) do
+    Enum.map(options, fn option ->
+      %{
+        id: Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate(),
+        value: Map.get(option, "value") || Map.get(option, :value) || "",
+        label: Map.get(option, "label") || Map.get(option, :label) || "",
+        image_filename: Map.get(option, "image_filename") || Map.get(option, :image_filename)
+      }
+    end)
+  end
+  defp format_options(_), do: []
 
   # 根据新的顺序重排结构项
   defp reorder_structure_items(structure, ordered_ids) do
