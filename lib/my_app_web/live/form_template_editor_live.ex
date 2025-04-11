@@ -2105,12 +2105,127 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 <!-- 右侧内容区域 -->
                 <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 10rem);">
                   <div class="form-card">
-                    <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">页面装饰元素</h2>
+                    <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单结构与装饰</h2>
 
+                    <!-- 完整的表单视图 -->
+                    <div id="form-structure-view" class="space-y-4 mb-6">
+                      <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1rem;">表单控件 (只读)</h3>
+                      
+                      <%= if Enum.empty?(@structure) do %>
+                        <div style="text-align: center; padding: 1.5rem 0; background-color: #f9fafb; border: 1px dashed #d1d5db; border-radius: 0.375rem;">
+                          <p style="font-size: 0.875rem; color: #6b7280;">表单中还没有控件</p>
+                          <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">请在"结构设计"标签页添加控件</p>
+                        </div>
+                      <% else %>
+                        <%= for item <- @structure do %>
+                          <%
+                            elem_id = Map.get(item, "id", "unknown")
+                            # 优先从 @form_items 中查找数据库记录
+                            db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+
+                            # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                            form_item = if db_item do
+                              # 使用来自数据库的 item 数据 (Map 形式以兼容 ItemRendererComponent)
+                              %{
+                                id: db_item.id,
+                                type: db_item.type,
+                                label: db_item.label,
+                                required: db_item.required,
+                                description: db_item.description,
+                                placeholder: db_item.placeholder,
+                                options: db_item.options,
+                                min: db_item.min,
+                                max: db_item.max,
+                                step: db_item.step,
+                                max_rating: db_item.max_rating,
+                                min_date: db_item.min_date,
+                                max_date: db_item.max_date,
+                                min_time: db_item.min_time,
+                                max_time: db_item.max_time,
+                                time_format: db_item.time_format,
+                                show_format_hint: db_item.show_format_hint,
+                                format_display: db_item.format_display,
+                                matrix_rows: db_item.matrix_rows,
+                                matrix_columns: db_item.matrix_columns,
+                                matrix_type: db_item.matrix_type,
+                                image_caption_position: db_item.image_caption_position,
+                                selection_type: db_item.selection_type,
+                                multiple_files: db_item.multiple_files,
+                                max_files: db_item.max_files,
+                                max_file_size: db_item.max_file_size,
+                                allowed_extensions: db_item.allowed_extensions,
+                                region_level: db_item.region_level,
+                                default_province: db_item.default_province
+                              }
+                            else
+                              # 回退：使用模板结构中的数据
+                              elem_type_str = Map.get(item, "type", "text_input")
+                              %{
+                                id: elem_id,
+                                type: safe_to_atom(elem_type_str),
+                                label: Map.get(item, "label") || "未命名元素",
+                                required: Map.get(item, "required", false),
+                                description: Map.get(item, "description"),
+                                placeholder: Map.get(item, "placeholder"),
+                                options: format_options_for_component(Map.get(item, "options", [])),
+                                min: Map.get(item, "min"),
+                                max: Map.get(item, "max"),
+                                step: Map.get(item, "step"),
+                                max_rating: Map.get(item, "max_rating", 5),
+                                min_date: Map.get(item, "min_date"),
+                                max_date: Map.get(item, "max_date"),
+                                min_time: Map.get(item, "min_time"),
+                                max_time: Map.get(item, "max_time"),
+                                time_format: Map.get(item, "time_format", "24h"),
+                                show_format_hint: Map.get(item, "show_format_hint"),
+                                format_display: Map.get(item, "format_display"),
+                                matrix_rows: Map.get(item, "matrix_rows"),
+                                matrix_columns: Map.get(item, "matrix_columns"),
+                                matrix_type: safe_matrix_type(Map.get(item, "matrix_type")),
+                                image_caption_position: safe_caption_position(Map.get(item, "image_caption_position")),
+                                selection_type: safe_selection_type(Map.get(item, "selection_type")),
+                                multiple_files: Map.get(item, "multiple_files"),
+                                max_files: Map.get(item, "max_files"),
+                                max_file_size: Map.get(item, "max_file_size"),
+                                allowed_extensions: Map.get(item, "allowed_extensions"),
+                                region_level: Map.get(item, "region_level"),
+                                default_province: Map.get(item, "default_province")
+                              }
+                            end
+
+                            # 从构建好的 form_item 中获取显示所需的变量
+                            elem_type = to_string(form_item.type)
+                            elem_label = form_item.label
+                          %>
+                          <div id={"form-item-#{elem_id}"} class="p-3 border rounded bg-white shadow-sm form-card opacity-75">
+                            <div class="flex justify-between items-center">
+                              <div class="flex items-center">
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full mr-2">表单项</span>
+                                <div>
+                                  <div class="font-medium"><%= elem_label %></div>
+                                  <div class="text-xs text-gray-500 mt-1">
+                                    控件类型: <%= display_selected_type(elem_type) %>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <!-- 预览区域 -->
+                            <div class="mt-3 border-t pt-3">
+                              <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                            </div>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                    
+                    <!-- 装饰元素部分 -->
+                    <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1rem;">页面装饰元素 (可编辑)</h3>
+                    
                     <div id="decoration-list" phx-hook="DecorationSortable" class="space-y-4">
                       <%= if Enum.empty?(@decoration) do %>
-                        <div style="text-align: center; padding: 3rem 0;">
-                          <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
+                        <div style="text-align: center; padding: 2rem 0; background-color: #f9fafb; border: 1px dashed #d1d5db; border-radius: 0.375rem;">
+                          <div style="margin: 0 auto; height: 2.5rem; width: 2.5rem; color: #9ca3af;">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                             </svg>
@@ -2137,11 +2252,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           <div
                             id={"decoration-#{elem_id}"}
                             data-id={elem_id}
-                            class="p-3 border rounded bg-white shadow-sm form-card"
+                            class="p-3 border rounded bg-white shadow-sm form-card decoration-card"
                           >
                             <div class="flex justify-between items-center">
                               <div class="flex items-center">
                                 <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full mr-2">装饰</span>
                                 <div>
                                   <div class="flex items-center">
                                     <span class="font-medium text-gray-700"><%= elem_title %></span>
