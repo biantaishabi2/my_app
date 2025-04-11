@@ -238,6 +238,111 @@
 }
 
 /* 禁用文本选择，防止拖拽时选中文本 */
-#structure-list * {
+#structure-list *, #decoration-list * {
   user-select: none;
+}
+
+/* 装饰元素样式 */
+.decoration-element-container {
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background-color: #fafafa;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.form-card {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.decoration-card {
+  border: 1px solid #e0f2fe;
+  background-color: #f0f9ff;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.decoration-card:hover {
+  box-shadow: 0 2px 4px rgba(0, 126, 255, 0.1);
+  border-color: #bae6fd;
+}
+
+.form-item-badge, .decoration-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+.form-item-badge {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+}
+
+.decoration-badge {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+/* 表单元素和装饰元素之间的分隔线 */
+.elements-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e5e7eb 10%, #e5e7eb 90%, transparent);
+  margin: 1.5rem 0;
+  position: relative;
+}
+
+.elements-divider::after {
+  content: "表单控件与装饰元素分界线";
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* 帮助提示样式 */
+.decoration-help-tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.5rem;
+  cursor: help;
+}
+
+.decoration-help-tooltip .tooltip-icon {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.decoration-help-tooltip .tooltip-text {
+  visibility: hidden;
+  width: 250px;
+  background-color: #1f2937;
+  color: #fff;
+  text-align: center;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  position: absolute;
+  z-index: 20;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+
+.decoration-help-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }
