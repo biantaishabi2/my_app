@@ -366,13 +366,11 @@ defmodule MyApp.FormTemplates.FormTemplate do
   end
 
   # 渲染默认输入框（用于未特别处理的类型）
-  defp render_default_input(type, name, label, value, index) do
-    # 假设只有特定类型需要编号，默认渲染器可能不需要显示 index
-    # index_span = if index, do: "<span class=\"dynamic-item-number\">#{index}.</span> ", else: ""
-    index_span = "" # 或者根据需要决定是否为未知类型添加编号
+  defp render_default_input(type, name, label, value, _index) do
+    # 默认渲染器不显示编号
     """
     <div>
-      <label for="#{name}">#{index_span}#{label}</label>
+      <label for="#{name}">#{label}</label>
       <input type="#{type}" id="#{name}" name="#{name}" value="#{value}">
     </div>
     """
