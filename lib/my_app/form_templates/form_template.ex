@@ -86,8 +86,8 @@ defmodule MyApp.FormTemplates.FormTemplate do
   ## 返回值
     渲染后的HTML字符串
   """
-  def render(%__MODULE__{structure: structure}, form_data) when is_map(form_data) do
-    # --- 新增：预计算需要编号的字段索引 ---
+  def render(%__MODULE__{structure: structure, decoration: decoration}, form_data) when is_map(form_data) do
+    # --- 预计算需要编号的字段索引 ---
     # 识别需要编号的类型 (与渲染测试保持一致)
     field_types_to_number = ["text", "number", "select"]
 
@@ -105,16 +105,182 @@ defmodule MyApp.FormTemplates.FormTemplate do
         elem_id = Map.get(element, "id") || Map.get(element, :id)
         {elem_id, index}
       end)
-    # --- 结束新增 ---
-
-    # 将结构渲染为HTML
-    rendered_elements = structure
+    
+    # 过滤可见的表单元素
+    filtered_structure = structure
       |> Enum.filter(fn element -> should_render_element?(element, form_data) end)
-      # |> Enum.map(fn element -> render_element(element, form_data) end)
-      |> Enum.map(fn element -> render_element(element, form_data, field_indices) end) # 传递索引 Map
-      |> Enum.join("\n")
+    
+    # 渲染装饰元素
+    decoration_elements = if is_list(decoration) do
+      decoration
+    else
+      [] # 如果decoration不是列表，则使用空列表
+    end
 
-    "<form>\n#{rendered_elements}\n</form>"
+    # 合并并渲染所有元素
+    rendered_html = render_combined_elements(filtered_structure, decoration_elements, form_data, field_indices)
+
+    "<form>\n#{rendered_html}\n</form>"
+  end
+  
+  # 处理并渲染组合的表单结构和装饰元素
+  defp render_combined_elements(structure, decoration, form_data, field_indices) do
+    # 1. 为表单元素添加类型标识，方便后续渲染处理
+    form_elements = Enum.map(structure, fn element -> 
+      Map.put(element, "element_type", "form_item")
+    end)
+    
+    # 2. 为装饰元素添加类型标识
+    decoration_elements = Enum.map(decoration, fn element -> 
+      Map.put(element, "element_type", "decoration")
+    end)
+    
+    # 3. 合并所有元素
+    # 这里的顺序决定了装饰元素的位置，可以按需调整
+    # 默认情况下，我们使用以下顺序：
+    # - 在表单顶部放置"header_image"类型的装饰元素
+    # - 然后是普通表单控件
+    # - 最后是其他装饰元素
+    
+    # 查找顶部装饰元素（标题、头图等）
+    top_decoration = Enum.filter(decoration_elements, fn element ->
+      type = Map.get(element, "type") || Map.get(element, :type)
+      type in ["header_image", "title"] 
+    end)
+    
+    # 查找中间装饰元素（章节、分隔符等）
+    middle_decoration = Enum.filter(decoration_elements, fn element ->
+      type = Map.get(element, "type") || Map.get(element, :type)
+      type in ["section", "paragraph", "explanation"] 
+    end)
+    
+    # 查找底部装饰元素
+    bottom_decoration = Enum.filter(decoration_elements, fn element ->
+      elem_type = Map.get(element, "type") || Map.get(element, :type)
+      !(elem_type in ["header_image", "title", "section", "paragraph", "explanation"])
+    end)
+    
+    # 4. 组合元素并渲染
+    all_elements = top_decoration ++ form_elements ++ middle_decoration ++ bottom_decoration
+
+    all_elements
+    |> Enum.map(fn element -> 
+      element_type = Map.get(element, "element_type")
+      case element_type do
+        "form_item" -> render_element(element, form_data, field_indices) 
+        "decoration" -> render_decoration_element(element)
+        _ -> "" # 处理未知元素类型
+      end
+    end)
+    |> Enum.join("\n")
+  end
+  
+  # 渲染装饰元素
+  defp render_decoration_element(element) do
+    # 提取元素属性
+    elem_id = Map.get(element, "id") || Map.get(element, :id)
+    type = Map.get(element, "type") || Map.get(element, :type)
+    
+    case type do
+      "title" -> 
+        title = Map.get(element, "title") || Map.get(element, :title) || "未命名标题"
+        level = Map.get(element, "level") || Map.get(element, :level) || 2
+        align = Map.get(element, "align") || Map.get(element, :align) || "left"
+        
+        title_tag = case level do
+          1 -> "h1"
+          2 -> "h2"
+          3 -> "h3"
+          _ -> "h4"
+        end
+        
+        """
+        <div class="decoration-title" id="#{elem_id}">
+          <#{title_tag} style="text-align: #{align};" class="decoration-title-text">#{title}</#{title_tag}>
+        </div>
+        """
+        
+      "paragraph" ->
+        content = Map.get(element, "content") || Map.get(element, :content) || ""
+        
+        """
+        <div class="decoration-paragraph" id="#{elem_id}">
+          <p>#{content}</p>
+        </div>
+        """
+        
+      "section" ->
+        title = Map.get(element, "title") || Map.get(element, :title)
+        divider_style = Map.get(element, "divider_style") || Map.get(element, :divider_style) || "solid"
+        
+        title_html = if title do
+          "<h3 class=\"section-title\">#{title}</h3>"
+        else
+          ""
+        end
+        
+        """
+        <div class="decoration-section" id="#{elem_id}">
+          <hr class="divider-#{divider_style}">
+          #{title_html}
+        </div>
+        """
+        
+      "explanation" ->
+        content = Map.get(element, "content") || Map.get(element, :content) || ""
+        note_type = Map.get(element, "note_type") || Map.get(element, :note_type) || "info"
+        
+        """
+        <div class="decoration-explanation explanation-#{note_type}" id="#{elem_id}">
+          <div class="explanation-content">#{content}</div>
+        </div>
+        """
+        
+      "header_image" ->
+        image_url = Map.get(element, "image_url") || Map.get(element, :image_url) || ""
+        height = Map.get(element, "height") || Map.get(element, :height) || "300px"
+        alt = Map.get(element, "alt") || Map.get(element, :alt) || ""
+        
+        """
+        <div class="decoration-header-image" id="#{elem_id}">
+          <img src="#{image_url}" alt="#{alt}" style="height: #{height}; width: 100%; object-fit: cover;">
+        </div>
+        """
+        
+      "inline_image" ->
+        image_url = Map.get(element, "image_url") || Map.get(element, :image_url) || ""
+        caption = Map.get(element, "caption") || Map.get(element, :caption)
+        width = Map.get(element, "width") || Map.get(element, :width) || "100%"
+        align = Map.get(element, "align") || Map.get(element, :align) || "center"
+        
+        caption_html = if caption do
+          "<div class=\"image-caption\">#{caption}</div>"
+        else
+          ""
+        end
+        
+        """
+        <div class="decoration-inline-image" id="#{elem_id}" style="text-align: #{align};">
+          <img src="#{image_url}" alt="#{caption || ""}" style="width: #{width}; max-width: 100%;">
+          #{caption_html}
+        </div>
+        """
+        
+      "spacer" ->
+        height = Map.get(element, "height") || Map.get(element, :height) || "20px"
+        
+        """
+        <div class="decoration-spacer" id="#{elem_id}" style="height: #{height};"></div>
+        """
+        
+      _ -> 
+        # 默认情况，未知装饰元素类型
+        """
+        <div class="decoration-unknown" id="#{elem_id}">
+          <p>未知装饰元素类型: #{type}</p>
+        </div>
+        """
+    end
   end
 
   # 判断是否应该渲染指定的表单元素
