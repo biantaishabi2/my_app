@@ -19,7 +19,7 @@ defmodule MyApp.MixProject do
   def application do
     [
       mod: {MyApp.Application, []},
-      extra_applications: [:logger, :runtime_tools, :bcrypt_elixir]
+      extra_applications: [:logger, :runtime_tools, :bcrypt_elixir, :number]
     ]
   end
 
@@ -59,7 +59,8 @@ defmodule MyApp.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:number, "~> 1.0"}
     ]
   end
 

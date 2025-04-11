@@ -135,33 +135,22 @@ defmodule MyApp.FormTemplates.FormTemplate do
       Map.put(element, "element_type", "decoration")
     end)
     
-    # 3. 合并所有元素
-    # 这里的顺序决定了装饰元素的位置，可以按需调整
-    # 默认情况下，我们使用以下顺序：
-    # - 在表单顶部放置"header_image"类型的装饰元素
-    # - 然后是普通表单控件
-    # - 最后是其他装饰元素
+    # 3. 处理带位置信息的装饰元素
+    {start_decorations, positioned_decorations, end_decorations} =
+      split_decorations_by_position(decoration_elements)
     
-    # 查找顶部装饰元素（标题、头图等）
-    top_decoration = Enum.filter(decoration_elements, fn element ->
-      type = Map.get(element, "type") || Map.get(element, :type)
-      type in ["header_image", "title"] 
-    end)
+    # 4. 组合所有元素
+    # 首先添加开始位置的装饰元素
+    start_elements = start_decorations
     
-    # 查找中间装饰元素（章节、分隔符等）
-    middle_decoration = Enum.filter(decoration_elements, fn element ->
-      type = Map.get(element, "type") || Map.get(element, :type)
-      type in ["section", "paragraph", "explanation"] 
-    end)
+    # 然后处理表单元素与定位在表单元素前/后的装饰元素
+    middle_elements = intersperse_positioned_decorations(form_elements, positioned_decorations)
     
-    # 查找底部装饰元素
-    bottom_decoration = Enum.filter(decoration_elements, fn element ->
-      elem_type = Map.get(element, "type") || Map.get(element, :type)
-      !(elem_type in ["header_image", "title", "section", "paragraph", "explanation"])
-    end)
+    # 最后添加结束位置的装饰元素
+    end_elements = end_decorations
     
-    # 4. 组合元素并渲染
-    all_elements = top_decoration ++ form_elements ++ middle_decoration ++ bottom_decoration
+    # 5. 组合所有元素并渲染
+    all_elements = start_elements ++ middle_elements ++ end_elements
 
     all_elements
     |> Enum.map(fn element -> 
@@ -173,6 +162,77 @@ defmodule MyApp.FormTemplates.FormTemplate do
       end
     end)
     |> Enum.join("\n")
+  end
+  
+  # 按位置将装饰元素分为三组：开始、定位（在特定元素前后）和结束
+  defp split_decorations_by_position(decoration_elements) do
+    # 初始化三个列表
+    start_decorations = []
+    positioned_decorations = []
+    end_decorations = []
+    
+    # 遍历所有装饰元素并根据位置信息分组
+    Enum.reduce(decoration_elements, {start_decorations, positioned_decorations, end_decorations}, fn element, {start_acc, positioned_acc, end_acc} ->
+      # 获取位置信息
+      position = Map.get(element, "position")
+      
+      cond do
+        # 如果没有位置信息，根据元素类型进行默认分组
+        is_nil(position) ->
+          type = Map.get(element, "type") || Map.get(element, :type)
+          cond do
+            type in ["header_image", "title"] ->
+              {start_acc ++ [element], positioned_acc, end_acc}
+            type in ["section", "paragraph", "explanation"] ->
+              {start_acc, positioned_acc ++ [element], end_acc}
+            true ->
+              {start_acc, positioned_acc, end_acc ++ [element]}
+          end
+          
+        # 如果有位置信息，按位置类型分组
+        position["type"] == "start" ->
+          {start_acc ++ [element], positioned_acc, end_acc}
+          
+        position["type"] == "end" ->
+          {start_acc, positioned_acc, end_acc ++ [element]}
+          
+        position["type"] in ["before", "after"] && not is_nil(position["target_id"]) ->
+          {start_acc, positioned_acc ++ [element], end_acc}
+          
+        # 默认情况，放在结束位置
+        true ->
+          {start_acc, positioned_acc, end_acc ++ [element]}
+      end
+    end)
+  end
+  
+  # 将带定位信息的装饰元素与表单元素交错组合
+  defp intersperse_positioned_decorations(form_elements, positioned_decorations) do
+    # 创建一个表单元素ID到位置的映射（未使用但保留为文档）
+    _form_elements_map = Enum.into(form_elements, %{}, fn element ->
+      element_id = Map.get(element, "id") || Map.get(element, :id)
+      {element_id, element}
+    end)
+    
+    # 遍历表单元素，并在每个元素前后插入对应的装饰元素
+    Enum.reduce(form_elements, [], fn form_element, acc ->
+      form_element_id = Map.get(form_element, "id") || Map.get(form_element, :id)
+      
+      # 找出所有应该放在这个表单元素前面的装饰元素
+      before_elements = Enum.filter(positioned_decorations, fn decoration ->
+        position = Map.get(decoration, "position")
+        position["type"] == "before" && position["target_id"] == form_element_id
+      end)
+      
+      # 找出所有应该放在这个表单元素后面的装饰元素
+      after_elements = Enum.filter(positioned_decorations, fn decoration ->
+        position = Map.get(decoration, "position")
+        position["type"] == "after" && position["target_id"] == form_element_id
+      end)
+      
+      # 按顺序组合元素：前装饰 + 表单元素 + 后装饰
+      acc ++ before_elements ++ [form_element] ++ after_elements
+    end)
   end
   
   # 渲染装饰元素

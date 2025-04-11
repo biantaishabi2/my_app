@@ -10,6 +10,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
+    # 初始化show_decoration_selector
+    socket = assign(socket, :show_decoration_selector, false)
     # 加载表单模板 (id 是 template_id)
     template = FormTemplates.get_template!(id) # 改回使用 FormTemplates
 
@@ -34,7 +36,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       |> assign(:editing_item_id, nil)
       |> assign(:item_type, "text_input")
       |> assign(:decoration_category, :content) # 默认选中内容装饰分类
-      |> assign(:decoration_type, "title") # 默认装饰元素类型
+      |> assign(:decoration_type, "title") # 默认选择标题装饰元素类型
+      |> assign(:position_type, "end") # 默认位置类型：表单最后面
+      |> assign(:position_target_id, nil) # 默认位置目标ID
       |> assign(:editing_decoration_id, nil) # 当前正在编辑的装饰元素ID
       |> assign(:current_decoration, nil) # 当前编辑的装饰元素
       |> assign(:decoration_search_term, nil) # 装饰元素搜索关键词
@@ -196,7 +200,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("add_item", _params, socket) do
     # 使用当前选择的控件类型
     item_type = socket.assigns.item_type || "text_input"
-    type_atom = case item_type do
+    _type_atom = case item_type do
       "text_input" -> :text_input
       "textarea" -> :textarea
       "radio" -> :radio
@@ -441,107 +445,298 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("decoration_type_changed", %{"type" => type}, socket) do
     {:noreply, assign(socket, :decoration_type, type)}
   end
+  
+  def handle_event("decoration_position_changed", %{"value" => position_type}, socket) do
+    {:noreply, assign(socket, :position_type, position_type)}
+  end
+  
+  def handle_event("decoration_target_changed", %{"value" => target_id}, socket) do
+    {:noreply, assign(socket, :position_target_id, target_id)}
+  end
+  
+  def handle_event("decoration_category_changed", %{"category" => category}, socket) do
+    atom_category = String.to_atom(category)
+    {:noreply, assign(socket, :decoration_category, atom_category)}
+  end
+  
+  def handle_event("show_decoration_selector", params, socket) do
+    position_type = Map.get(params, "position")
+    target_id = Map.get(params, "target_id")
+    
+    {:noreply, socket
+     |> assign(:show_decoration_selector, true)
+     |> assign(:position_type, position_type)
+     |> assign(:position_target_id, target_id)
+     |> assign(:decoration_category, :content) # 默认选择内容类别
+     |> assign(:decoration_type, "title") # 默认选择标题元素类型
+    }
+  end
+  
+  def handle_event("close_decoration_selector", _params, socket) do
+    {:noreply, assign(socket, :show_decoration_selector, false)}
+  end
+  
+  def handle_event("add_decoration_at_position", _params, socket) do
+    # 从socket assigns中获取当前选择的装饰元素类型和位置信息
+    decoration_type = socket.assigns.decoration_type
+    position_type = socket.assigns.position_type
+    position_target_id = socket.assigns.position_target_id
+    
+    # 确保装饰元素类型不为 nil
+    if decoration_type == nil do
+      {:noreply,
+        socket
+        |> put_flash(:error, "请选择装饰元素类型")
+        |> assign(:show_decoration_selector, true)
+      }
+    else
+      # 创建新的装饰元素
+      base_element = case decoration_type do
+        "title" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "title",
+            "title" => "新标题",
+            "level" => 2,
+            "align" => "left"
+          }
+
+        "paragraph" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "paragraph",
+            "content" => "这是一个段落内容。在这里填写文字说明。"
+          }
+
+        "section" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "section",
+            "title" => "章节标题",
+            "divider_style" => "solid"
+          }
+
+        "explanation" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "explanation",
+            "content" => "这里是重要说明内容。",
+            "note_type" => "info"
+          }
+
+        "header_image" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "header_image",
+            "image_url" => "",
+            "height" => "300px"
+          }
+
+        "inline_image" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "inline_image",
+            "image_url" => "",
+            "caption" => "图片说明",
+            "width" => "80%",
+            "align" => "center"
+          }
+
+        "spacer" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "spacer",
+            "height" => "2rem"
+          }
+
+        _ ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => decoration_type
+          }
+      end
+    
+      # 添加位置信息
+      target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
+      position = %{
+        "type" => position_type,
+        "target_id" => target_id
+      }
+    
+      new_element = Map.put(base_element, "position", position)
+
+      # 添加新元素到装饰元素列表
+      updated_decoration = socket.assigns.decoration ++ [new_element]
+
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+        {:ok, updated_template} ->
+          {:noreply,
+            socket
+            |> assign(:template, updated_template)
+            |> assign(:decoration, updated_template.decoration)
+            |> assign(:show_decoration_selector, false)
+            |> put_flash(:info, "已添加装饰元素")
+          }
+
+        {:error, _changeset} ->
+          {:noreply,
+            socket
+            |> put_flash(:error, "无法添加装饰元素")
+            |> assign(:show_decoration_selector, false)
+          }
+      end
+    end
+  end
 
   @impl true
   def handle_event("add_decoration_element", _params, socket) do
-    # 使用当前选择的装饰元素类型
+    # 使用当前选择的装饰元素类型和位置信息
     decoration_type = socket.assigns.decoration_type
+    position_type = socket.assigns.position_type || "end"
+    position_target_id = socket.assigns.position_target_id
 
-    # 创建新的装饰元素
-    new_element = case decoration_type do
-      "title" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "title",
-          "title" => "新标题",
-          "level" => 2,
-          "align" => "left"
-        }
+    # 确保装饰元素类型不为 nil
+    if decoration_type == nil do
+      {:noreply,
+        socket
+        |> put_flash(:error, "请选择装饰元素类型")
+      }
+    else
+      # 创建新的装饰元素
+      base_element = case decoration_type do
+        "title" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "title",
+            "title" => "新标题",
+            "level" => 2,
+            "align" => "left"
+          }
 
-      "paragraph" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "paragraph",
-          "content" => "这是一个段落内容。在这里填写文字说明。"
-        }
+        "paragraph" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "paragraph",
+            "content" => "这是一个段落内容。在这里填写文字说明。"
+          }
 
-      "section" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "section",
-          "title" => "章节标题",
-          "divider_style" => "solid"
-        }
+        "section" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "section",
+            "title" => "章节标题",
+            "divider_style" => "solid"
+          }
 
-      "explanation" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "explanation",
-          "content" => "这里是重要说明内容。",
-          "note_type" => "info"
-        }
+        "explanation" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "explanation",
+            "content" => "这里是重要说明内容。",
+            "note_type" => "info"
+          }
 
-      "header_image" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "header_image",
-          "image_url" => "",
-          "height" => "300px"
-        }
+        "header_image" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "header_image",
+            "image_url" => "",
+            "height" => "300px"
+          }
 
-      "inline_image" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "inline_image",
-          "image_url" => "",
-          "caption" => "图片说明",
-          "width" => "80%",
-          "align" => "center"
-        }
+        "inline_image" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "inline_image",
+            "image_url" => "",
+            "caption" => "图片说明",
+            "width" => "80%",
+            "align" => "center"
+          }
 
-      "spacer" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "spacer",
-          "height" => "2rem"
-        }
+        "spacer" ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => "spacer",
+            "height" => "2rem"
+          }
 
-      _ ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => decoration_type
-        }
+        _ ->
+          %{
+            "id" => Ecto.UUID.generate(),
+            "type" => decoration_type
+          }
+      end
+      
+      # 添加位置信息
+      target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
+      position = %{
+        "type" => position_type,
+        "target_id" => target_id
+      }
+      
+      new_element = Map.put(base_element, "position", position)
+
+      # 根据位置信息添加元素
+      updated_decoration = add_decoration_at_position(
+        socket.assigns.decoration,
+        new_element,
+        position,
+        socket.assigns.structure
+      )
+
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+        {:ok, updated_template} ->
+          {:noreply,
+            socket
+            |> assign(:template, updated_template)
+            |> assign(:decoration, updated_template.decoration)
+            |> put_flash(:info, "已添加装饰元素")
+          }
+
+        {:error, _changeset} ->
+          {:noreply,
+            socket
+            |> put_flash(:error, "无法添加装饰元素")
+          }
+      end
     end
-
-    # 添加新元素到装饰元素列表
-    updated_decoration = socket.assigns.decoration ++ [new_element]
-
-    # 保存更新后的模板
-    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-      {:ok, updated_template} ->
-        {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:decoration, updated_template.decoration)
-          |> put_flash(:info, "已添加装饰元素")
-        }
-
-      {:error, _changeset} ->
-        {:noreply,
-          socket
-          |> put_flash(:error, "无法添加装饰元素")
-        }
-    end
+  end
+  
+  # 根据位置信息添加装饰元素的辅助函数
+  defp add_decoration_at_position(decoration, new_element, %{"type" => "start"}, _structure) do
+    # 添加到装饰元素列表的开头
+    [new_element | decoration]
+  end
+  
+  defp add_decoration_at_position(decoration, new_element, %{"type" => "end"}, _structure) do
+    # 添加到装饰元素列表的末尾
+    decoration ++ [new_element]
+  end
+  
+  defp add_decoration_at_position(decoration, new_element, %{"type" => position_type, "target_id" => target_id}, _structure) 
+    when position_type in ["before", "after"] and not is_nil(target_id) do
+    # 这里我们只是将位置信息保存到元素中，实际的渲染位置逻辑在渲染函数中处理
+    # 仍然将元素添加到列表末尾，只是带有特殊的位置标记
+    decoration ++ [new_element]
+  end
+  
+  defp add_decoration_at_position(decoration, new_element, _position, _structure) do
+    # 默认情况下添加到末尾
+    decoration ++ [new_element]
   end
 
   @impl true
-  def handle_event("edit_decoration_element", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :editing_decoration_id, id)}
-  end
 
   @impl true
   def handle_event("close_decoration_editor", _params, socket) do
     {:noreply, assign(socket, :editing_decoration_id, nil)}
+  end
+  
+  def handle_event("edit_decoration_element", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :editing_decoration_id, id)}
   end
 
   @impl true
@@ -717,6 +912,162 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   @impl true
   def render(assigns) do
     ~H"""
+    <!-- 装饰元素选择器弹出层 -->
+    <%= if @show_decoration_selector do %>
+      <div class="decoration-selector-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 50;">
+        <div class="decoration-selector-modal" style="background-color: white; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
+          <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+            <h3 style="font-size: 1.125rem; font-weight: 500;">选择装饰元素类型</h3>
+            <button phx-click="close_decoration_selector" class="close-button" style="background: none; border: none; cursor: pointer; color: #6b7280;">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="modal-body" style="padding: 1rem; max-height: 60vh; overflow-y: auto;">
+            <!-- 装饰元素类别选择器 -->
+            <div class="category-tabs" style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;">
+              <button
+                type="button"
+                phx-click="decoration_category_changed"
+                phx-value-category="content"
+                style={"padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border-bottom: 2px solid #{if @decoration_category == :content, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :content, do: "#4f46e5", else: "#6b7280"}; background: none; border-top: none; border-left: none; border-right: none; cursor: pointer;"}
+              >
+                内容
+              </button>
+              <button
+                type="button"
+                phx-click="decoration_category_changed"
+                phx-value-category="visual"
+                style={"padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border-bottom: 2px solid #{if @decoration_category == :visual, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :visual, do: "#4f46e5", else: "#6b7280"}; background: none; border-top: none; border-left: none; border-right: none; cursor: pointer;"}
+              >
+                视觉
+              </button>
+              <button
+                type="button"
+                phx-click="decoration_category_changed"
+                phx-value-category="layout"
+                style={"padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border-bottom: 2px solid #{if @decoration_category == :layout, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :layout, do: "#4f46e5", else: "#6b7280"}; background: none; border-top: none; border-left: none; border-right: none; cursor: pointer;"}
+              >
+                布局
+              </button>
+            </div>
+            
+            <!-- 装饰元素类型选择 -->
+            <div class="decoration-types-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+              <%= if @decoration_category == :content do %>
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="title"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "title", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "title", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "title", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14M5 12h14M5 19h9" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">标题</div>
+                </button>
+                
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="paragraph"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "paragraph", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">段落</div>
+                </button>
+                
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="section"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "section", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "section", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "section", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">章节分隔</div>
+                </button>
+                
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="explanation"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "explanation", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "explanation", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "explanation", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">解释框</div>
+                </button>
+              <% end %>
+              
+              <%= if @decoration_category == :visual do %>
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="header_image"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "header_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "header_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "header_image", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">题图</div>
+                </button>
+                
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="inline_image"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "inline_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">中间插图</div>
+                </button>
+              <% end %>
+              
+              <%= if @decoration_category == :layout do %>
+                <button
+                  type="button"
+                  phx-click="decoration_type_changed"
+                  phx-value-type="spacer"
+                  style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "spacer", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "spacer", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "spacer", do: "#4f46e5", else: "#1f2937"};"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11v8m4-16v16m4-11v11" />
+                  </svg>
+                  <div style="font-size: 0.75rem; white-space: nowrap;">空间</div>
+                </button>
+              <% end %>
+            </div>
+          </div>
+          
+          <div class="modal-footer" style="padding: 1rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <button 
+              phx-click="close_decoration_selector" 
+              class="cancel-button"
+              style="padding: 0.5rem 1rem; background-color: white; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; color: #4b5563;"
+            >
+              取消
+            </button>
+            <button 
+              phx-click="add_decoration_at_position" 
+              class="add-button"
+              disabled={is_nil(@decoration_type)}
+              style={"padding: 0.5rem 1rem; background-color: #{if is_nil(@decoration_type), do: "#d1d5db", else: "#4f46e5"}; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; color: white; cursor: #{if is_nil(@decoration_type), do: "not-allowed", else: "pointer"};"}
+            >
+              添加
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
     <div class="form-editor-container">
 
       <!-- 模板编辑页面 -->
@@ -2085,6 +2436,39 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     </div>
                   <% end %>
 
+                  <!-- 位置选择器 -->
+                  <div style="margin-top: 1rem; margin-bottom: 1rem;">
+                    <div class="form-group">
+                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">位置选择</label>
+                      <select 
+                        id="position_type_select" 
+                        phx-change="decoration_position_changed"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; color: #1f2937;"
+                      >
+                        <option value="start">表单最前面</option>
+                        <option value="end" selected>表单最后面</option>
+                        <option value="before">在特定控件之前</option>
+                        <option value="after">在特定控件之后</option>
+                      </select>
+                    </div>
+
+                    <!-- 当选择"在特定控件之前/后"时显示的控件选择器 -->
+                    <div id="target_item_selector" class="target-item-selector" style={if @position_type in ["before", "after"], do: "display: block; margin-top: 0.75rem;", else: "display: none; margin-top: 0.75rem;"}>
+                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">选择控件</label>
+                      <select 
+                        id="target_item_select" 
+                        phx-change="decoration_target_changed"
+                        style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; background-color: white; color: #1f2937;"
+                      >
+                        <%= for item <- @structure do %>
+                          <% item_id = Map.get(item, "id") || Map.get(item, :id) %>
+                          <% item_label = Map.get(item, "label") || Map.get(item, :label) || "未命名控件" %>
+                          <option value={item_id}><%= item_label %></option>
+                        <% end %>
+                      </select>
+                    </div>
+                  </div>
+
                   <!-- 添加装饰元素按钮 -->
                   <div style="margin-top: 1rem;">
                     <button
@@ -2110,12 +2494,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     <!-- 完整的表单视图 -->
                     <div id="form-structure-view" class="space-y-4 mb-6 decoration-element-container">
                       <div class="flex items-center mb-4">
-                        <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; padding-bottom: 0.5rem;">表单控件 (只读)</h3>
+                        <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; padding-bottom: 0.5rem;">表单控件与插入点</h3>
                         <div class="decoration-help-tooltip ml-2">
                           <span class="tooltip-icon">?</span>
                           <span class="tooltip-text">
-                            表单控件在这里以只读模式显示，方便您看到它们在表单中的位置。
-                            装饰元素将会被放置在表单控件的前、中、后位置。
+                            表单控件在这里以只读模式显示，方便您看到它们在表单中的位置。<br>
+                            您可以使用位置选择器或直接点击表单控件之间的"添加装饰元素"插入点来定位装饰元素。<br>
                             您需要在"结构设计"标签页编辑这些控件。
                           </span>
                         </div>
@@ -2127,7 +2511,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">请在"结构设计"标签页添加控件</p>
                         </div>
                       <% else %>
-                        <%= for item <- @structure do %>
+                        <!-- 在表单最前面添加装饰元素的插入点 -->
+                        <div class="insertion-point" style="padding: 0.5rem 0; text-align: center;">
+                          <button phx-click="show_decoration_selector" phx-value-position="start" class="insertion-button"
+                            style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>在表单开头添加装饰元素</span>
+                          </button>
+                        </div>
+                        
+                        <%= for {item, index} <- Enum.with_index(@structure) do %>
                           <%
                             elem_id = Map.get(item, "id", "unknown")
                             # 优先从 @form_items 中查找数据库记录
@@ -2226,6 +2621,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
                             </div>
                           </div>
+                          
+                          <!-- 在控件后面添加装饰元素的插入点 -->
+                          <div class="insertion-point" style="padding: 0.5rem 0; text-align: center;">
+                            <button phx-click="show_decoration_selector" phx-value-position="after" phx-value-target_id={elem_id} class="insertion-button"
+                              style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                              </svg>
+                              <span>在此处添加装饰元素</span>
+                            </button>
+                          </div>
                         <% end %>
                       <% end %>
                     </div>
@@ -2239,11 +2645,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <div class="decoration-help-tooltip ml-2">
                           <span class="tooltip-icon">?</span>
                           <span class="tooltip-text">
-                            装饰元素可以通过拖拽调整位置，在表单呈现时会根据类型自动放置在表单控件前面、中间或后面。<br><br>
-                            • 标题、题图等元素会放在表单顶部<br>
-                            • 章节分隔、段落等元素会放在表单控件之间<br>
-                            • 其他元素会放在表单底部<br><br>
-                            您可以拖拽重排这些元素以调整它们在各自组内的顺序。
+                            装饰元素可以通过选择位置控制元素的放置位置：<br><br>
+                            • <b>表单最前面</b>：元素将显示在表单的最开始<br>
+                            • <b>表单最后面</b>：元素将显示在表单的最末尾<br>
+                            • <b>在特定控件之前</b>：元素将显示在选定控件的前面<br>
+                            • <b>在特定控件之后</b>：元素将显示在选定控件的后面<br><br>
+                            添加元素后，您还可以通过拖拽调整它们在各自位置区域内的顺序。
                           </span>
                         </div>
                       </div>
