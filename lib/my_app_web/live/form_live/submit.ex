@@ -6,11 +6,11 @@ defmodule MyAppWeb.FormLive.Submit do
   alias MyApp.Forms
   alias MyApp.Responses
   alias MyApp.Upload
+  alias MyAppWeb.FormTemplateRenderer
   # Phoenix.LiveView已经在use MyAppWeb, :live_view中导入了
   # 不需要重复导入Phoenix.LiveView.Upload
 
-  # 导入表单组件以使用自定义表单控件
-  import MyAppWeb.FormComponents
+  # 表单组件已通过模板渲染器使用
   # 导入地区选择组件
 
   # 获取已发布的表单及其表单项和选项 - 与公开表单页面使用相同的方法
@@ -25,6 +25,9 @@ defmodule MyAppWeb.FormLive.Submit do
 
     # 获取已存在的上传文件信息 (使用Upload上下文)
     existing_files_map = Upload.get_files_for_form(form.id)
+
+    # 加载表单模板
+    form_template = FormTemplateRenderer.load_form_template(form)
 
     Logger.info(
       "[FormLive.Submit] Existing files map for form #{form.id}: #{inspect(existing_files_map)}"
@@ -79,6 +82,7 @@ defmodule MyAppWeb.FormLive.Submit do
         current_page_idx: current_page_idx,
         pages_status: initialize_pages_status(form.pages || []),
         form: form,
+        form_template: form_template,
         form_items: form_items,
         page_items: page_items,
         form_data: %{},
@@ -871,23 +875,7 @@ defmodule MyAppWeb.FormLive.Submit do
     Map.get(socket.assigns.upload_names, field_id)
   end
 
-  # 矩阵表单项辅助函数 - 获取单选矩阵值
-  defp get_matrix_value(form_state, field_id, row_idx) do
-    case get_in(form_state, [field_id, "#{row_idx}"]) do
-      nil -> nil
-      value -> value
-    end
-  end
-
-  # 矩阵表单项辅助函数 - 获取多选矩阵值
-  defp get_matrix_value(form_state, field_id, row_idx, col_idx) do
-    case get_in(form_state, [field_id, "#{row_idx}", "#{col_idx}"]) do
-      nil -> false
-      "true" -> true
-      true -> true
-      _ -> false
-    end
-  end
+  # 矩阵处理已移至模板渲染器
   
   # 辅助函数 - 深度更新嵌套映射中的值
   defp deep_put_in(map, [key], value) do

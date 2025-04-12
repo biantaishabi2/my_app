@@ -1,6 +1,6 @@
 defmodule MyAppWeb.FormLive.Show do
   use MyAppWeb, :live_view
-  alias MyAppWeb.FormLive.ItemRendererComponent
+  alias MyAppWeb.FormTemplateRenderer
 
   alias MyApp.Forms
 
@@ -17,10 +17,14 @@ defmodule MyAppWeb.FormLive.Show do
 
       form ->
         if form.user_id == current_user.id || form.status == :published do
+          # 加载表单模板
+          form_template = FormTemplateRenderer.load_form_template(form)
+          
           {:ok,
            socket
            |> assign(:page_title, form.title)
-           |> assign(:form, form)}
+           |> assign(:form, form)
+           |> assign(:form_template, form_template)}
         else
           {:ok,
            socket

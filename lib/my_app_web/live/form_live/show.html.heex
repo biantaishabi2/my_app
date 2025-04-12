@@ -81,9 +81,11 @@
         </div>
       <% else %>
         <div class="space-y-6">
-          <%= for item <- @form.items do %>
-            <ItemRendererComponent.render_item item={item} mode={:display} />
-          <% end %>
+          <MyAppWeb.FormTemplateRenderer.render_form_with_decorations
+            form={@form}
+            form_template={@form_template}
+            form_data={%{}}
+          />
         </div>
       <% end %>
     </div>
