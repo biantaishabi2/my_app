@@ -107,6 +107,122 @@ defmodule MyAppWeb.FormLive.Submit do
   # ===========================================
 
   @impl true
+  def handle_event("handle_province_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_province")
+          field_name
+          |> String.split("_province")
+          |> List.first()
+
+        _ ->
+          nil
+      end
+
+    form_data = params["form"] || %{}
+    province = form_data["#{field_id}_province"]
+
+    Logger.info(
+      "Received handle_province_change event for field '#{field_id}' with province: #{inspect(province)}"
+    )
+
+    # 获取城市列表
+    cities = MyApp.Regions.get_cities(province)
+
+    # 更新 socket assigns
+    {:noreply,
+      socket
+      |> assign(:province_field_id, field_id)
+      |> assign(:province, province)
+      |> assign(:cities, cities)
+      |> assign(:districts, [])
+    }
+  end
+  
+  @impl true
+  def handle_event("handle_city_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_city")
+          field_name
+          |> String.split("_city")
+          |> List.first()
+
+        _ ->
+          nil
+      end
+
+    form_data = params["form"] || %{}
+    city = form_data["#{field_id}_city"]
+
+    # 从表单状态获取省份
+    form_state = socket.assigns.form_state || %{}
+    province = Map.get(form_state, "#{field_id}_province")
+
+    Logger.info(
+      "Received handle_city_change event for field '#{field_id}' with province: #{inspect(province)} and city: #{inspect(city)}"
+    )
+
+    # 更新表单状态
+    # 清空区县选择，保留省份和城市选择
+    updated_form_state =
+      form_state
+      |> Map.put("#{field_id}_city", city)
+      |> Map.put("#{field_id}_district", nil)
+      # 更新隐藏字段的值
+      |> Map.put(field_id, "#{province}-#{city}")
+
+    {:noreply,
+     socket
+     |> assign(:form_state, updated_form_state)
+     |> maybe_validate_form(updated_form_state)}
+  end
+  
+  @impl true
+  def handle_event("handle_district_change", params, socket) do
+    # 从_target中获取实际的字段ID
+    field_id =
+      case params["_target"] do
+        [_, field_name] when is_binary(field_name) ->
+          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_district")
+          field_name
+          |> String.split("_district")
+          |> List.first()
+
+        _ ->
+          nil
+      end
+
+    form_data = params["form"] || %{}
+    district = form_data["#{field_id}_district"]
+
+    # 从表单状态获取省份和城市
+    form_state = socket.assigns.form_state || %{}
+    province = Map.get(form_state, "#{field_id}_province")
+    city = Map.get(form_state, "#{field_id}_city")
+
+    Logger.info(
+      "Received handle_district_change event for field '#{field_id}' with province: #{inspect(province)}, city: #{inspect(city)}, district: #{inspect(district)}"
+    )
+
+    # 更新表单状态
+    updated_form_state =
+      form_state
+      |> Map.put("#{field_id}_district", district)
+      # 更新隐藏字段的值
+      |> Map.put(field_id, "#{province}-#{city}-#{district}")
+
+    {:noreply,
+     socket
+     |> assign(:form_state, updated_form_state)
+     |> maybe_validate_form(updated_form_state)}
+  end
+
+  @impl true
   def handle_event("validate", %{"form_response" => response_params}, socket) do
     Logger.info("Handling validate event")
     changeset = MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, response_params)
@@ -115,6 +231,60 @@ defmodule MyAppWeb.FormLive.Submit do
     {:noreply, assign(socket, changeset: changeset)}
   end
 
+  @impl true
+  def handle_event("validate_upload", %{"field-id" => field_id}, socket) do
+    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
+    _upload_ref = get_upload_ref(socket, field_id)
+
+    # 验证上传
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    # 从 ref 中提取 upload_name
+    upload_name = find_upload_name_by_ref(socket.assigns.uploads, ref)
+
+    if upload_name do
+      Logger.info("Canceling upload for ref: #{ref} under name: #{upload_name}")
+      {:noreply, cancel_upload(socket, upload_name, ref)}
+    else
+      Logger.warning("Could not find upload name for cancel ref: #{ref}")
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_file", %{"field-id" => field_id, "file-id" => file_id}, socket) do
+    Logger.info("Handling delete_file event for field #{field_id}, file #{file_id}")
+
+    # 从 socket.assigns.existing_files_map 中移除对应的文件
+    existing_files_map = socket.assigns.existing_files_map
+    field_files = Map.get(existing_files_map, field_id, [])
+
+    updated_field_files = Enum.reject(field_files, fn file -> file["id"] == file_id end)
+
+    # 更新 socket.assigns.existing_files_map
+    updated_files_map =
+      if Enum.empty?(updated_field_files) do
+        Map.delete(existing_files_map, field_id)
+      else
+        Map.put(existing_files_map, field_id, updated_field_files)
+      end
+
+    # 实际删除文件（异步）
+    Task.start(fn ->
+      case Upload.delete_file(file_id) do
+        {:ok, _} ->
+          Logger.info("Successfully deleted file #{file_id}")
+        {:error, reason} ->
+          Logger.error("Failed to delete file #{file_id}: #{inspect(reason)}")
+      end
+    end)
+
+    {:noreply, assign(socket, :existing_files_map, updated_files_map)}
+  end
+  
   @impl true
   def handle_event("submit_form", %{"form_response" => response_params}, socket) do
     Logger.info("Handling submit_form event")
@@ -179,6 +349,58 @@ defmodule MyAppWeb.FormLive.Submit do
         {:noreply, assign(socket, changeset: changeset)}
       end
     end
+  end
+
+  # 表单控件事件处理
+  @impl true
+  def handle_event("select_files", %{"field-id" => field_id}, socket) do
+    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
+    _upload_ref = get_upload_ref(socket, field_id)
+
+    # 触发文件选择对话框
+    # 实际上，这个空实现会导致使用JS hooks中的代码来处理
+    {:noreply, socket}
+  end
+  
+  @impl true
+  def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
+    # 更新评分字段的值
+    form_state = socket.assigns.form_state || %{}
+    updated_form_state = Map.put(form_state, field_id, rating)
+
+    # 重新验证
+    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
+
+    {:noreply,
+     socket
+     |> assign(:form_state, updated_form_state)
+     |> assign(:errors, errors)}
+  end
+  
+  @impl true
+  def handle_event("matrix_change", %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx} = params, socket) do
+    form_state = socket.assigns.form_state || %{}
+    item = Map.get(socket.assigns.items_map, field_id)
+    
+    # 根据矩阵类型处理
+    updated_form_state = if item && item.matrix_type == :multiple do
+      # 多选矩阵 - 每个单元格是复选框
+      cell_value = params["value"] == "true"
+      
+      # 更新特定单元格的值
+      path = [field_id, row_idx, col_idx]
+      deep_put_in(form_state, path, cell_value)
+    else
+      # 单选矩阵 - 每行只能选一个
+      path = [field_id, row_idx]
+      deep_put_in(form_state, path, col_idx)
+    end
+    
+    # 重新验证并更新状态
+    {:noreply, 
+     socket
+     |> assign(:form_state, updated_form_state)
+     |> maybe_validate_form(updated_form_state)}
   end
 
   # ===========================================
@@ -335,154 +557,6 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:errors, %{})}
   end
 
-  # ===========================================
-  # 表单控件事件处理
-  # ===========================================
-
-  @impl true
-  def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
-    # 更新评分字段的值
-    form_state = socket.assigns.form_state || %{}
-    updated_form_state = Map.put(form_state, field_id, rating)
-
-    # 重新验证
-    errors = validate_form_data(updated_form_state, socket.assigns.items_map)
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> assign(:errors, errors)}
-  end
-
-  # ===========================================
-  # 处理地区选择联动
-  # ===========================================
-
-  # 处理省份选择变化，使用纯 LiveView 方式
-  @impl true
-  def handle_event("handle_province_change", params, socket) do
-    # 从_target中获取实际的字段ID
-    field_id =
-      case params["_target"] do
-        [_, field_name] when is_binary(field_name) ->
-          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_province")
-          field_name
-          |> String.split("_province")
-          |> List.first()
-
-        _ ->
-          nil
-      end
-
-    form_data = params["form"] || %{}
-    province = form_data["#{field_id}_province"]
-
-    Logger.info(
-      "Received handle_province_change event for field '#{field_id}' with province: #{inspect(province)}"
-    )
-
-    # 更新表单状态
-    form_state = socket.assigns.form_state || %{}
-
-    # 清空相关的城市和区县选择
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_province", province)
-      |> Map.put("#{field_id}_city", nil)
-      |> Map.put("#{field_id}_district", nil)
-      # 更新隐藏字段的值
-      |> Map.put(field_id, province)
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> maybe_validate_form(updated_form_state)}
-  end
-
-  # 处理城市选择变化，使用纯 LiveView 方式
-  @impl true
-  def handle_event("handle_city_change", params, socket) do
-    # 从_target中获取实际的字段ID
-    field_id =
-      case params["_target"] do
-        [_, field_name] when is_binary(field_name) ->
-          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_city")
-          field_name
-          |> String.split("_city")
-          |> List.first()
-
-        _ ->
-          nil
-      end
-
-    form_data = params["form"] || %{}
-    city = form_data["#{field_id}_city"]
-
-    # 从表单状态获取省份
-    form_state = socket.assigns.form_state || %{}
-    province = Map.get(form_state, "#{field_id}_province")
-
-    Logger.info(
-      "Received handle_city_change event for field '#{field_id}' with province: #{inspect(province)} and city: #{inspect(city)}"
-    )
-
-    # 更新表单状态
-    # 清空区县选择，保留省份和城市选择
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_city", city)
-      |> Map.put("#{field_id}_district", nil)
-      # 更新隐藏字段的值
-      |> Map.put(field_id, "#{province}-#{city}")
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> maybe_validate_form(updated_form_state)}
-  end
-
-  # 处理区县选择变化，使用纯 LiveView 方式
-  @impl true
-  def handle_event("handle_district_change", params, socket) do
-    # 从_target中获取实际的字段ID
-    field_id =
-      case params["_target"] do
-        [_, field_name] when is_binary(field_name) ->
-          # 从字段名中提取field_id (例如 "022eb894-9eeb-429d-b5d7-6683a2e35864_district")
-          field_name
-          |> String.split("_district")
-          |> List.first()
-
-        _ ->
-          nil
-      end
-
-    form_data = params["form"] || %{}
-    district = form_data["#{field_id}_district"]
-
-    Logger.info(
-      "Received handle_district_change event for field '#{field_id}' with district: #{inspect(district)}"
-    )
-
-    # 更新表单状态
-    form_state = socket.assigns.form_state || %{}
-
-    # 获取已选择的省份和城市
-    province = Map.get(form_state, "#{field_id}_province")
-    city = Map.get(form_state, "#{field_id}_city")
-
-    # 更新区县选择和完整的地区值
-    updated_form_state =
-      form_state
-      |> Map.put("#{field_id}_district", district)
-      # 更新隐藏字段的值
-      |> Map.put(field_id, "#{province}-#{city}-#{district}")
-
-    {:noreply,
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> maybe_validate_form(updated_form_state)}
-  end
 
   # 辅助函数：在表单状态更新后进行验证
   defp maybe_validate_form(socket, form_data) do
@@ -492,74 +566,8 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
   # ===========================================
-  # 文件上传事件处理
+  # 文件上传辅助函数
   # ===========================================
-
-  # 处理文件上传事件 - 文件选择
-  @impl true
-  def handle_event("select_files", %{"field-id" => field_id}, socket) do
-    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
-    _upload_ref = get_upload_ref(socket, field_id)
-
-    # 触发文件选择对话框
-    # 实际上，这个空实现会导致使用JS hooks中的代码来处理
-    {:noreply, socket}
-  end
-
-  # 处理文件上传验证
-  @impl true
-  def handle_event("validate_upload", %{"field-id" => field_id}, socket) do
-    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
-    _upload_ref = get_upload_ref(socket, field_id)
-
-    # 验证上传
-    {:noreply, socket}
-  end
-
-  # 取消上传
-  @impl true
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    # 从 ref 中提取 upload_name
-    upload_name = find_upload_name_by_ref(socket.assigns.uploads, ref)
-
-    if upload_name do
-      Logger.info("Canceling upload for ref: #{ref} under name: #{upload_name}")
-      {:noreply, cancel_upload(socket, upload_name, ref)}
-    else
-      Logger.warning("Could not find upload name for cancel ref: #{ref}")
-      {:noreply, socket}
-    end
-  end
-
-  # 处理文件删除事件
-  @impl true
-  def handle_event("delete_file", %{"field-id" => field_id, "file-id" => file_id}, socket) do
-    Logger.info("Handling delete_file event for field #{field_id}, file #{file_id}")
-
-    # 从 socket.assigns.existing_files_map 中移除对应的文件
-    existing_files_map = socket.assigns.existing_files_map
-    field_files = Map.get(existing_files_map, field_id, [])
-
-    updated_field_files = Enum.reject(field_files, fn file -> file["id"] == file_id end)
-
-    # 更新 socket.assigns.existing_files_map
-    updated_files_map =
-      if Enum.empty?(updated_field_files) do
-        Map.delete(existing_files_map, field_id)
-      else
-        Map.put(existing_files_map, field_id, updated_field_files)
-      end
-
-    # 实际删除文件（异步）
-    Task.start(fn ->
-      case Upload.delete_file(file_id) do
-        {:ok, _} -> Logger.info("File #{file_id} deleted successfully")
-        {:error, reason} -> Logger.error("Failed to delete file #{file_id}: #{inspect(reason)}")
-      end
-    end)
-
-    {:noreply, assign(socket, :existing_files_map, updated_files_map)}
-  end
 
   # ===========================================
   # 辅助函数
@@ -879,33 +887,6 @@ defmodule MyAppWeb.FormLive.Submit do
       true -> true
       _ -> false
     end
-  end
-  
-  # 处理矩阵变更事件
-  @impl true
-  def handle_event("matrix_change", %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx} = params, socket) do
-    form_state = socket.assigns.form_state || %{}
-    item = Map.get(socket.assigns.items_map, field_id)
-    
-    # 根据矩阵类型处理
-    updated_form_state = if item && item.matrix_type == :multiple do
-      # 多选矩阵 - 每个单元格是复选框
-      cell_value = params["value"] == "true"
-      
-      # 更新特定单元格的值
-      path = [field_id, row_idx, col_idx]
-      deep_put_in(form_state, path, cell_value)
-    else
-      # 单选矩阵 - 每行只能选一个
-      path = [field_id, row_idx]
-      deep_put_in(form_state, path, col_idx)
-    end
-    
-    # 重新验证并更新状态
-    {:noreply, 
-     socket
-     |> assign(:form_state, updated_form_state)
-     |> maybe_validate_form(updated_form_state)}
   end
   
   # 辅助函数 - 深度更新嵌套映射中的值
