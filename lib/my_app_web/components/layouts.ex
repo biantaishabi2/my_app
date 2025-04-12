@@ -15,7 +15,7 @@ defmodule MyAppWeb.Layouts do
 
   def render("empty.html", assigns) do
     ~H"""
-    <%= @inner_content %>
+    {@inner_content}
     """
   end
 

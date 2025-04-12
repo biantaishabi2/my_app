@@ -1,6 +1,7 @@
 # test/my_app/form_templates_test.exs
 defmodule MyApp.FormTemplatesTest do
-  use MyApp.DataCase, async: true # Use DataCase for DB operations
+  # Use DataCase for DB operations
+  use MyApp.DataCase, async: true
 
   alias MyApp.FormTemplates
   alias MyApp.FormTemplates.FormTemplate
@@ -20,24 +21,29 @@ defmodule MyApp.FormTemplatesTest do
           %{id: "elem_c", type: "section", title: "Element C"}
         ]
       })
-      |> FormTemplates.create_template() # Assuming this context function exists
+      # Assuming this context function exists
+      |> FormTemplates.create_template()
 
     template
   end
 
   describe "FormTemplate Context Operations" do
     @valid_attrs %{name: "Valid Template Name", version: 1, structure: [%{id: "a", type: "text"}]}
-    @invalid_attrs %{version: 1} # Missing name and structure
+    # Missing name and structure
+    @invalid_attrs %{version: 1}
 
     test "create_template/1 with valid data creates a template" do
       assert {:ok, %FormTemplate{} = template} = FormTemplates.create_template(@valid_attrs)
       assert template.name == "Valid Template Name"
       assert template.version == 1
-      assert template.structure == [%{id: "a", type: "text"}] # 期望原子键
+      # 期望原子键
+      assert template.structure == [%{id: "a", type: "text"}]
     end
 
     test "create_template/1 with invalid data returns error changeset" do
-      assert {:error, %Ecto.Changeset{} = changeset} = FormTemplates.create_template(@invalid_attrs)
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               FormTemplates.create_template(@invalid_attrs)
+
       # assert errors_on(changeset) |> Map.keys() |> Enum.sort() == [:name, :structure]
       # 只检查缺失的 :name
       assert errors_on(changeset) |> Map.keys() == [:name]
@@ -52,6 +58,7 @@ defmodule MyApp.FormTemplatesTest do
 
     test "get_template!/1 raises if id does not exist" do
       non_existent_uuid = Ecto.UUID.generate()
+
       assert_raise Ecto.NoResultsError, fn ->
         FormTemplates.get_template!(non_existent_uuid)
       end
@@ -64,7 +71,8 @@ defmodule MyApp.FormTemplatesTest do
       assert {:ok, updated_template} = FormTemplates.update_template(template, update_attrs)
       assert updated_template.name == "Updated Template Name"
       assert updated_template.version == 2
-      assert updated_template.structure == template.structure # Structure should remain unchanged
+      # Structure should remain unchanged
+      assert updated_template.structure == template.structure
 
       # Verify persistence
       fetched_template = FormTemplates.get_template!(template.id)
@@ -77,7 +85,8 @@ defmodule MyApp.FormTemplatesTest do
       template = form_template_fixture(%{})
       original_structure = template.structure
       assert length(original_structure) == 3
-      original_ids = Enum.map(original_structure, & &1.id) # ["elem_a", "elem_b", "elem_c"]
+      # ["elem_a", "elem_b", "elem_c"]
+      original_ids = Enum.map(original_structure, & &1.id)
 
       # 2. Define the new order and structure
       # Move "elem_c" to the front
@@ -105,7 +114,8 @@ defmodule MyApp.FormTemplatesTest do
       # assert fetched_template.structure == new_structure # 移除直接比较
       # Double-check the IDs order from the fetched structure
       # assert Enum.map(fetched_template.structure, & &1.id) == new_order_ids
-      assert Enum.map(fetched_template.structure, & &1["id"]) == new_order_ids # 使用字符串键访问
+      # 使用字符串键访问
+      assert Enum.map(fetched_template.structure, & &1["id"]) == new_order_ids
     end
 
     test "delete_template/1 deletes the template" do

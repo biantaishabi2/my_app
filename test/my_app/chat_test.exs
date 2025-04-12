@@ -21,7 +21,13 @@ defmodule MyApp.ChatTest do
     end
 
     test "create_conversation/1 with valid data creates a conversation" do
-      valid_attrs = %{messages: "some messages", title: "some title", role: "some role", Message: "some Message", content: "some content"}
+      valid_attrs = %{
+        messages: "some messages",
+        title: "some title",
+        role: "some role",
+        Message: "some Message",
+        content: "some content"
+      }
 
       assert {:ok, %Conversation{} = conversation} = Chat.create_conversation(valid_attrs)
       assert conversation.messages == "some messages"
@@ -37,9 +43,18 @@ defmodule MyApp.ChatTest do
 
     test "update_conversation/2 with valid data updates the conversation" do
       conversation = conversation_fixture()
-      update_attrs = %{messages: "some updated messages", title: "some updated title", role: "some updated role", Message: "some updated Message", content: "some updated content"}
 
-      assert {:ok, %Conversation{} = conversation} = Chat.update_conversation(conversation, update_attrs)
+      update_attrs = %{
+        messages: "some updated messages",
+        title: "some updated title",
+        role: "some updated role",
+        Message: "some updated Message",
+        content: "some updated content"
+      }
+
+      assert {:ok, %Conversation{} = conversation} =
+               Chat.update_conversation(conversation, update_attrs)
+
       assert conversation.messages == "some updated messages"
       assert conversation.title == "some updated title"
       assert conversation.role == "some updated role"

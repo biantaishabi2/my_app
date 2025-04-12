@@ -1,9 +1,8 @@
 defmodule MyAppWeb.FormTemplateLive do
   use MyAppWeb, :live_view
-  import MyAppWeb.FormLive.ItemRendererComponent
-
+  # import MyAppWeb.FormLive.ItemRendererComponent # 移除未使用的导入
   alias MyApp.Forms
-  alias MyApp.FormTemplates.FormTemplate
+  # alias MyApp.FormTemplates.FormTemplate # 移除未使用的别名
 
   # 使用MyApp.FormTemplates上下文模块的API
 
@@ -27,9 +26,11 @@ defmodule MyAppWeb.FormTemplateLive do
     first_item = Enum.find(form.items, fn item -> item.type == :text_input end)
     first_field_id = if first_item, do: first_item.id, else: nil
 
-    second_item = Enum.find(Enum.drop(form.items, 1), fn item ->
-      item.type in [:radio, :dropdown, :checkbox] and length(item.options) > 0
-    end)
+    second_item =
+      Enum.find(Enum.drop(form.items, 1), fn item ->
+        item.type in [:radio, :dropdown, :checkbox] and length(item.options) > 0
+      end)
+
     second_field_id = if second_item, do: second_item.id, else: nil
 
     # 为调试目的输出字段IDs
@@ -42,26 +43,27 @@ defmodule MyAppWeb.FormTemplateLive do
     }
 
     # 使用表单模板筛选要显示的表单项
-    rendered_items = filter_items_by_template(form.items, template_structure, form_data)
+    rendered_items = filter_items_by_template(form.items, form_data, template_structure)
 
     {:ok,
-      socket
-      |> assign(:form, form)
-      |> assign(:template_structure, template_structure)
-      |> assign(:template_preview, template_preview)
-      |> assign(:rendered_items, rendered_items)
-      |> assign(:form_data, form_data)
-      |> assign(:first_field_id, first_field_id)
-      |> assign(:second_field_id, second_field_id)
-    }
+     socket
+     |> assign(:form, form)
+     |> assign(:template_structure, template_structure)
+     |> assign(:template_preview, template_preview)
+     |> assign(:rendered_items, rendered_items)
+     |> assign(:form_data, form_data)
+     |> assign(:first_field_id, first_field_id)
+     |> assign(:second_field_id, second_field_id)}
   end
 
   @impl true
   def handle_event("update_field", %{"_target" => [_field_id | _]} = params, socket) do
     # 从表单参数中提取所有字段值
-    form_data = params
+    form_data =
+      params
       |> Enum.filter(fn {key, _} ->
-        not String.starts_with?(key, "_") # 忽略以_开头的特殊字段
+        # 忽略以_开头的特殊字段
+        not String.starts_with?(key, "_")
       end)
       |> Map.new()
 
@@ -74,16 +76,18 @@ defmodule MyAppWeb.FormTemplateLive do
     second_field_id = socket.assigns.second_field_id
 
     # 添加字段ID到表单数据，确保过滤条件能够找到正确的字段
-    form_data = form_data
+    form_data =
+      form_data
       |> Map.put("first_field_id", first_field_id)
       |> Map.put("second_field_id", second_field_id)
 
     # 使用模板条件过滤要显示的表单项
-    rendered_items = filter_items_by_template(
-      socket.assigns.form.items,
-      socket.assigns.template_structure,
-      form_data
-    )
+    rendered_items =
+      filter_items_by_template(
+        socket.assigns.form.items,
+        form_data,
+        socket.assigns.template_structure
+      )
 
     # 为调试目的打印数据
     first_value = Map.get(form_data, first_field_id, "")
@@ -94,10 +98,9 @@ defmodule MyAppWeb.FormTemplateLive do
 
     # 存储更新后的表单数据
     {:noreply,
-      socket
-      |> assign(:form_data, form_data)
-      |> assign(:rendered_items, rendered_items)
-    }
+     socket
+     |> assign(:form_data, form_data)
+     |> assign(:rendered_items, rendered_items)}
   end
 
   @impl true
@@ -116,22 +119,22 @@ defmodule MyAppWeb.FormTemplateLive do
     second_field_id = socket.assigns.second_field_id
 
     # 确保表单数据中包含字段ID
-    form_data = socket.assigns.form_data
+    form_data =
+      socket.assigns.form_data
       |> Map.put("first_field_id", first_field_id)
       |> Map.put("second_field_id", second_field_id)
 
     # 使用现有表单数据重新过滤表单项
-    rendered_items = filter_items_by_template(form.items, template_structure, form_data)
+    rendered_items = filter_items_by_template(form.items, form_data, template_structure)
 
     {:noreply,
-      socket
-      |> assign(:form, form)
-      |> assign(:template_structure, template_structure)
-      |> assign(:template_preview, template_preview)
-      |> assign(:rendered_items, rendered_items)
-      |> assign(:form_data, form_data)
-      |> put_flash(:info, "模板已从JSON文件重新加载")
-    }
+     socket
+     |> assign(:form, form)
+     |> assign(:template_structure, template_structure)
+     |> assign(:template_preview, template_preview)
+     |> assign(:rendered_items, rendered_items)
+     |> assign(:form_data, form_data)
+     |> put_flash(:info, "模板已从JSON文件重新加载")}
   end
 
   @impl true
@@ -164,8 +167,17 @@ defmodule MyAppWeb.FormTemplateLive do
             <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
               <div class="flex">
                 <div class="flex-shrink-0">
-                  <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  <svg
+                    class="h-5 w-5 text-blue-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                 </div>
                 <div class="ml-3">
@@ -197,9 +209,15 @@ defmodule MyAppWeb.FormTemplateLive do
                   id={@second_field_id}
                   class="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 form-input"
                 >
-                  <option value="选项A" selected={Map.get(@form_data, @second_field_id) == "选项A"}>选项 A</option>
-                  <option value="选项B" selected={Map.get(@form_data, @second_field_id) == "选项B"}>选项 B</option>
-                  <option value="选项C" selected={Map.get(@form_data, @second_field_id) == "选项C"}>选项 C</option>
+                  <option value="选项A" selected={Map.get(@form_data, @second_field_id) == "选项A"}>
+                    选项 A
+                  </option>
+                  <option value="选项B" selected={Map.get(@form_data, @second_field_id) == "选项B"}>
+                    选项 B
+                  </option>
+                  <option value="选项C" selected={Map.get(@form_data, @second_field_id) == "选项C"}>
+                    选项 C
+                  </option>
                 </select>
                 <p class="text-xs text-gray-500 mt-1">* 当选择"选项B"时会显示特定表单项</p>
               </div>
@@ -219,8 +237,8 @@ defmodule MyAppWeb.FormTemplateLive do
               </div>
             </div>
           </div>
-
-          <!-- 右侧：渲染的表单 -->
+          
+    <!-- 右侧：渲染的表单 -->
           <div class="form-card">
             <h2 class="text-xl font-semibold mb-4 form-item-label">渲染后的表单</h2>
 
@@ -228,8 +246,19 @@ defmodule MyAppWeb.FormTemplateLive do
               <div class="px-4 py-5 sm:p-6 space-y-6">
                 <%= if Enum.empty?(@rendered_items) do %>
                   <div class="text-center py-12 bg-gray-50 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                      />
                     </svg>
                     <h3 class="mt-2 text-sm font-medium text-gray-900">无可显示的表单项</h3>
                     <p class="mt-1 text-sm text-gray-500">
@@ -244,16 +273,19 @@ defmodule MyAppWeb.FormTemplateLive do
                     <div class="form-item-container mb-4" id={"item-container-#{item.id}"}>
                       <div class="form-field form-item">
                         <label class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                          <%= item.label %>
+                          {item.label}
                           <%= if item.required do %>
                             <span class="form-item-required text-red-500 required-mark">*</span>
                           <% end %>
                         </label>
 
-                        <MyAppWeb.FormLive.ItemRendererComponent.render_item item={item} mode={:edit_preview} />
+                        <MyAppWeb.FormLive.ItemRendererComponent.render_item
+                          item={item}
+                          mode={:edit_preview}
+                        />
 
                         <%= if item.description do %>
-                          <div class="text-sm text-gray-500 mt-1"><%= item.description %></div>
+                          <div class="text-sm text-gray-500 mt-1">{item.description}</div>
                         <% end %>
                       </div>
                     </div>
@@ -278,11 +310,13 @@ defmodule MyAppWeb.FormTemplateLive do
             # 成功解析JSON
             IO.puts("成功加载模板JSON: #{json_data["name"]}")
             json_data
+
           {:error, reason} ->
             # JSON解析错误
             IO.puts("模板JSON解析错误: #{inspect(reason)}")
             %{"structure" => %{"items" => []}}
         end
+
       {:error, reason} ->
         # 文件读取错误
         IO.puts("模板文件读取错误: #{inspect(reason)}")
@@ -291,7 +325,8 @@ defmodule MyAppWeb.FormTemplateLive do
   end
 
   # 根据模板筛选要显示的表单项
-  defp filter_items_by_template(items, template_structure, form_data) do
+  defp filter_items_by_template(items, form_data, template_structure)
+       when is_list(items) and is_map(form_data) do
     # 获取模板中的项目列表
     template_items = template_structure["items"] || []
 
@@ -302,7 +337,7 @@ defmodule MyAppWeb.FormTemplateLive do
     # 根据模板条件筛选表单项
     items
     |> Enum.with_index()
-    |> Enum.filter(fn {item, index} ->
+    |> Enum.filter(fn {_item, index} ->
       # 找到对应的模板项
       template_item = Enum.at(template_items, index)
 
@@ -320,7 +355,7 @@ defmodule MyAppWeb.FormTemplateLive do
           template_item["item_type"] == "rating" ->
             # 评分控件：需要同时满足"complex"和"选项B"
             String.contains?(Map.get(form_data, first_field_id, ""), "complex") and
-            Map.get(form_data, second_field_id) == "选项B"
+              Map.get(form_data, second_field_id) == "选项B"
 
           template_item["item_type"] == "region" ->
             # 地区控件：只需要满足"选项B"
@@ -359,9 +394,10 @@ defmodule MyAppWeb.FormTemplateLive do
     conditions = condition["conditions"] || []
 
     # 计算所有子条件的结果
-    results = Enum.map(conditions, fn subcondition ->
-      evaluate_simple_condition(subcondition, form_data)
-    end)
+    results =
+      Enum.map(conditions, fn subcondition ->
+        evaluate_simple_condition(subcondition, form_data)
+      end)
 
     # 根据操作符组合结果
     case condition["operator"] do
@@ -378,27 +414,33 @@ defmodule MyAppWeb.FormTemplateLive do
     right = condition["right"]
 
     # 获取左值
-    left_value = case left do
-      %{"type" => "field", "name" => field_name} ->
-        Map.get(form_data, field_name, "")
-      _ ->
-        ""
-    end
+    left_value =
+      case left do
+        %{"type" => "field", "name" => field_name} ->
+          Map.get(form_data, field_name, "")
+
+        _ ->
+          ""
+      end
 
     # 获取右值
-    right_value = case right do
-      %{"type" => "value", "value" => value} ->
-        value
-      _ ->
-        ""
-    end
+    right_value =
+      case right do
+        %{"type" => "value", "value" => value} ->
+          value
+
+        _ ->
+          ""
+      end
 
     # 根据操作符评估
     case operator do
       "contains" ->
         String.contains?(left_value, right_value)
+
       "==" ->
         left_value == right_value
+
       _ ->
         false
     end
@@ -417,40 +459,49 @@ defmodule MyAppWeb.FormTemplateLive do
       item_type = item["item_type"] || "text"
 
       # 获取条件描述
-      condition_text = if item["condition"] do
-        condition_desc = cond do
-          item_type == "rating" ->
-            "当同时满足'选择选项B'和'输入complex'时显示"
-          item_type == "region" ->
-            "当选择'选项B'时显示"
-          item_type == "time" || item_type == "date" ->
-            "当输入'complex'时显示"
-          item["condition"]["right"]["value"] == "index" ->
-            "当输入'index'时显示"
-          item["condition"]["right"]["value"] == "condition" ->
-            "当输入'condition'时显示"
-          true ->
-            "满足特定条件时显示"
+      condition_text =
+        if item["condition"] do
+          condition_desc =
+            cond do
+              item_type == "rating" ->
+                "当同时满足'选择选项B'和'输入complex'时显示"
+
+              item_type == "region" ->
+                "当选择'选项B'时显示"
+
+              item_type == "time" || item_type == "date" ->
+                "当输入'complex'时显示"
+
+              item["condition"]["right"]["value"] == "index" ->
+                "当输入'index'时显示"
+
+              item["condition"]["right"]["value"] == "condition" ->
+                "当输入'condition'时显示"
+
+              true ->
+                "满足特定条件时显示"
+            end
+
+          "（#{condition_desc}）"
+        else
+          ""
         end
-        "（#{condition_desc}）"
-      else
-        ""
-      end
 
       # 类型描述
-      type_desc = case item_type do
-        "text" -> "文本输入"
-        "number" -> "数字"
-        "select" -> "选择"
-        "date" -> "日期"
-        "time" -> "时间"
-        "rating" -> "评分"
-        "region" -> "地区选择"
-        "file" -> "文件上传"
-        "image" -> "图片选择"
-        "matrix" -> "矩阵问题"
-        _ -> item_type
-      end
+      type_desc =
+        case item_type do
+          "text" -> "文本输入"
+          "number" -> "数字"
+          "select" -> "选择"
+          "date" -> "日期"
+          "time" -> "时间"
+          "rating" -> "评分"
+          "region" -> "地区选择"
+          "file" -> "文件上传"
+          "image" -> "图片选择"
+          "matrix" -> "矩阵问题"
+          _ -> item_type
+        end
 
       # 组合成预览文本
       "#{label} (#{type_desc}) #{condition_text}"

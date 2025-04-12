@@ -3,9 +3,9 @@ defmodule MyApp.Regions do
   处理省市区三级地区数据
   数据来源: https://github.com/modood/Administrative-divisions-of-China
   """
-  
+
   @regions_file "priv/static/data/pca-code.json"
-  
+
   @doc """
   获取所有省份列表
   """
@@ -13,7 +13,7 @@ defmodule MyApp.Regions do
     load_regions()
     |> Enum.map(fn province -> %{code: province["code"], name: province["name"]} end)
   end
-  
+
   @doc """
   获取指定省份的所有城市
   """
@@ -21,13 +21,15 @@ defmodule MyApp.Regions do
     load_regions()
     |> Enum.find(fn p -> p["name"] == province_name end)
     |> case do
-      nil -> []
-      province -> 
+      nil ->
+        []
+
+      province ->
         province["children"]
         |> Enum.map(fn city -> %{code: city["code"], name: city["name"]} end)
     end
   end
-  
+
   @doc """
   获取指定省份和城市的所有区县
   """
@@ -35,19 +37,23 @@ defmodule MyApp.Regions do
     load_regions()
     |> Enum.find(fn p -> p["name"] == province_name end)
     |> case do
-      nil -> []
-      province -> 
+      nil ->
+        []
+
+      province ->
         province["children"]
         |> Enum.find(fn c -> c["name"] == city_name end)
         |> case do
-          nil -> []
-          city -> 
+          nil ->
+            []
+
+          city ->
             city["children"]
             |> Enum.map(fn district -> %{code: district["code"], name: district["name"]} end)
         end
     end
   end
-  
+
   @doc """
   加载地区数据
   """

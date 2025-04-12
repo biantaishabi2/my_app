@@ -1,24 +1,30 @@
 <div class="container mx-auto p-8">
   <h1 class="text-3xl font-bold mb-6">表单创建测试</h1>
-  
+
   <div class="mb-8">
     <h2 class="text-xl font-semibold mb-4">测试按钮</h2>
     <button
-      id="test-form-btn" 
+      id="test-form-btn"
       class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded shadow"
       onclick="handleTestButtonClick()"
     >
       测试按钮（普通JS）
     </button>
-    
-    <a href="/forms" class="ml-4 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded shadow inline-block">
+
+    <a
+      href="/forms"
+      class="ml-4 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded shadow inline-block"
+    >
       前往表单页面
     </a>
   </div>
-  
+
   <div class="bg-gray-100 p-4 rounded shadow-inner">
     <h2 class="text-lg font-medium mb-2">消息日志</h2>
-    <pre id="log-output" class="bg-white p-3 rounded border border-gray-300 h-64 overflow-y-auto font-mono text-sm"></pre>
+    <pre
+      id="log-output"
+      class="bg-white p-3 rounded border border-gray-300 h-64 overflow-y-auto font-mono text-sm"
+    ></pre>
   </div>
 </div>
 
@@ -30,7 +36,7 @@
     // 尝试跳转到表单页
     window.location.href = '/forms';
   }
-  
+
   document.addEventListener('DOMContentLoaded', () => {
     const log = document.getElementById('log-output');
     log.textContent = '[' + new Date().toISOString() + '] 页面已加载';

@@ -6,7 +6,7 @@ defmodule MyAppWeb.PageController do
     # so skip the default app layout.
     render(conn, :home, layout: false)
   end
-  
+
   def test_form(conn, _params) do
     conn
     |> assign(:page_title, "表单创建测试")

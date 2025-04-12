@@ -13,13 +13,14 @@ defmodule MyAppWeb.PublicFormLive.Show do
           socket
           |> assign(:page_title, form.title)
           |> assign(:form, form)
+
         {:ok, socket}
 
       {:error, :not_found} ->
-        {:ok, 
-          socket
-          |> put_flash(:error, "表单不存在或未发布")
-          |> push_navigate(to: ~p"/")}
+        {:ok,
+         socket
+         |> put_flash(:error, "表单不存在或未发布")
+         |> push_navigate(to: ~p"/")}
     end
   end
 
@@ -36,14 +37,16 @@ defmodule MyAppWeb.PublicFormLive.Show do
   # 获取已发布的表单及其表单项和选项
   defp get_published_form(id) do
     case Forms.get_form(id) do
-      nil -> 
+      nil ->
         {:error, :not_found}
-      %Form{status: :published} = form -> 
+
+      %Form{status: :published} = form ->
         # 预加载表单项和选项（已包含页面加载）
         form = Forms.preload_form_items_and_options(form)
-        
+
         {:ok, form}
-      %Form{} -> 
+
+      %Form{} ->
         {:error, :not_found}
     end
   end

@@ -1,7 +1,8 @@
 defmodule MyApp.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
-  alias Bcrypt # Add alias for Bcrypt
+  # Add alias for Bcrypt
+  alias Bcrypt
   # Add use Comeonin.Schema if you were using older versions
 
   schema "users" do
@@ -11,7 +12,8 @@ defmodule MyApp.Accounts.User do
     timestamps()
 
     # Add virtual field for password input
-    field :password, :string, virtual: true, redact: true # Uncommented virtual password field
+    # Uncommented virtual password field
+    field :password, :string, virtual: true, redact: true
   end
 
   # This virtual field is optional and only needed if using has_secure_password
@@ -45,7 +47,9 @@ defmodule MyApp.Accounts.User do
     |> validate_length(:password, min: 12, max: 72)
     |> validate_format(:password, ~r/[a-z]/, message: "at least one lower case character")
     |> validate_format(:password, ~r/[A-Z]/, message: "at least one upper case character")
-    |> validate_format(:password, ~r/[!?@#$%^&*_0-9]/, message: "at least one digit or punctuation character")
+    |> validate_format(:password, ~r/[!?@#$%^&*_0-9]/,
+      message: "at least one digit or punctuation character"
+    )
     |> maybe_hash_password(opts)
   end
 
@@ -56,7 +60,8 @@ defmodule MyApp.Accounts.User do
     if hash_password? && password && changeset.valid? do
       changeset
       |> validate_length(:password, max: 72, count: :bytes)
-      |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password)) # Corrected function name
+      # Corrected function name
+      |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password))
       |> delete_change(:password)
     else
       changeset

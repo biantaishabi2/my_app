@@ -5,8 +5,10 @@ defmodule MyApp.Repo.Migrations.CreateFormsTables do
     create table(:forms, primary_key: false) do
       add :id, :binary_id, primary_key: true
       add :title, :string, null: false
-      add :description, :text # Changed to :text for potentially longer descriptions
-      add :status, :string, null: false, default: "draft" # Using string for enum, ensure consistency with schema
+      # Changed to :text for potentially longer descriptions
+      add :description, :text
+      # Using string for enum, ensure consistency with schema
+      add :status, :string, null: false, default: "draft"
       add :form_template_id, references(:form_templates, on_delete: :restrict), null: false
       add :form_data, :map, default: %{}, null: false
       add :created_by_id, references(:users, on_delete: :nothing)

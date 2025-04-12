@@ -13,13 +13,13 @@ defmodule MyAppWeb.Components.FormComponentsTest do
         title: "测试表单",
         description: "这是一个测试表单的描述"
       }
-      
+
       assigns = %{
         form: form
       }
 
       html = render_component(&FormComponents.form_header/1, assigns)
-      
+
       assert html =~ "测试表单"
       assert html =~ "这是一个测试表单的描述"
       assert html =~ ~r|<h1[^>]*>测试表单</h1>|
@@ -30,13 +30,13 @@ defmodule MyAppWeb.Components.FormComponentsTest do
         title: "测试表单",
         description: nil
       }
-      
+
       assigns = %{
         form: form
       }
 
       html = render_component(&FormComponents.form_header/1, assigns)
-      
+
       assert html =~ "测试表单"
       refute html =~ "这是一个测试表单的描述"
     end
@@ -56,7 +56,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.text_input_field/1, assigns)
-      
+
       assert html =~ "姓名"
       assert html =~ "<label"
       assert html =~ ~r|姓名|
@@ -77,7 +77,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.text_input_field/1, assigns)
-      
+
       assert html =~ "张三"
     end
 
@@ -94,7 +94,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.text_input_field/1, assigns)
-      
+
       assert html =~ "此字段为必填项"
       assert html =~ ~r|<div[^>]*class="text-red-500[^>]*>此字段为必填项</div>|
     end
@@ -118,7 +118,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.radio_field/1, assigns)
-      
+
       assert html =~ "性别"
       assert html =~ "男"
       assert html =~ "女"
@@ -145,7 +145,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.radio_field/1, assigns)
-      
+
       assert html =~ ~r|<input[^>]*type="radio"[^>]*value="female"[^>]*checked[^>]*|
     end
 
@@ -166,7 +166,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.radio_field/1, assigns)
-      
+
       assert html =~ "请选择一个选项"
       assert html =~ ~r|<div[^>]*class="text-red-500[^>]*>请选择一个选项</div>|
     end
@@ -187,7 +187,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.textarea_field/1, assigns)
-      
+
       assert html =~ "详细描述"
       assert html =~ "<label"
       assert html =~ "<textarea"
@@ -207,7 +207,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.textarea_field/1, assigns)
-      
+
       assert html =~ "这是一段详细描述内容"
     end
   end
@@ -231,7 +231,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.dropdown_field/1, assigns)
-      
+
       assert html =~ "选择城市"
       assert html =~ "<select"
       assert html =~ "北京"
@@ -261,7 +261,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.dropdown_field/1, assigns)
-      
+
       # 简化断言以检查选中状态，而不是HTML精确格式
       assert html =~ "shanghai" && html =~ "selected"
     end
@@ -282,7 +282,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.rating_field/1, assigns)
-      
+
       assert html =~ "服务评分"
       assert html =~ "rating-container"
       assert html =~ "rating-star"
@@ -310,7 +310,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.rating_field/1, assigns)
-      
+
       # 验证选中值存在
       assert html =~ ~r|value="4"|
       # 验证显示评分文本
@@ -332,7 +332,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.rating_field/1, assigns)
-      
+
       # 验证有10个星星按钮
       Enum.each(1..10, fn i ->
         assert html =~ ~r|data-value="#{i}"|
@@ -353,7 +353,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.rating_field/1, assigns)
-      
+
       assert html =~ "请选择评分"
       assert html =~ ~r|<div[^>]*class="text-red-500[^>]*>请选择评分</div>|
     end
@@ -365,12 +365,12 @@ defmodule MyAppWeb.Components.FormComponentsTest do
         title: "测试表单",
         description: "测试描述"
       }
-      
+
       items = [
         %{id: "item1", label: "文本问题", type: :text_input, required: true},
         %{id: "item2", label: "单选问题", type: :radio, required: true}
       ]
-      
+
       assigns = %{
         form: form,
         items: items,
@@ -380,7 +380,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.form_builder/1, assigns)
-      
+
       # 验证表单项渲染
       assert html =~ "文本问题"
       assert html =~ "单选问题"
@@ -392,7 +392,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
         title: "空表单",
         description: "没有表单项"
       }
-      
+
       assigns = %{
         form: form,
         items: [],
@@ -402,7 +402,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.form_builder/1, assigns)
-      
+
       # 验证显示无表单项提示
       assert html =~ "还没有添加表单项"
     end
@@ -428,7 +428,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.form_item_editor/1, assigns)
-      
+
       # 验证表单项编辑器元素
       assert html =~ "标签"
       assert html =~ "类型"
@@ -460,10 +460,11 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.form_item_editor/1, assigns)
-      
+
       # 验证评分控件编辑器特定元素
       assert html =~ "最大评分值"
-      assert html =~ "星" # 评分选项中的"星"字
+      # 评分选项中的"星"字
+      assert html =~ "星"
       assert html =~ "预览"
     end
   end
@@ -486,7 +487,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.number_field/1, assigns)
-      
+
       # 测试行为而非实现细节
       assert html =~ "年龄"
       assert html =~ ~r/<input[^>]*type="number"/
@@ -511,7 +512,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.number_field/1, assigns)
-      
+
       # 验证值正确显示
       assert html =~ ~r/value="25"/
     end
@@ -531,7 +532,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.number_field/1, assigns)
-      
+
       # 验证错误信息显示
       assert html =~ "请输入有效年龄"
       assert html =~ ~r/<div[^>]*class="[^"]*text-red-500[^"]*"[^>]*>请输入有效年龄<\/div>/
@@ -552,7 +553,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.number_field/1, assigns)
-      
+
       # 验证禁用状态
       assert html =~ ~r/disabled/
     end
@@ -572,7 +573,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.email_field/1, assigns)
-      
+
       # 测试行为而非实现细节
       assert html =~ "电子邮箱"
       assert html =~ ~r/<input[^>]*type="email"/
@@ -592,7 +593,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.email_field/1, assigns)
-      
+
       # 验证值正确显示
       assert html =~ ~r/value="test@example.com"/
     end
@@ -610,7 +611,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.email_field/1, assigns)
-      
+
       # 验证错误信息显示
       assert html =~ "请输入有效的电子邮箱地址"
     end
@@ -629,7 +630,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.email_field/1, assigns)
-      
+
       # 验证格式提示显示
       assert html =~ "example@domain.com"
     end
@@ -649,7 +650,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.phone_field/1, assigns)
-      
+
       # 测试行为而非实现细节
       assert html =~ "手机号码"
       assert html =~ ~r/<input[^>]*type="tel"/
@@ -669,7 +670,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.phone_field/1, assigns)
-      
+
       # 验证值正确显示
       assert html =~ ~r/value="13800138000"/
     end
@@ -687,7 +688,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.phone_field/1, assigns)
-      
+
       # 验证错误信息显示
       assert html =~ "请输入有效的手机号码"
     end
@@ -706,7 +707,7 @@ defmodule MyAppWeb.Components.FormComponentsTest do
       }
 
       html = render_component(&FormComponents.phone_field/1, assigns)
-      
+
       # 验证格式化显示
       assert html =~ "pattern"
       assert html =~ "placeholder"

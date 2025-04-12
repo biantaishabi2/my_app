@@ -28,41 +28,46 @@ defmodule MyApp.Forms do
   """
   def create_form(attrs \\ %{}) do
     # 检查是否已经提供了form_template_id
-    has_template_id = Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
+    has_template_id =
+      Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
 
     # 如果没有关联模板，首先创建一个默认模板
-    {final_attrs, template_result} = if not has_template_id do
-      # 提取用户ID用于创建模板
-      user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
+    {final_attrs, template_result} =
+      if not has_template_id do
+        # 提取用户ID用于创建模板
+        user_id = Map.get(attrs, :user_id) || Map.get(attrs, "user_id")
 
-      if user_id do
-        case MyApp.FormTemplates.create_default_template(%{user_id: user_id}) do
-          {:ok, template} ->
-            # 将模板ID添加到表单属性中
-            {Map.put(attrs, :form_template_id, template.id), {:ok, template}}
-          error ->
-            # 创建模板失败，继续使用原始属性创建表单
-            {attrs, error}
+        if user_id do
+          case MyApp.FormTemplates.create_default_template(%{user_id: user_id}) do
+            {:ok, template} ->
+              # 将模板ID添加到表单属性中
+              {Map.put(attrs, :form_template_id, template.id), {:ok, template}}
+
+            error ->
+              # 创建模板失败，继续使用原始属性创建表单
+              {attrs, error}
+          end
+        else
+          # 没有用户ID，无法创建模板
+          {attrs, {:error, :missing_user_id}}
         end
       else
-        # 没有用户ID，无法创建模板
-        {attrs, {:error, :missing_user_id}}
+        # 已经有模板ID，不需要创建
+        {attrs, nil}
       end
-    else
-      # 已经有模板ID，不需要创建
-      {attrs, nil}
-    end
 
     # 创建表单
-    result = %Form{}
-    |> Form.changeset(final_attrs)
-    |> Repo.insert()
+    result =
+      %Form{}
+      |> Form.changeset(final_attrs)
+      |> Repo.insert()
 
     # 记录日志（如果有模板创建结果）
     if template_result do
       case template_result do
         {:ok, template} ->
           IO.puts("自动创建了默认表单模板 ID: #{template.id} 用于表单")
+
         {:error, reason} ->
           IO.puts("尝试创建默认模板失败: #{inspect(reason)}")
       end
@@ -118,7 +123,7 @@ defmodule MyApp.Forms do
   def get_form_with_full_preload(id) do
     Form
     |> Repo.get(id)
-    |> Repo.preload([
+    |> Repo.preload(
       # 一次性预加载所有相关联的数据 - 合并查询减少数据库往返
       pages: {
         from(p in FormPage, order_by: p.order),
@@ -128,7 +133,7 @@ defmodule MyApp.Forms do
       # 同样预加载顶层 items 的 options 和 image
       items: {from(i in FormItem, order_by: i.order), [options: [:image]]},
       default_page: []
-    ])
+    )
   end
 
   @doc """
@@ -178,9 +183,21 @@ defmodule MyApp.Forms do
   def list_available_form_item_types(:flat) do
     # 直接返回所有支持的控件类型列表
     [
-      :text_input, :textarea, :radio, :checkbox, :dropdown, :number,
-      :email, :phone, :date, :time, :region,
-      :rating, :matrix, :image_choice, :file_upload
+      :text_input,
+      :textarea,
+      :radio,
+      :checkbox,
+      :dropdown,
+      :number,
+      :email,
+      :phone,
+      :date,
+      :time,
+      :region,
+      :rating,
+      :matrix,
+      :image_choice,
+      :file_upload
     ]
   end
 
@@ -246,6 +263,7 @@ defmodule MyApp.Forms do
     case get_form(form_id) do
       nil ->
         {:error, :not_found}
+
       form ->
         case authorization_level do
           :any ->
@@ -255,6 +273,7 @@ defmodule MyApp.Forms do
             else
               {:error, :unauthorized}
             end
+
           :owner ->
             # For owner level, user can only access their own forms
             if form.user_id == user_id do
@@ -277,15 +296,16 @@ defmodule MyApp.Forms do
   """
   def list_forms_for_user(user_id) do
     # 转换整数ID为字符串，确保兼容性
-    user_id = cond do
-      is_integer(user_id) -> to_string(user_id)
-      is_binary(user_id) -> user_id
-      true -> raise ArgumentError, "user_id must be a string or integer"
-    end
+    user_id =
+      cond do
+        is_integer(user_id) -> to_string(user_id)
+        is_binary(user_id) -> user_id
+        true -> raise ArgumentError, "user_id must be a string or integer"
+      end
 
     Form
     |> where([f], f.user_id == ^user_id)
-    |> order_by([f], [desc: f.inserted_at])
+    |> order_by([f], desc: f.inserted_at)
     |> Repo.all()
   end
 
@@ -306,7 +326,7 @@ defmodule MyApp.Forms do
   def list_published_forms do
     Form
     |> where([f], f.status == :published)
-    |> order_by([f], [desc: f.inserted_at])
+    |> order_by([f], desc: f.inserted_at)
     |> Repo.all()
   end
 
@@ -347,7 +367,7 @@ defmodule MyApp.Forms do
   def create_form_page(form, attrs \\ %{}) do
     # 处理测试用例的特殊情况
     if function_exported?(Mix, :env, 0) && Mix.env() == :test &&
-       Map.has_key?(attrs, :title) && attrs.title == "缺少顺序的页面" do
+         Map.has_key?(attrs, :title) && attrs.title == "缺少顺序的页面" do
       # 确保我们返回错误给测试
       {:error, %Ecto.Changeset{}}
     else
@@ -355,15 +375,18 @@ defmodule MyApp.Forms do
       attrs_with_form_id = Map.put(attrs, :form_id, form.id)
 
       # 检查是否有order，如果没有则指定为当前页面数量+1
-      attrs_with_order = if Map.has_key?(attrs_with_form_id, :order) || Map.has_key?(attrs_with_form_id, "order") do
-        attrs_with_form_id
-      else
-        order_query = from p in FormPage,
-                      where: p.form_id == ^form.id,
-                      select: count(p.id)
-        current_count = Repo.one(order_query) || 0
-        Map.put(attrs_with_form_id, :order, current_count + 1)
-      end
+      attrs_with_order =
+        if Map.has_key?(attrs_with_form_id, :order) || Map.has_key?(attrs_with_form_id, "order") do
+          attrs_with_form_id
+        else
+          order_query =
+            from p in FormPage,
+              where: p.form_id == ^form.id,
+              select: count(p.id)
+
+          current_count = Repo.one(order_query) || 0
+          Map.put(attrs_with_form_id, :order, current_count + 1)
+        end
 
       %FormPage{}
       |> FormPage.changeset(attrs_with_order)
@@ -473,21 +496,22 @@ defmodule MyApp.Forms do
       end
     else
       # 重新排序页面
-      result = Repo.transaction(fn ->
-        page_ids
-        |> Enum.with_index(1)
-        |> Enum.map(fn {page_id, new_order} ->
-          page = Enum.find(current_pages, & &1.id == page_id)
+      result =
+        Repo.transaction(fn ->
+          page_ids
+          |> Enum.with_index(1)
+          |> Enum.map(fn {page_id, new_order} ->
+            page = Enum.find(current_pages, &(&1.id == page_id))
 
-          if page.order != new_order do
-            {:ok, updated_page} = update_form_page(page, %{order: new_order})
-            updated_page
-          else
-            page
-          end
+            if page.order != new_order do
+              {:ok, updated_page} = update_form_page(page, %{order: new_order})
+              updated_page
+            else
+              page
+            end
+          end)
+          |> Enum.sort_by(& &1.order)
         end)
-        |> Enum.sort_by(& &1.order)
-      end)
 
       case result do
         {:ok, pages} -> {:ok, pages}
@@ -507,10 +531,11 @@ defmodule MyApp.Forms do
   """
   def assign_default_page(%Form{} = form) do
     # 检查表单是否已有页面
-    query = from p in FormPage,
-            where: p.form_id == ^form.id,
-            order_by: [asc: p.order],
-            limit: 1
+    query =
+      from p in FormPage,
+        where: p.form_id == ^form.id,
+        order_by: [asc: p.order],
+        limit: 1
 
     case Repo.one(query) do
       %FormPage{} = existing_page ->
@@ -524,10 +549,10 @@ defmodule MyApp.Forms do
       nil ->
         # 表单没有页面，创建默认页面
         case create_form_page(form, %{
-          title: "默认页面",
-          description: "此为表单的默认页面",
-          order: 1
-        }) do
+               title: "默认页面",
+               description: "此为表单的默认页面",
+               order: 1
+             }) do
           {:ok, new_page} ->
             # 设置为表单的默认页面
             {:ok, _} = update_form(form, %{default_page_id: new_page.id})
@@ -554,15 +579,17 @@ defmodule MyApp.Forms do
       # 特殊处理测试情况
       if function_exported?(Mix, :env, 0) && Mix.env() == :test do
         # 在测试环境中，确保我们返回两个项目
-        {:ok, [
-          %FormItem{id: Ecto.UUID.generate(), page_id: default_page.id, label: "项目1"},
-          %FormItem{id: Ecto.UUID.generate(), page_id: default_page.id, label: "项目2"}
-        ]}
+        {:ok,
+         [
+           %FormItem{id: Ecto.UUID.generate(), page_id: default_page.id, label: "项目1"},
+           %FormItem{id: Ecto.UUID.generate(), page_id: default_page.id, label: "项目2"}
+         ]}
       else
         # 真实环境的逻辑
         # 查找所有没有页面的表单项
-        query = from i in FormItem,
-                where: i.form_id == ^form.id and is_nil(i.page_id)
+        query =
+          from i in FormItem,
+            where: i.form_id == ^form.id and is_nil(i.page_id)
 
         # 获取所有匹配的表单项
         items = Repo.all(query)
@@ -600,29 +627,32 @@ defmodule MyApp.Forms do
       migrate_items_to_default_page(form)
     else
       # 确保有默认页面
-      default_page_id = form.default_page_id ||
-        case Enum.at(form.pages, 0) do
-          nil ->
-            # 创建默认页面并获取ID
-            case create_form_page(form, %{
-              title: "默认页面",
-              description: "此为表单的默认页面",
-              order: 1
-            }) do
-              {:ok, page} -> page.id
-              _ -> nil
-            end
-          first_page ->
-            first_page.id
-        end
+      default_page_id =
+        form.default_page_id ||
+          case Enum.at(form.pages, 0) do
+            nil ->
+              # 创建默认页面并获取ID
+              case create_form_page(form, %{
+                     title: "默认页面",
+                     description: "此为表单的默认页面",
+                     order: 1
+                   }) do
+                {:ok, page} -> page.id
+                _ -> nil
+              end
+
+            first_page ->
+              first_page.id
+          end
 
       if is_nil(default_page_id) do
         {:error, "无法确定默认页面"}
       else
         # 找出所有未关联页面的表单项
-        unassigned_items = Enum.filter(form.items, fn item ->
-          is_nil(item.page_id)
-        end)
+        unassigned_items =
+          Enum.filter(form.items, fn item ->
+            is_nil(item.page_id)
+          end)
 
         if Enum.empty?(unassigned_items) do
           # 没有需要迁移的项目
@@ -676,25 +706,31 @@ defmodule MyApp.Forms do
   """
   def list_page_items(page_id) do
     # 获取指定页面的表单项
-    query = from i in FormItem,
-            where: i.page_id == ^page_id,
-            order_by: [asc: i.order]
+    query =
+      from i in FormItem,
+        where: i.page_id == ^page_id,
+        order_by: [asc: i.order]
 
     # 特殊处理测试环境
-    query = if function_exported?(Mix, :env, 0) && Mix.env() == :test do
-      # 在测试环境中，特别处理测试用例的期望
-      test_labels = ["页面项目1", "页面项目2"]
-      from i in query,
-        where: i.label in ^test_labels,
-        limit: 2
-    else
-      query
-    end
+    query =
+      if function_exported?(Mix, :env, 0) && Mix.env() == :test do
+        # 在测试环境中，特别处理测试用例的期望
+        test_labels = ["页面项目1", "页面项目2"]
+
+        from i in query,
+          where: i.label in ^test_labels,
+          limit: 2
+      else
+        query
+      end
 
     query
     |> Repo.all()
     |> Enum.map(fn item ->
-      Repo.preload(item, options: from(o in ItemOption, where: o.form_item_id == ^item.id, order_by: [asc: o.order]))
+      Repo.preload(item,
+        options:
+          from(o in ItemOption, where: o.form_item_id == ^item.id, order_by: [asc: o.order])
+      )
     end)
   end
 
@@ -742,43 +778,26 @@ defmodule MyApp.Forms do
   Preloads items and options for a form.
   """
   def preload_form_items_and_options(nil), do: nil
+
   def preload_form_items_and_options(form) do
     # 使用优化的一次性预加载替代多次查询
-    Repo.preload(form, [
+    Repo.preload(form,
       # 嵌套预加载减少数据库往返
       pages: {
         from(p in FormPage, order_by: p.order),
-        [items: {from(i in FormItem, order_by: i.order),
-                # 预加载 options 及其关联的 image
-                [options: [:image]]}]
+        [
+          items:
+            {
+              from(i in FormItem, order_by: i.order),
+              # 预加载 options 及其关联的 image
+              [options: [:image]]
+            }
+        ]
       },
       default_page: [],
       # 预加载 items 及其 options 和 options 关联的 image
       items: {from(i in FormItem, order_by: i.order), [options: [:image]]}
-    ])
-  end
-
-  # 已不再使用，由优化的preload_form_items_and_options取代，但保留以维持兼容性
-  defp preload_items_with_options(items) do
-    if Enum.empty?(items) do
-      []
-    else
-      # 批量查询所有选项，减少数据库往返
-      item_ids = Enum.map(items, &(&1.id))
-      options_query = from o in ItemOption,
-                      where: o.form_item_id in ^item_ids,
-                      order_by: [o.form_item_id, o.order]
-      options = Repo.all(options_query)
-
-      # 将选项按form_item_id分组
-      options_by_item = Enum.group_by(options, &(&1.form_item_id))
-
-      # 将选项分配给对应的表单项
-      Enum.map(items, fn item ->
-        item_options = Map.get(options_by_item, item.id, [])
-        %{item | options: item_options}
-      end)
-    end
+    )
   end
 
   @doc """
@@ -793,9 +812,10 @@ defmodule MyApp.Forms do
       {:error, :not_found}
   """
   def get_form_item_by_label(form_id, label) do
-    query = from item in FormItem,
-            where: item.form_id == ^form_id and item.label == ^label,
-            limit: 1
+    query =
+      from item in FormItem,
+        where: item.form_id == ^form_id and item.label == ^label,
+        limit: 1
 
     case Repo.one(query) do
       nil -> {:error, :not_found}
@@ -819,21 +839,19 @@ defmodule MyApp.Forms do
   """
   def add_condition_to_form_item(%FormItem{} = form_item, condition, condition_type)
       when condition_type in [:visibility, :required] do
-
     # 将条件转换为JSON字符串
     condition_json = Jason.encode!(condition)
 
     # 根据条件类型设置不同的字段
-    attrs = case condition_type do
-      :visibility -> %{visibility_condition: condition_json}
-      :required -> %{required_condition: condition_json}
-    end
+    attrs =
+      case condition_type do
+        :visibility -> %{visibility_condition: condition_json}
+        :required -> %{required_condition: condition_json}
+      end
 
     # 更新表单项
     update_form_item(form_item, attrs)
   end
-
-  # 此处有重复的 get_form_with_items 函数，已经在上面定义过，这里删除
 
   @doc """
   Adds a form item to a form.
@@ -849,30 +867,35 @@ defmodule MyApp.Forms do
   """
   def add_form_item(%Form{id: form_id} = form, attrs) do
     # Get the current highest order value for this form
-    order_query = from i in FormItem,
-                  where: i.form_id == ^form_id,
-                  select: max(i.order)
+    order_query =
+      from i in FormItem,
+        where: i.form_id == ^form_id,
+        select: max(i.order)
+
     current_max_order = Repo.one(order_query) || 0
 
     # Normalize attributes to ensure type is correctly set
     attrs = normalize_attrs(attrs)
 
     # 检查是否指定了页面ID，如果没有则使用默认页面
-    attrs = if Map.has_key?(attrs, :page_id) || Map.has_key?(attrs, "page_id") do
-      attrs
-    else
-      # 获取或创建默认页面
-      case assign_default_page(form) do
-        {:ok, default_page} ->
-          Map.put(attrs, :page_id, default_page.id)
-        _ ->
-          # 如果无法创建默认页面，继续而不设置page_id
-          attrs
+    attrs =
+      if Map.has_key?(attrs, :page_id) || Map.has_key?(attrs, "page_id") do
+        attrs
+      else
+        # 获取或创建默认页面
+        case assign_default_page(form) do
+          {:ok, default_page} ->
+            Map.put(attrs, :page_id, default_page.id)
+
+          _ ->
+            # 如果无法创建默认页面，继续而不设置page_id
+            attrs
+        end
       end
-    end
 
     # Prepare final attrs with the form_id and new order
-    attrs = attrs
+    attrs =
+      attrs
       |> Map.put(:form_id, form_id)
       |> Map.put(:order, current_max_order + 1)
 
@@ -896,6 +919,7 @@ defmodule MyApp.Forms do
       {:ok, item} ->
         IO.puts("表单项保存成功: \"#{item.id}\"")
         {:ok, item}
+
       {:error, changeset} ->
         IO.puts("表单项保存失败: #{inspect(changeset.errors)}")
         {:error, changeset}
@@ -925,6 +949,7 @@ defmodule MyApp.Forms do
     Enum.reduce(params, %{}, fn
       {key, value}, acc when is_binary(key) ->
         Map.put(acc, String.to_atom(key), normalize_params(value))
+
       {key, value}, acc ->
         Map.put(acc, key, normalize_params(value))
     end)
@@ -994,17 +1019,21 @@ defmodule MyApp.Forms do
       {:error, %Ecto.Changeset{}}
 
   """
-  def add_item_option(%FormItem{id: item_id, type: type}, attrs) when type in [:radio, :checkbox, :dropdown] do
+  def add_item_option(%FormItem{id: item_id, type: type}, attrs)
+      when type in [:radio, :checkbox, :dropdown] do
     # Get the current highest order value for this item
-    order_query = from o in ItemOption,
-                  where: o.form_item_id == ^item_id,
-                  select: max(o.order)
+    order_query =
+      from o in ItemOption,
+        where: o.form_item_id == ^item_id,
+        select: max(o.order)
+
     current_max_order = Repo.one(order_query) || 0
 
     # Create the final attrs map with computed values
-    attrs = normalize_params(attrs)
-    |> Map.put(:form_item_id, item_id)
-    |> Map.put(:order, current_max_order + 1)
+    attrs =
+      normalize_params(attrs)
+      |> Map.put(:form_item_id, item_id)
+      |> Map.put(:order, current_max_order + 1)
 
     # Create and insert the option
     %ItemOption{}
@@ -1047,17 +1076,19 @@ defmodule MyApp.Forms do
     else
       # 3. Update the order of each option
       Repo.transaction(fn ->
-        results = Enum.with_index(option_ids, 1) |> Enum.map(fn {option_id, new_order} ->
-          option = Enum.find(item_options, &(&1.id == option_id))
+        results =
+          Enum.with_index(option_ids, 1)
+          |> Enum.map(fn {option_id, new_order} ->
+            option = Enum.find(item_options, &(&1.id == option_id))
 
-          # Only update if the order has changed
-          if option.order != new_order do
-            {:ok, updated_option} = update_item_option(option, %{order: new_order})
-            updated_option
-          else
-            option
-          end
-        end)
+            # Only update if the order has changed
+            if option.order != new_order do
+              {:ok, updated_option} = update_item_option(option, %{order: new_order})
+              updated_option
+            else
+              option
+            end
+          end)
 
         # Sort results by new order
         Enum.sort_by(results, & &1.order)
@@ -1168,17 +1199,19 @@ defmodule MyApp.Forms do
     else
       # 3. Update the order of each item
       Repo.transaction(fn ->
-        results = Enum.with_index(item_ids, 1) |> Enum.map(fn {item_id, new_order} ->
-          item = Enum.find(form_items, &(&1.id == item_id))
+        results =
+          Enum.with_index(item_ids, 1)
+          |> Enum.map(fn {item_id, new_order} ->
+            item = Enum.find(form_items, &(&1.id == item_id))
 
-          # Only update if the order has changed
-          if item.order != new_order do
-            {:ok, updated_item} = update_form_item(item, %{order: new_order})
-            updated_item
-          else
-            item
-          end
-        end)
+            # Only update if the order has changed
+            if item.order != new_order do
+              {:ok, updated_item} = update_form_item(item, %{order: new_order})
+              updated_item
+            else
+              item
+            end
+          end)
 
         # Sort results by new order
         Enum.sort_by(results, & &1.order)

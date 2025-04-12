@@ -1,11 +1,7 @@
 <div class="form-list-container">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">我的表单</h1>
-    <button
-      id="new-form-btn"
-      phx-click="new_form"
-      class="form-button-primary"
-    >
+    <button id="new-form-btn" phx-click="new_form" class="form-button-primary">
       创建新表单
     </button>
   </div>
@@ -13,12 +9,7 @@
   <%= if @show_new_form do %>
     <div class="form-card">
       <h2 class="text-xl font-semibold mb-4">创建新表单</h2>
-      <form
-        phx-submit="save_form"
-        phx-change="validate_form"
-        id="new-form"
-        class="space-y-4"
-      >
+      <form phx-submit="save_form" phx-change="validate_form" id="new-form" class="space-y-4">
         <div>
           <label for="form_title" class="form-label">表单标题</label>
           <input
@@ -32,7 +23,7 @@
             phx-feedback-for="form_title"
           />
           <%= if @form_errors[:title] do %>
-            <p class="form-error" phx-feedback-for="form_title"><%= @form_errors[:title] %></p>
+            <p class="form-error" phx-feedback-for="form_title">{@form_errors[:title]}</p>
           <% end %>
         </div>
 
@@ -46,7 +37,7 @@
             class={"form-input #{if @form_errors[:description], do: "border-red-500"}"}
           ><%= @form_values[:description] %></textarea>
           <%= if @form_errors[:description] do %>
-            <p class="form-error"><%= @form_errors[:description] %></p>
+            <p class="form-error">{@form_errors[:description]}</p>
           <% end %>
         </div>
 
@@ -76,8 +67,18 @@
   <%= if Enum.empty?(@forms) and not @show_new_form do %>
     <div class="form-empty-state">
       <div class="form-empty-state-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
         </svg>
       </div>
       <h3 class="text-lg font-medium text-gray-900">您还没有创建任何表单</h3>
@@ -99,11 +100,11 @@
             <tr>
               <td>
                 <div class="text-sm font-medium text-gray-900">
-                  <%= form.title %>
+                  {form.title}
                 </div>
                 <%= if form.description do %>
                   <div class="text-sm text-gray-500 truncate max-w-xs">
-                    <%= form.description %>
+                    {form.description}
                   </div>
                 <% end %>
               </td>
@@ -116,13 +117,10 @@
                 <% end %>
               </td>
               <td>
-                <%= Calendar.strftime(form.inserted_at, "%Y-%m-%d %H:%M") %>
+                {Calendar.strftime(form.inserted_at, "%Y-%m-%d %H:%M")}
               </td>
               <td class="space-x-2">
-                <a
-                  href={~p"/forms/#{form.id}/edit"}
-                  class="text-indigo-600 hover:text-indigo-900"
-                >
+                <a href={~p"/forms/#{form.id}/edit"} class="text-indigo-600 hover:text-indigo-900">
                   编辑
                 </a>
                 <%= if form.status == :draft do %>

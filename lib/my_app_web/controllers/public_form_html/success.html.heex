@@ -1,26 +1,43 @@
 <div class="public-form-success-container py-12 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
   <div class="text-center">
     <div class="success-icon text-green-500 mb-4">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-24 w-24 mx-auto"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     </div>
-    
+
     <h1 class="text-3xl font-bold text-gray-900 mb-4">提交成功！</h1>
     <p class="text-xl text-gray-600 mb-8">
-      感谢您填写 "<%= @form.title %>" 表单
+      感谢您填写 "{@form.title}" 表单
     </p>
-    
+
     <div class="text-gray-500 mb-8">
       您的回答已成功记录，表单管理员可以在后台查看您的回复。
     </div>
-    
+
     <div class="flex justify-center">
-      <.link navigate={~p"/"} class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+      <.link
+        navigate={~p"/"}
+        class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+      >
         返回首页
       </.link>
-      
-      <.link navigate={~p"/public/forms/#{@form.id}"} class="ml-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+
+      <.link
+        navigate={~p"/public/forms/#{@form.id}"}
+        class="ml-4 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+      >
         查看表单
       </.link>
     </div>

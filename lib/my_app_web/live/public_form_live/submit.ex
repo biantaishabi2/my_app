@@ -6,7 +6,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   alias MyApp.Forms.Form
   alias MyApp.Responses
   alias MyApp.FormLogic
-  
+
   # LiveView上传功能在LiveView模块中
 
   @impl true
@@ -17,15 +17,15 @@ defmodule MyAppWeb.PublicFormLive.Submit do
         # 初始化表单数据和错误
         form_data = %{}
         page_index = 0
-        
+
         # 初始化表单页面
         pages = form.pages
 
         # 获取当前页面
         current_page = if Enum.empty?(pages), do: nil, else: Enum.at(pages, page_index)
-        
+
         # 获取当前页面的表单项
-        current_page_items = 
+        current_page_items =
           if current_page do
             form.items
             |> Enum.filter(fn item -> item.page_id == current_page.id end)
@@ -33,7 +33,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           else
             form.items |> Enum.sort_by(& &1.order)
           end
-        
+
         # 初始化socket
         socket =
           socket
@@ -47,26 +47,31 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           |> assign(:errors, %{})
           |> assign(:page_title, "填写表单 - #{form.title}")
           |> assign(:respondent_info, %{"name" => "", "email" => ""})
-          
+
         # 初始化文件上传配置
-        socket = 
+        socket =
           Enum.reduce(form.items, socket, fn item, acc ->
             if item.type == :file_upload do
               # 每个文件上传控件都有自己的上传配置
               max_files_value = if item.multiple_files, do: item.max_files || 1, else: 1
               # 确保 accept 参数总是有值，不能为空列表
-              allowed_extensions = item.allowed_extensions || [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
-              allowed_extensions = if Enum.empty?(allowed_extensions), do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"], else: allowed_extensions
-              
+              allowed_extensions =
+                item.allowed_extensions || [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"]
+
+              allowed_extensions =
+                if Enum.empty?(allowed_extensions),
+                  do: [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"],
+                  else: allowed_extensions
+
               # 为每个文件上传控件注册一个上传配置
               # 使用固定前缀加序号的方式来命名上传配置，避免创建过多的atom
               upload_index = System.unique_integer([:positive])
               upload_name = :"file_upload_#{upload_index}"
-              
+
               # 在socket中存储item_id到upload_name的映射，以便后续使用
               upload_names = Map.get(acc.assigns, :upload_names, %{})
               acc = assign(acc, :upload_names, Map.put(upload_names, item.id, upload_name))
-              
+
               # 注册上传配置 - 直接传递参数而不是用map
               Phoenix.LiveView.allow_upload(acc, upload_name,
                 max_entries: max_files_value,
@@ -81,7 +86,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
         {:ok, socket}
 
       {:error, :not_found} ->
-        {:ok, 
+        {:ok,
          socket
          |> put_flash(:error, "表单不存在或未发布")
          |> push_navigate(to: ~p"/")}
@@ -89,39 +94,43 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   end
 
   @impl true
-  def handle_event("save", %{"form_data" => form_data, "respondent_info" => respondent_info}, socket) do
+  def handle_event(
+        "save",
+        %{"form_data" => form_data, "respondent_info" => respondent_info},
+        socket
+      ) do
     # 从socket获取数据
     form = socket.assigns.form
-    
+
     # 合并表单数据
     updated_form_data = Map.merge(socket.assigns.form_data, form_data)
-    
+
     # 验证当前页面
     current_page_items = socket.assigns.current_page_items
     errors = validate_form_data(current_page_items, updated_form_data, form)
-    
+
     if Enum.empty?(errors) do
       # 保存数据并前进到下一页或提交
-      socket = 
+      socket =
         socket
         |> assign(:form_data, updated_form_data)
         |> assign(:respondent_info, respondent_info)
         |> assign(:errors, %{})
-      
+
       # 检查是否为最后一页
       is_last_page = socket.assigns.page_index == socket.assigns.total_pages - 1
-      
+
       if is_last_page do
         # 提交表单
         case submit_form_response(socket) do
           {:ok, _response} ->
-            {:noreply, 
+            {:noreply,
              socket
              |> put_flash(:info, "表单提交成功！")
              |> push_navigate(to: ~p"/public/forms/#{form.id}/success")}
-          
+
           {:error, reason} ->
-            {:noreply, 
+            {:noreply,
              socket
              |> put_flash(:error, "表单提交失败: #{error_message(reason)}")
              |> assign(:errors, errors_from_reason(reason, %{}))}
@@ -132,7 +141,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
       end
     else
       # 返回错误
-      {:noreply, 
+      {:noreply,
        socket
        |> assign(:errors, errors)
        |> assign(:form_data, updated_form_data)
@@ -144,90 +153,93 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   def handle_event("prev_page", _params, socket) do
     {:noreply, goto_prev_page(socket)}
   end
-  
+
   @impl true
-  def handle_event("next_page", %{"form_data" => form_data, "respondent_info" => respondent_info}, socket) do
+  def handle_event(
+        "next_page",
+        %{"form_data" => form_data, "respondent_info" => respondent_info},
+        socket
+      ) do
     # 保存当前页数据
     updated_form_data = Map.merge(socket.assigns.form_data, form_data)
-    
+
     # 验证当前页面
     current_page_items = socket.assigns.current_page_items
     errors = validate_form_data(current_page_items, updated_form_data, socket.assigns.form)
-    
+
     if Enum.empty?(errors) do
       # 更新数据并前进到下一页
-      socket = 
+      socket =
         socket
         |> assign(:form_data, updated_form_data)
         |> assign(:respondent_info, respondent_info)
         |> assign(:errors, %{})
-      
+
       {:noreply, goto_next_page(socket)}
     else
       # 返回错误
-      {:noreply, 
+      {:noreply,
        socket
        |> assign(:errors, errors)
        |> assign(:form_data, updated_form_data)
        |> assign(:respondent_info, respondent_info)}
     end
   end
-  
+
   @impl true
-  def handle_event("change", %{"form_data" => form_data, "respondent_info" => respondent_info}, socket) do
+  def handle_event(
+        "change",
+        %{"form_data" => form_data, "respondent_info" => respondent_info},
+        socket
+      ) do
     # 合并表单数据
     updated_form_data = Map.merge(socket.assigns.form_data, form_data)
-    
+
     # 更新socket
-    {:noreply, 
+    {:noreply,
      socket
      |> assign(:form_data, updated_form_data)
      |> assign(:respondent_info, respondent_info)}
   end
-  
+
   @impl true
   def handle_event("validate", %{"_target" => [_ref]}, socket) do
     {:noreply, socket}
   end
-  
+
   @impl true
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     # 取消特定的文件上传
-    {upload_name, _entry_ref} = 
+    {upload_name, _entry_ref} =
       ref
       |> String.split("-", parts: 2)
       |> then(fn [name, ref] -> {String.to_existing_atom(name), ref} end)
-      
+
     {:noreply, Phoenix.LiveView.cancel_upload(socket, upload_name, ref)}
   end
-  
-  # 文件上传错误转换为对用户友好的错误消息
-  defp error_to_string(:too_large), do: "文件太大"
-  defp error_to_string(:not_accepted), do: "文件类型不被接受"
-  defp error_to_string(:too_many_files), do: "文件数量过多"
-  defp error_to_string(error) when is_atom(error), do: "上传失败: #{error}"
-  defp error_to_string(error), do: "上传错误: #{inspect(error)}"
 
   # 获取已发布的表单及其表单项和选项
   defp get_published_form(id) do
     case Forms.get_form(id) do
-      nil -> 
+      nil ->
         {:error, :not_found}
-      %Form{status: :published} = form -> 
+
+      %Form{status: :published} = form ->
         # 预加载表单项和选项（已包含页面加载）
         form = Forms.preload_form_items_and_options(form)
-        
+
         # 如果没有页面，创建一个默认页面
-        form = 
+        form =
           if Enum.empty?(form.pages) do
             # 在内存中创建一个虚拟页面，不保存到数据库
             %{form | pages: [%{id: "default", title: "默认页面", order: 1}]}
           else
             form
           end
-        
+
         {:ok, form}
-      %Form{} -> 
+
+      %Form{} ->
         {:error, :not_found}
     end
   end
@@ -237,19 +249,19 @@ defmodule MyAppWeb.PublicFormLive.Submit do
     form = socket.assigns.form
     form_data = socket.assigns.form_data
     respondent_info = socket.assigns.respondent_info
-    
+
     # 过滤掉辅助字段（如地区选择的辅助字段）
-    filtered_form_data = 
+    filtered_form_data =
       form_data
-      |> Enum.filter(fn {key, _value} -> 
+      |> Enum.filter(fn {key, _value} ->
         # 过滤掉以下模式的键
-        not (is_binary(key) and 
-             (String.ends_with?(key, "_province") or 
-              String.ends_with?(key, "_city") or 
-              String.ends_with?(key, "_district")))
+        not (is_binary(key) and
+               (String.ends_with?(key, "_province") or
+                  String.ends_with?(key, "_city") or
+                  String.ends_with?(key, "_district")))
       end)
       |> Enum.into(%{})
-    
+
     # 调用Responses上下文创建响应
     Responses.create_response(form.id, filtered_form_data, respondent_info)
   end
@@ -259,19 +271,23 @@ defmodule MyAppWeb.PublicFormLive.Submit do
     items
     |> Enum.filter(fn item ->
       # 检查条件可见性
-      is_visible = 
+      is_visible =
         case item.visibility_condition do
-          nil -> true
-          condition -> 
+          nil ->
+            true
+
+          condition ->
             FormLogic.evaluate_condition(condition, form_data)
         end
 
       # 检查条件必填
-      is_required = 
+      is_required =
         if item.required do
           case item.required_condition do
-            nil -> true
-            condition -> 
+            nil ->
+              true
+
+            condition ->
               FormLogic.evaluate_condition(condition, form_data)
           end
         else
@@ -288,10 +304,11 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   # 检查表单项值是否为空
   defp is_empty_value?(item, form_data) do
     value = Map.get(form_data, item.id, nil)
-    
+
     case item.type do
       :checkbox ->
         is_nil(value) || (is_list(value) && Enum.empty?(value))
+
       _ ->
         is_nil(value) || value == ""
     end
@@ -301,20 +318,20 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   defp goto_next_page(socket) do
     current_index = socket.assigns.page_index
     total_pages = socket.assigns.total_pages
-    
+
     if current_index < total_pages - 1 do
       # 计算新页索引
       new_index = current_index + 1
-      
+
       # 获取新页面和对应的表单项
       new_page = Enum.at(socket.assigns.pages, new_index)
-      
+
       # 获取当前页面的表单项
-      new_page_items = 
+      new_page_items =
         socket.assigns.form.items
         |> Enum.filter(fn item -> item.page_id == new_page.id end)
         |> Enum.sort_by(& &1.order)
-      
+
       # 更新socket
       socket
       |> assign(:page_index, new_index)
@@ -330,20 +347,20 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   # 转到上一页
   defp goto_prev_page(socket) do
     current_index = socket.assigns.page_index
-    
+
     if current_index > 0 do
       # 计算新页索引
       new_index = current_index - 1
-      
+
       # 获取新页面和对应的表单项
       new_page = Enum.at(socket.assigns.pages, new_index)
-      
+
       # 获取当前页面的表单项
-      new_page_items = 
+      new_page_items =
         socket.assigns.form.items
         |> Enum.filter(fn item -> item.page_id == new_page.id end)
         |> Enum.sort_by(& &1.order)
-      
+
       # 更新socket
       socket
       |> assign(:page_index, new_index)
@@ -368,5 +385,6 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   defp errors_from_reason({:invalid_answer, item_id}, errors) do
     Map.put(errors, item_id, "此选项的回答无效")
   end
+
   defp errors_from_reason(_, errors), do: errors
 end

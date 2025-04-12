@@ -205,6 +205,7 @@ defmodule MyAppWeb.UserAuth do
   """
   def require_authenticated_user(conn, _opts) do
     current_user = conn.assigns[:current_user]
+
     if current_user do
       conn
     else

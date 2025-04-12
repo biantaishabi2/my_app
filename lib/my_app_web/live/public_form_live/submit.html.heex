@@ -1,50 +1,69 @@
 <div class="public-form-submit-container">
   <div class="public-form-header">
-    <h1 class="text-2xl font-bold mb-2"><%= @form.title %></h1>
+    <h1 class="text-2xl font-bold mb-2">{@form.title}</h1>
     <%= if @form.description do %>
-      <p class="text-gray-600 mb-6"><%= @form.description %></p>
+      <p class="text-gray-600 mb-6">{@form.description}</p>
     <% end %>
   </div>
 
   <%= if @total_pages > 1 do %>
     <div class="form-progress mb-6">
       <div class="progress-bar bg-gray-200 h-2 rounded-full overflow-hidden">
-        <div class="progress-fill bg-blue-500 h-full" style={"width: #{(@page_index + 1) / @total_pages * 100}%"}></div>
+        <div
+          class="progress-fill bg-blue-500 h-full"
+          style={"width: #{(@page_index + 1) / @total_pages * 100}%"}
+        >
+        </div>
       </div>
       <div class="progress-text mt-1 text-sm text-gray-600">
-        第 <%= @page_index + 1 %> 页，共 <%= @total_pages %> 页
+        第 {@page_index + 1} 页，共 {@total_pages} 页
       </div>
     </div>
   <% end %>
 
   <%= if @current_page do %>
     <div class="page-header mb-4">
-      <h2 class="text-xl font-semibold"><%= @current_page.title %></h2>
+      <h2 class="text-xl font-semibold">{@current_page.title}</h2>
       <%= if Map.get(@current_page, :description) do %>
-        <p class="text-gray-600"><%= @current_page.description %></p>
+        <p class="text-gray-600">{@current_page.description}</p>
       <% end %>
     </div>
   <% end %>
 
-  <.form for={%{}} phx-submit={if @page_index == @total_pages - 1, do: "save", else: "next_page"} phx-change="change" id="form-submit">
+  <.form
+    for={%{}}
+    phx-submit={if @page_index == @total_pages - 1, do: "save", else: "next_page"}
+    phx-change="change"
+    id="form-submit"
+  >
     <!-- 回答者信息 -->
     <div class="respondent-info mb-8">
       <h3 class="text-lg font-medium mb-4">您的联系信息</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="form-group">
           <label for="respondent_name" class="block text-sm font-medium mb-1">姓名</label>
-          <input type="text" id="respondent_name" name="respondent_info[name]" value={@respondent_info["name"]} 
-                class="form-control w-full p-2 border rounded" />
+          <input
+            type="text"
+            id="respondent_name"
+            name="respondent_info[name]"
+            value={@respondent_info["name"]}
+            class="form-control w-full p-2 border rounded"
+          />
         </div>
         <div class="form-group">
           <label for="respondent_email" class="block text-sm font-medium mb-1">邮箱</label>
-          <input type="email" id="respondent_email" name="respondent_info[email]" value={@respondent_info["email"]} 
-                class="form-control w-full p-2 border rounded" />
+          <input
+            type="email"
+            id="respondent_email"
+            name="respondent_info[email]"
+            value={@respondent_info["email"]}
+            class="form-control w-full p-2 border rounded"
+          />
         </div>
       </div>
     </div>
-
-    <!-- 表单项 -->
+    
+<!-- 表单项 -->
     <div class="form-items">
       <%= if Enum.empty?(@current_page_items) do %>
         <div class="empty-form">
@@ -55,13 +74,13 @@
           <div class="form-item mb-6">
             <div class="form-item-header mb-2">
               <label for={item.id} class="block text-lg font-medium">
-                <%= item.label %>
+                {item.label}
                 <%= if item.required do %>
                   <span class="form-item-required text-red-500">*</span>
                 <% end %>
               </label>
               <%= if item.description do %>
-                <p class="text-sm text-gray-500"><%= item.description %></p>
+                <p class="text-sm text-gray-500">{item.description}</p>
               <% end %>
             </div>
 
@@ -71,26 +90,33 @@
 
             <%= if Map.has_key?(@errors, item.id) do %>
               <div class="error-message text-red-500 text-sm mt-1">
-                <%= @errors[item.id] %>
+                {@errors[item.id]}
               </div>
             <% end %>
           </div>
         <% end %>
       <% end %>
     </div>
-
-    <!-- 导航按钮 -->
+    
+<!-- 导航按钮 -->
     <div class="form-navigation mt-8 flex items-center justify-between">
       <%= if @page_index > 0 do %>
-        <button type="button" phx-click="prev_page" class="prev-button bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded">
+        <button
+          type="button"
+          phx-click="prev_page"
+          class="prev-button bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded"
+        >
           上一页
         </button>
       <% else %>
         <div></div>
       <% end %>
 
-      <button type="submit" class="next-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded">
-        <%= if @page_index == @total_pages - 1, do: "提交", else: "下一页" %>
+      <button
+        type="submit"
+        class="next-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded"
+      >
+        {if @page_index == @total_pages - 1, do: "提交", else: "下一页"}
       </button>
     </div>
   </.form>

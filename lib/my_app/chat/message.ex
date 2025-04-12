@@ -19,4 +19,4 @@ defmodule MyApp.Chat.Message do
     |> validate_required([:conversation_id, :role, :content])
     |> validate_inclusion(:role, ["user", "assistant"])
   end
-end 
+end

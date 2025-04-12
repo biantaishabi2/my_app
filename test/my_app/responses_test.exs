@@ -4,8 +4,10 @@ defmodule MyApp.ResponsesTest do
 
   alias MyApp.Forms
   alias MyApp.Responses
-  alias MyApp.Responses.Response # Assuming Response schema is in Responses context
-  alias MyApp.Responses.Answer   # Assuming Answer schema is in Responses context
+  # Assuming Response schema is in Responses context
+  alias MyApp.Responses.Response
+  # Assuming Answer schema is in Responses context
+  alias MyApp.Responses.Answer
   import MyApp.AccountsFixtures
 
   @moduletag :capture_log
@@ -17,18 +19,20 @@ defmodule MyApp.ResponsesTest do
     {:ok, form} = Forms.create_form(%{title: "Test Response Form", user_id: user.id})
 
     # 2. Add a required text input item
-    {:ok, text_item} = Forms.add_form_item(form, %{
-      label: "Your Email",
-      type: :text_input,
-      required: true
-    })
+    {:ok, text_item} =
+      Forms.add_form_item(form, %{
+        label: "Your Email",
+        type: :text_input,
+        required: true
+      })
 
     # 3. Add a required radio item
-    {:ok, radio_item} = Forms.add_form_item(form, %{
-      label: "Rate your experience (1-5)",
-      type: :radio,
-      required: true
-    })
+    {:ok, radio_item} =
+      Forms.add_form_item(form, %{
+        label: "Rate your experience (1-5)",
+        type: :radio,
+        required: true
+      })
 
     # 4. Add options to the radio item
     {:ok, option1} = Forms.add_item_option(radio_item, %{label: "1 (Poor)", value: "1"})
@@ -55,18 +59,21 @@ defmodule MyApp.ResponsesTest do
       form: form,
       text_item: text_item,
       radio_item: radio_item,
-      radio_options: _radio_options # Not directly needed for valid value, but good context
+      # Not directly needed for valid value, but good context
+      radio_options: _radio_options
     } do
       valid_answers = %{
         text_item.id => "test@example.com",
-        radio_item.id => "3" # Corresponds to the value of the 'Average' option
+        # Corresponds to the value of the 'Average' option
+        radio_item.id => "3"
       }
 
       assert {:ok, %Response{} = response} = Responses.create_response(form.id, valid_answers)
 
       # Verify the Response record
       assert response.form_id == form.id
-      assert response.submitted_at != nil # Check it has a timestamp
+      # Check it has a timestamp
+      assert response.submitted_at != nil
 
       # Verify the associated Answer records (assuming they are preloaded or fetched separately)
       # This might require a helper to fetch answers for a response id
@@ -92,12 +99,15 @@ defmodule MyApp.ResponsesTest do
 
     test "returns error if required text_input answer is missing", %{
       form: form,
-      text_item: _text_item, # Needed for context, but value is omitted
+      # Needed for context, but value is omitted
+      text_item: _text_item,
       radio_item: radio_item
     } do
       invalid_answers = %{
-        radio_item.id => "1" # Provide radio answer, omit text answer
+        # Provide radio answer, omit text answer
+        radio_item.id => "1"
       }
+
       assert {:error, _reason} = Responses.create_response(form.id, invalid_answers)
       # Check the error reason, e.g., {:validation, changeset} or specific atom
       # assert reason == :validation_failed
@@ -109,11 +119,14 @@ defmodule MyApp.ResponsesTest do
     test "returns error if required radio answer is missing", %{
       form: form,
       text_item: text_item,
-      radio_item: _radio_item # Needed for context, but value is omitted
+      # Needed for context, but value is omitted
+      radio_item: _radio_item
     } do
       invalid_answers = %{
-        text_item.id => "another@example.com" # Provide text answer, omit radio answer
+        # Provide text answer, omit radio answer
+        text_item.id => "another@example.com"
       }
+
       assert {:error, _reason} = Responses.create_response(form.id, invalid_answers)
     end
 
@@ -124,8 +137,10 @@ defmodule MyApp.ResponsesTest do
     } do
       invalid_answers = %{
         text_item.id => "valid@email.com",
-        radio_item.id => "99" # This value is not among the defined options (1, 3, 5)
+        # This value is not among the defined options (1, 3, 5)
+        radio_item.id => "99"
       }
+
       assert {:error, _reason} = Responses.create_response(form.id, invalid_answers)
     end
 
@@ -135,14 +150,20 @@ defmodule MyApp.ResponsesTest do
       {:ok, draft_form} = Forms.create_form(%{title: "Draft Form Only", user_id: user.id})
       # Assume it has items, or test the check happens before item validation
       dummy_answers = %{}
-      assert {:error, :form_not_published} = Responses.create_response(draft_form.id, dummy_answers)
+
+      assert {:error, :form_not_published} =
+               Responses.create_response(draft_form.id, dummy_answers)
+
       # Or whatever error the function should return for wrong status
     end
 
     test "returns error when submitting to a non-existent form_id" do
       non_existent_form_id = Ecto.UUID.generate()
       dummy_answers = %{}
-      assert {:error, :form_not_found} = Responses.create_response(non_existent_form_id, dummy_answers)
+
+      assert {:error, :form_not_found} =
+               Responses.create_response(non_existent_form_id, dummy_answers)
+
       # Or whatever error indicates the form wasn't found
     end
   end
@@ -160,6 +181,7 @@ defmodule MyApp.ResponsesTest do
         text_item.id => "fetch_me@test.com",
         radio_item.id => "5"
       }
+
       {:ok, response} = Responses.create_response(form.id, answers)
 
       # Fetch the response using the function under test
@@ -174,8 +196,10 @@ defmodule MyApp.ResponsesTest do
       assert length(fetched_response.answers) == 2
 
       # Verify answer details (more robust check)
-      answer_values = Enum.map(fetched_response.answers, &{&1.form_item_id, &1.value["value"]})
-                     |> Map.new()
+      answer_values =
+        Enum.map(fetched_response.answers, &{&1.form_item_id, &1.value["value"]})
+        |> Map.new()
+
       assert answer_values[text_item.id] == "fetch_me@test.com"
       assert answer_values[radio_item.id] == "5"
     end
@@ -206,7 +230,8 @@ defmodule MyApp.ResponsesTest do
       {:ok, other_form} = Forms.create_form(%{title: "Another Form", user_id: user.id})
       {:ok, other_form_published} = Forms.publish_form(other_form)
       # Assume other_form has items or create_response handles empty answers gracefully
-      {:ok, _other_resp} = Responses.create_response(other_form_published.id, %{}) # Or valid answers
+      # Or valid answers
+      {:ok, _other_resp} = Responses.create_response(other_form_published.id, %{})
 
       # List responses for the original form
       response_list = Responses.list_responses_for_form(form.id)
@@ -233,10 +258,10 @@ defmodule MyApp.ResponsesTest do
     # test "supports pagination options" do ... end
     # test "supports filtering options" do ... end
   end
-  
+
   describe "delete_response/1" do
     setup [:setup_published_form]
-    
+
     test "deletes the response and associated answers", %{
       form: form,
       text_item: text_item,
@@ -247,22 +272,23 @@ defmodule MyApp.ResponsesTest do
         text_item.id => "to_delete@example.com",
         radio_item.id => "1"
       }
+
       {:ok, response} = Responses.create_response(form.id, answers)
-      
+
       # Delete the response
       assert {:ok, %{id: deleted_id}} = Responses.delete_response(response)
       assert deleted_id == response.id
-      
+
       # Verify the response is deleted
       assert Responses.get_response(response.id) == nil
-      
+
       # Verify all responses are now empty for the form
       assert Responses.list_responses_for_form(form.id) == []
     end
-    
+
     test "returns error when trying to delete non-existent response" do
       non_existent_id = Ecto.UUID.generate()
       assert {:error, :not_found} = Responses.delete_response(%{id: non_existent_id})
     end
   end
-end 
+end

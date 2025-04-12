@@ -1,12 +1,12 @@
 <div class="container mx-auto p-6">
   <div class="flex justify-between items-center mb-6">
     <div>
-      <h1 class="text-2xl font-bold"><%= @form.title %> - 回复详情</h1>
+      <h1 class="text-2xl font-bold">{@form.title} - 回复详情</h1>
       <div class="text-sm text-gray-500">
-        提交于: <%= format_datetime(@response.submitted_at) %>
+        提交于: {format_datetime(@response.submitted_at)}
       </div>
     </div>
-    
+
     <div class="flex gap-2">
       <button
         phx-click="back_to_responses"
@@ -16,87 +16,85 @@
       </button>
     </div>
   </div>
-  
+
   <div class="bg-white rounded-lg shadow-lg overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200">
       <h2 class="text-lg font-medium">回复者信息</h2>
       <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <div class="text-sm text-gray-500">姓名</div>
-          <div class="font-medium"><%= get_respondent_name(@response) %></div>
+          <div class="font-medium">{get_respondent_name(@response)}</div>
         </div>
         <div>
           <div class="text-sm text-gray-500">邮箱</div>
-          <div class="font-medium"><%= get_respondent_email(@response) %></div>
+          <div class="font-medium">{get_respondent_email(@response)}</div>
         </div>
       </div>
     </div>
-    
+
     <div class="px-6 py-4">
       <h2 class="text-lg font-medium mb-4">回复内容</h2>
-      
+
       <div class="space-y-6">
         <%= for answer <- @response.answers do %>
           <% item = Map.get(@items_map, answer.form_item_id) %>
           <%= if item do %>
             <div class="border border-gray-200 rounded-lg p-4">
               <div class="font-medium mb-2">
-                <%= item.label %>
+                {item.label}
                 <%= if item.required do %>
                   <span class="text-red-500">*</span>
                 <% end %>
               </div>
-              
+
               <div class="bg-gray-50 p-3 rounded mt-2">
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class="text-gray-800"><%= answer.value %></div>
-                  
+                    <div class="text-gray-800">{answer.value}</div>
                   <% :textarea -> %>
-                    <div class="text-gray-800 whitespace-pre-wrap"><%= answer.value %></div>
-                  
+                    <div class="text-gray-800 whitespace-pre-wrap">{answer.value}</div>
                   <% :radio -> %>
-                    <% selected_option = Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                    <% selected_option =
+                      Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                          <%= selected_option.label %>
+                          {selected_option.label}
                         </span>
-                        <span class="text-gray-500 text-xs ml-2">(值: <%= answer.value %>)</span>
+                        <span class="text-gray-500 text-xs ml-2">(值: {answer.value})</span>
                       </div>
                     <% else %>
-                      <div class="text-gray-800"><%= answer.value %></div>
+                      <div class="text-gray-800">{answer.value}</div>
                     <% end %>
-                  
                   <% :dropdown -> %>
-                    <% selected_option = Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                    <% selected_option =
+                      Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          <%= selected_option.label %>
+                          {selected_option.label}
                         </span>
-                        <span class="text-gray-500 text-xs ml-2">(值: <%= answer.value %>)</span>
+                        <span class="text-gray-500 text-xs ml-2">(值: {answer.value})</span>
                       </div>
                     <% else %>
-                      <div class="text-gray-800"><%= answer.value %></div>
+                      <div class="text-gray-800">{answer.value}</div>
                     <% end %>
-                  
                   <% :checkbox -> %>
-                    <% 
-                      values = if is_list(answer.value), do: answer.value, else: [answer.value]
-                      selected_options = Enum.filter(item.options || [], fn opt -> opt.value in values end)
-                    %>
+                    <% values = if is_list(answer.value), do: answer.value, else: [answer.value]
+
+                    selected_options =
+                      Enum.filter(item.options || [], fn opt -> opt.value in values end) %>
                     <div class="text-gray-800">
                       <%= if selected_options != [] do %>
                         <div class="flex flex-wrap gap-2">
                           <%= for option <- selected_options do %>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              <%= option.label %>
+                              {option.label}
                             </span>
                           <% end %>
                         </div>
                         <div class="text-gray-500 text-xs mt-1">
-                          (值: <%= Enum.map(selected_options, & &1.value) |> Enum.join(", ") %>)
+                          (值: {Enum.map(selected_options, & &1.value) |> Enum.join(", ")})
                         </div>
                       <% else %>
                         <div class="text-gray-500 italic">未选择任何选项</div>

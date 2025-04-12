@@ -15,7 +15,8 @@ defmodule MyAppWeb.UserResetPasswordLive do
           %{}
       end
 
-    {:ok, assign_form(socket, form_source) |> assign(page_title: "重置密码"), temporary_assigns: [form: nil]}
+    {:ok, assign_form(socket, form_source) |> assign(page_title: "重置密码"),
+     temporary_assigns: [form: nil]}
   end
 
   def render(assigns) do
@@ -46,8 +47,7 @@ defmodule MyAppWeb.UserResetPasswordLive do
       </.simple_form>
 
       <p class="text-center text-sm mt-4">
-        <.link href={~p"/users/register"}>注册</.link>
-        | <.link href={~p"/users/log_in"}>登录</.link>
+        <.link href={~p"/users/register"}>注册</.link> | <.link href={~p"/users/log_in"}>登录</.link>
       </p>
     </div>
     """

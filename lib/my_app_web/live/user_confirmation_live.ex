@@ -21,8 +21,7 @@ defmodule MyAppWeb.UserConfirmationLive do
       </.simple_form>
 
       <p class="text-center mt-4">
-        <.link href={~p"/users/register"}>注册</.link>
-        | <.link href={~p"/users/log_in"}>登录</.link>
+        <.link href={~p"/users/register"}>注册</.link> | <.link href={~p"/users/log_in"}>登录</.link>
       </p>
     </div>
     """

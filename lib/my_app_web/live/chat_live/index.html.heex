@@ -1,876 +1,1115 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="csrf-token" content={Phoenix.Controller.get_csrf_token()} />
-  <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-  <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
-  <title>AI助手 - <%= @current_user.email %></title>
-  <style>
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-      height: 100vh !important;
-      width: 100vw !important;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    .h-screen { height: 100vh !important; }
-    .w-screen { width: 100vw !important; }
-    .chat-container {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      width: 100vw;
-      background-color: #f9fafb;
-    }
-    .sidebar {
-      width: 280px;
-      background-color: #1f2937;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      transition: all 0.3s;
-      position: relative;
-      padding-bottom: 15px;
-      z-index: 10; /* 确保侧边栏在移动设备上显示在内容上方 */
-    }
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .top-bar {
-      height: 60px;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
-      background-color: white;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .messages-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      background-color: #f9fafb;
-    }
-    .input-container {
-      padding: 16px;
-      background-color: white;
-      border-top: 1px solid #e5e7eb;
-      position: relative;
-    }
-    /* Explicit message row styling */
-    .user-message-row, .ai-message-row {
-      display: flex;
-      width: 100%;
-      margin-bottom: 1rem; /* mb-4 */
-    }
-    .user-message-row {
-      justify-content: flex-end; /* Align user messages right */
-    }
-    .ai-message-row {
-      justify-content: flex-start; /* Align AI messages left */
-    }
-    .message-wrapper {
-      display: flex;
-      max-width: 75%;
-      align-items: flex-start; /* Align avatar and bubble at the top */
-    }
-    .message-wrapper.user {
-      flex-direction: row-reverse; /* Avatar left, bubble right */
-    }
-    .message-wrapper.ai {
-      flex-direction: row; /* Avatar left, bubble right */
-    }
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 10px;
-      flex-shrink: 0;
-    }
-    .avatar.ai {
-      background-color: #10b981;
-      color: white;
-    }
-    .avatar.user {
-      background-color: #6b7280;
-      color: white;
-    }
-    .message-content {
-      padding: 12px 16px;
-      border-radius: 12px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-    /* 用户消息使用绿色背景，像微信那样 */
-    .message-content.user-message {
-      background-color: #95ec69;
-      color: #000;
-      border: none;
-      border-top-right-radius: 4px;
-    }
-    /* AI消息使用白色背景 */
-    .message-content.ai-message {
-      background-color: white;
-      color: #000;
-      border: 1px solid #e5e7eb;
-      border-top-left-radius: 4px;
-    }
-    .input-group {
-      display: flex;
-      align-items: center;
-      position: relative;
-    }
-    .message-input {
-      width: 100%;
-      border: 1px solid #d1d5db;
-      border-radius: 18px;
-      padding: 12px 16px;
-      outline: none;
-      resize: none;
-      max-height: 120px;
-      min-height: 48px;
-      font-size: 15px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .message-input:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-    }
-    .send-button {
-      background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 46px;
-      height: 46px;
-      min-width: 46px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 12px;
-      cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-      position: relative;
-      overflow: hidden;
-      z-index: 2;
-    }
-    .send-button:hover {
-      background: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
-      transform: translateY(-2px) scale(1.05);
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-    }
-    .send-button:active {
-      transform: translateY(0) scale(0.95);
-      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
-    }
-    .send-button:before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
-      border-radius: 50%;
-      transform: scale(0);
-      transition: transform 0.3s ease;
-    }
-    .send-button:hover:before {
-      transform: scale(1.5);
-    }
-    .send-button svg {
-      width: 22px;
-      height: 22px;
-      transform: translateX(-1px);
-      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
-    }
-    .hidden { display: none; }
-    .flex { display: flex; }
-    .flex-col { flex-direction: column; }
-    .items-center { align-items: center; }
-    .justify-between { justify-content: space-between; }
-    .w-full { width: 100%; }
-    .font-medium { font-weight: 500; }
-    .text-xl { font-size: 1.25rem; }
-    .w-6 { width: 1.5rem; } /* Added for w-6 */
-    .h-6 { height: 1.5rem; } /* Added for h-6 */
-    .message-hint {
-      text-align: center;
-      margin-top: 12px;
-      margin-bottom: 8px;
-      padding-bottom: 8px;
-      font-size: 13px;
-      color: #6b7280;
-      opacity: 0.8;
-      font-style: italic;
-      letter-spacing: 0.3px;
-    }
-    
-    /* 移动设备适配样式 */
-    @media (max-width: 768px) {
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="csrf-token" content={Phoenix.Controller.get_csrf_token()} />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
+    <title>AI助手 - {@current_user.email}</title>
+    <style>
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        height: 100vh !important;
+        width: 100vw !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .h-screen { height: 100vh !important; }
+      .w-screen { width: 100vw !important; }
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        width: 100vw;
+        background-color: #f9fafb;
+      }
       .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 85%;
-        max-width: 300px;
-        z-index: 20;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
+        width: 280px;
+        background-color: #1f2937;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        transition: all 0.3s;
+        position: relative;
+        padding-bottom: 15px;
+        z-index: 10; /* 确保侧边栏在移动设备上显示在内容上方 */
       }
-      
-      .sidebar.show {
-        transform: translateX(0);
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
-      
-      /* 当侧边栏打开时，创建一个暗色遮罩覆盖主内容 */
-      .sidebar-backdrop {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0, 0, 0, 0.5);
-        z-index: 15;
+      .top-bar {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        background-color: white;
+        border-bottom: 1px solid #e5e7eb;
       }
-      
-      .sidebar-backdrop.show {
-        display: block;
+      .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background-color: #f9fafb;
       }
-      
-      /* 调整消息布局以更好适应小屏幕 */
-      .message-wrapper {
-        max-width: 85%;
-      }
-      
-      .message-content {
-        padding: 10px 12px;
-        font-size: 15px;
-      }
-      
-      /* 调整输入区域 - 修改为仅在主内容区内定位 */
-      .main-content .input-container {
-        padding: 12px;
-        position: fixed;
-        bottom: 0;
-        /* 修改定位方式，确保不会覆盖侧边栏 */
-        left: 0;
-        right: 0;
-        width: 100%;
+      .input-container {
+        padding: 16px;
         background-color: white;
         border-top: 1px solid #e5e7eb;
-        z-index: 5; /* 降低z-index，确保低于侧边栏和背景遮罩 */
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        position: relative;
       }
-      
-      /* 确保消息容器不被输入框遮挡 */
-      .messages-container {
-        padding-bottom: 170px; /* 增加底部内边距，从120px改为170px，确保最后一条消息完全可见 */
+      /* Explicit message row styling */
+      .user-message-row, .ai-message-row {
+        display: flex;
+        width: 100%;
+        margin-bottom: 1rem; /* mb-4 */
       }
-      
+      .user-message-row {
+        justify-content: flex-end; /* Align user messages right */
+      }
+      .ai-message-row {
+        justify-content: flex-start; /* Align AI messages left */
+      }
+      .message-wrapper {
+        display: flex;
+        max-width: 75%;
+        align-items: flex-start; /* Align avatar and bubble at the top */
+      }
+      .message-wrapper.user {
+        flex-direction: row-reverse; /* Avatar left, bubble right */
+      }
+      .message-wrapper.ai {
+        flex-direction: row; /* Avatar left, bubble right */
+      }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 10px;
+        flex-shrink: 0;
+      }
+      .avatar.ai {
+        background-color: #10b981;
+        color: white;
+      }
+      .avatar.user {
+        background-color: #6b7280;
+        color: white;
+      }
+      .message-content {
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      /* 用户消息使用绿色背景，像微信那样 */
+      .message-content.user-message {
+        background-color: #95ec69;
+        color: #000;
+        border: none;
+        border-top-right-radius: 4px;
+      }
+      /* AI消息使用白色背景 */
+      .message-content.ai-message {
+        background-color: white;
+        color: #000;
+        border: 1px solid #e5e7eb;
+        border-top-left-radius: 4px;
+      }
+      .input-group {
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
       .message-input {
-        min-height: 44px;
-        padding: 10px 14px;
-        border-radius: 16px;
-        font-size: 16px; /* 防止iOS缩放 */
+        width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 18px;
+        padding: 12px 16px;
+        outline: none;
+        resize: none;
+        max-height: 120px;
+        min-height: 48px;
+        font-size: 15px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
-      
+      .message-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      }
       .send-button {
-        width: 42px;
-        height: 42px;
-        min-width: 42px;
-        margin-left: 8px;
-        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
-      }
-      
-      .send-button svg {
-        width: 20px;
-        height: 20px;
-      }
-      
-      /* 优化消息头部显示 */
-      .message-header {
-        font-size: 13px !important;
-      }
-      
-      /* 提示信息缩小 */
-      .message-hint {
-        margin-top: 6px;
-        font-size: 11px;
-      }
-      
-      /* 键盘弹出时的样式 */
-      .input-container.keyboard-active {
-        position: fixed !important;
-        bottom: 0 !important;
-        transition: none !important;
-      }
-      
-      /* 确保最后一条消息和最后一个消息行有足够的底部间距 */
-      .ai-message-row:last-child,
-      .user-message-row:last-child {
-        margin-bottom: 40px !important; /* 为最后一条消息增加更多的底部间距，从20px改为40px */
-      }
-      
-      /* 防止iOS Safari的弹性滚动影响布局 */
-      body {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 12px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        position: relative;
         overflow: hidden;
-        position: fixed;
+        z-index: 2;
+      }
+      .send-button:hover {
+        background: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      }
+      .send-button:active {
+        transform: translateY(0) scale(0.95);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+      }
+      .send-button:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
+        border-radius: 50%;
+        transform: scale(0);
+        transition: transform 0.3s ease;
       }
-      
-      html {
-        overflow: hidden;
-        height: 100%;
+      .send-button:hover:before {
+        transform: scale(1.5);
       }
-      
-      /* 移动端编辑表单样式调整 */
+      .send-button svg {
+        width: 22px;
+        height: 22px;
+        transform: translateX(-1px);
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+      }
+      .hidden { display: none; }
+      .flex { display: flex; }
+      .flex-col { flex-direction: column; }
+      .items-center { align-items: center; }
+      .justify-between { justify-content: space-between; }
+      .w-full { width: 100%; }
+      .font-medium { font-weight: 500; }
+      .text-xl { font-size: 1.25rem; }
+      .w-6 { width: 1.5rem; } /* Added for w-6 */
+      .h-6 { height: 1.5rem; } /* Added for h-6 */
+      .message-hint {
+        text-align: center;
+        margin-top: 12px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        font-size: 13px;
+        color: #6b7280;
+        opacity: 0.8;
+        font-style: italic;
+        letter-spacing: 0.3px;
+      }
+
+      /* 移动设备适配样式 */
+      @media (max-width: 768px) {
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 85%;
+          max-width: 300px;
+          z-index: 20;
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
+        }
+        
+        .sidebar.show {
+          transform: translateX(0);
+        }
+        
+        /* 当侧边栏打开时，创建一个暗色遮罩覆盖主内容 */
+        .sidebar-backdrop {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          z-index: 15;
+        }
+        
+        .sidebar-backdrop.show {
+          display: block;
+        }
+        
+        /* 调整消息布局以更好适应小屏幕 */
+        .message-wrapper {
+          max-width: 85%;
+        }
+        
+        .message-content {
+          padding: 10px 12px;
+          font-size: 15px;
+        }
+        
+        /* 调整输入区域 - 修改为仅在主内容区内定位 */
+        .main-content .input-container {
+          padding: 12px;
+          position: fixed;
+          bottom: 0;
+          /* 修改定位方式，确保不会覆盖侧边栏 */
+          left: 0;
+          right: 0;
+          width: 100%;
+          background-color: white;
+          border-top: 1px solid #e5e7eb;
+          z-index: 5; /* 降低z-index，确保低于侧边栏和背景遮罩 */
+          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 确保消息容器不被输入框遮挡 */
+        .messages-container {
+          padding-bottom: 170px; /* 增加底部内边距，从120px改为170px，确保最后一条消息完全可见 */
+        }
+        
+        .message-input {
+          min-height: 44px;
+          padding: 10px 14px;
+          border-radius: 16px;
+          font-size: 16px; /* 防止iOS缩放 */
+        }
+        
+        .send-button {
+          width: 42px;
+          height: 42px;
+          min-width: 42px;
+          margin-left: 8px;
+          box-shadow: 0 2px 6px rgba(59, 130, 246, 0.25);
+        }
+        
+        .send-button svg {
+          width: 20px;
+          height: 20px;
+        }
+        
+        /* 优化消息头部显示 */
+        .message-header {
+          font-size: 13px !important;
+        }
+        
+        /* 提示信息缩小 */
+        .message-hint {
+          margin-top: 6px;
+          font-size: 11px;
+        }
+        
+        /* 键盘弹出时的样式 */
+        .input-container.keyboard-active {
+          position: fixed !important;
+          bottom: 0 !important;
+          transition: none !important;
+        }
+        
+        /* 确保最后一条消息和最后一个消息行有足够的底部间距 */
+        .ai-message-row:last-child,
+        .user-message-row:last-child {
+          margin-bottom: 40px !important; /* 为最后一条消息增加更多的底部间距，从20px改为40px */
+        }
+        
+        /* 防止iOS Safari的弹性滚动影响布局 */
+        body {
+          overflow: hidden;
+          position: fixed;
+          width: 100%;
+          height: 100%;
+        }
+        
+        html {
+          overflow: hidden;
+          height: 100%;
+        }
+        
+        /* 移动端编辑表单样式调整 */
+        .conversation form {
+          max-width: 85%; /* 限制表单宽度以适应移动设备 */
+        }
+        
+        .conversation form input[type="text"] {
+          font-size: 16px; /* 防止iOS缩放 */
+          height: 36px; /* 适应触摸操作的更大按钮 */
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); /* 更强的阴影效果增强可见性 */
+        }
+        
+        .conversation form button {
+          height: 36px; /* 适应触摸操作的更大按钮 */
+          width: 36px;
+          padding: 8px;
+        }
+      }
+
+      /* 桌面端侧边栏样式 */
+      @media (min-width: 769px) {
+        .sidebar {
+          transform: none !important; /* 桌面端不使用transform */
+          position: relative; /* 恢复为默认定位 */
+        }
+        
+        .sidebar.hidden {
+          display: none;
+        }
+        
+        .sidebar-backdrop {
+          display: none !important; /* 桌面端始终不显示背景遮罩 */
+        }
+      }
+
+      /* 会话项和操作按钮样式 */
+      .conversation-actions-container {
+        display: flex;
+        align-items: center;
+      }
+
+      .conversation-actions {
+        display: none; /* 默认隐藏操作按钮 */
+        margin-right: 5px;
+        z-index: 20; /* 确保在其他元素之上 */
+      }
+
+      .conversation:hover .conversation-actions {
+        display: flex; /* 鼠标悬停时显示操作按钮 */
+      }
+
+      .action-btn {
+        padding: 6px !important;
+        margin: 0 2px;
+        border-radius: 4px;
+        background-color: rgba(75, 85, 99, 0.3);
+        transition: all 0.2s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #d1d5db; /* 浅灰色默认 */
+        border: none;
+        cursor: pointer;
+      }
+
+      .action-btn:hover {
+        background-color: rgba(75, 85, 99, 0.8);
+        color: white;
+      }
+
+      .edit-btn:hover {
+        color: #10b981; /* 绿色高亮 */
+      }
+
+      .delete-btn:hover {
+        color: #ef4444; /* 红色高亮 */
+      }
+
+      /* 删除确认样式 */
+      .delete-confirm {
+        animation: fadeIn 0.2s ease-in-out;
+        margin: 0;
+        padding: 10px 0;
+        position: relative;
+        z-index: 25; /* 确保在其他元素之上 */
+        background-color: #2d3748;
+      }
+
+      .delete-confirm p {
+        font-size: 14px;
+        color: #f7fafc;
+      }
+
+      .delete-confirm button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 14px;
+      }
+
+      .delete-confirm .delete-btn {
+        color: #f56565; /* 使删除按钮文本带有轻微的红色 */
+      }
+
+      .delete-confirm button:hover {
+        background-color: rgba(75, 85, 99, 0.3);
+      }
+
+      .delete-confirm button:active {
+        background-color: rgba(75, 85, 99, 0.5);
+      }
+
+      /* 编辑表单样式 */
       .conversation form {
-        max-width: 85%; /* 限制表单宽度以适应移动设备 */
+        margin: -2px 0; /* 让表单更加贴合原来的标题位置 */
+        width: 100%; /* 确保表单占用全部可用宽度 */
       }
-      
+
       .conversation form input[type="text"] {
-        font-size: 16px; /* 防止iOS缩放 */
-        height: 36px; /* 适应触摸操作的更大按钮 */
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); /* 更强的阴影效果增强可见性 */
+        height: 28px; /* 控制输入框高度 */
+        font-size: 0.95rem; /* 控制字体大小 */
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* 添加轻微阴影 */
+        min-width: 0; /* 防止输入框固定最小宽度 */
+        width: calc(100% - 70px); /* 留出按钮空间 */
       }
-      
+
+      /* 活跃会话中的编辑表单 */
+      .conversation.active form input[type="text"] {
+        border-color: #3b82f6; /* 活跃会话中使用更明亮的边框 */
+        box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3); /* 添加蓝色阴影效果 */
+      }
+
+      /* 编辑状态动画效果 */
+      @keyframes highlight-edit {
+        0% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+        50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
+        100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+      }
+
+      .conversation form input[type="text"]:focus {
+        animation: highlight-edit 1.5s ease-in-out 1;
+      }
+
+      /* 覆盖浏览器自动填充样式 */
+      .conversation form input[type="text"]:-webkit-autofill,
+      .conversation form input[type="text"]:-webkit-autofill:hover,
+      .conversation form input[type="text"]:-webkit-autofill:focus {
+        -webkit-text-fill-color: #1f2937;
+        -webkit-box-shadow: 0 0 0px 1000px white inset;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+
       .conversation form button {
-        height: 36px; /* 适应触摸操作的更大按钮 */
-        width: 36px;
+        height: 28px; /* 按钮高度与输入框匹配 */
+        width: 28px; /* 正方形按钮 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      /* 侧边栏样式 */
+      .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid #374151;
+      }
+
+      .conversation-list {
+        flex: 1;
+        overflow-y: auto;
         padding: 8px;
       }
-    }
-    
-    /* 桌面端侧边栏样式 */
-    @media (min-width: 769px) {
-      .sidebar {
-        transform: none !important; /* 桌面端不使用transform */
-        position: relative; /* 恢复为默认定位 */
+
+      .conversation {
+        padding: 10px;
+        margin-bottom: 4px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
       }
-      
-      .sidebar.hidden {
-        display: none;
+
+      .conversation:hover {
+        background-color: #374151;
       }
-      
-      .sidebar-backdrop {
-        display: none !important; /* 桌面端始终不显示背景遮罩 */
+
+      .conversation.active {
+        background-color: #4b5563;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
-    }
-    
-    /* 会话项和操作按钮样式 */
-    .conversation-actions-container {
-      display: flex;
-      align-items: center;
-    }
-    
-    .conversation-actions {
-      display: none; /* 默认隐藏操作按钮 */
-      margin-right: 5px;
-      z-index: 20; /* 确保在其他元素之上 */
-    }
-    
-    .conversation:hover .conversation-actions {
-      display: flex; /* 鼠标悬停时显示操作按钮 */
-    }
 
-    .action-btn {
-      padding: 6px !important;
-      margin: 0 2px;
-      border-radius: 4px;
-      background-color: rgba(75, 85, 99, 0.3);
-      transition: all 0.2s;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #d1d5db; /* 浅灰色默认 */
-      border: none;
-      cursor: pointer;
-    }
-
-    .action-btn:hover {
-      background-color: rgba(75, 85, 99, 0.8);
-      color: white;
-    }
-    
-    .edit-btn:hover {
-      color: #10b981; /* 绿色高亮 */
-    }
-    
-    .delete-btn:hover {
-      color: #ef4444; /* 红色高亮 */
-    }
-    
-    /* 删除确认样式 */
-    .delete-confirm {
-      animation: fadeIn 0.2s ease-in-out;
-      margin: 0;
-      padding: 10px 0;
-      position: relative;
-      z-index: 25; /* 确保在其他元素之上 */
-      background-color: #2d3748;
-    }
-    
-    .delete-confirm p {
-      font-size: 14px;
-      color: #f7fafc;
-    }
-    
-    .delete-confirm button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-size: 14px;
-    }
-    
-    .delete-confirm .delete-btn {
-      color: #f56565; /* 使删除按钮文本带有轻微的红色 */
-    }
-    
-    .delete-confirm button:hover {
-      background-color: rgba(75, 85, 99, 0.3);
-    }
-    
-    .delete-confirm button:active {
-      background-color: rgba(75, 85, 99, 0.5);
-    }
-    
-    /* 编辑表单样式 */
-    .conversation form {
-      margin: -2px 0; /* 让表单更加贴合原来的标题位置 */
-      width: 100%; /* 确保表单占用全部可用宽度 */
-    }
-    
-    .conversation form input[type="text"] {
-      height: 28px; /* 控制输入框高度 */
-      font-size: 0.95rem; /* 控制字体大小 */
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* 添加轻微阴影 */
-      min-width: 0; /* 防止输入框固定最小宽度 */
-      width: calc(100% - 70px); /* 留出按钮空间 */
-    }
-    
-    /* 活跃会话中的编辑表单 */
-    .conversation.active form input[type="text"] {
-      border-color: #3b82f6; /* 活跃会话中使用更明亮的边框 */
-      box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3); /* 添加蓝色阴影效果 */
-    }
-    
-    /* 编辑状态动画效果 */
-    @keyframes highlight-edit {
-      0% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-      50% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
-      100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-    }
-    
-    .conversation form input[type="text"]:focus {
-      animation: highlight-edit 1.5s ease-in-out 1;
-    }
-    
-    /* 覆盖浏览器自动填充样式 */
-    .conversation form input[type="text"]:-webkit-autofill,
-    .conversation form input[type="text"]:-webkit-autofill:hover,
-    .conversation form input[type="text"]:-webkit-autofill:focus {
-      -webkit-text-fill-color: #1f2937;
-      -webkit-box-shadow: 0 0 0px 1000px white inset;
-      transition: background-color 5000s ease-in-out 0s;
-    }
-    
-    .conversation form button {
-      height: 28px; /* 按钮高度与输入框匹配 */
-      width: 28px; /* 正方形按钮 */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    /* 侧边栏样式 */
-    .sidebar-header {
-      padding: 16px;
-      border-bottom: 1px solid #374151;
-    }
-
-    .conversation-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
-    }
-
-    .conversation {
-      padding: 10px;
-      margin-bottom: 4px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      position: relative;
-    }
-
-    .conversation:hover {
-      background-color: #374151;
-    }
-
-    .conversation.active {
-      background-color: #4b5563;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
-
-    .sidebar-footer {
-      padding: 12px 10px 20px 10px; /* Increased padding, especially at bottom */
-      border-top: 1px solid #374151;
-      margin-bottom: 10px; /* Added margin to ensure content isn't cut off */
-    }
-  </style>
-</head>
-<body id="page-body" class="h-full m-0 p-0 overflow-hidden" phx-hook="PageHook">
-  <.flash_group flash={@flash} />
-  <div class="chat-container">
-    <div class="flex h-full w-full">
-      <!-- 侧边栏背景遮罩 - 移动设备上显示 -->
-      <div id="sidebar-backdrop" class={if @show_sidebar, do: "sidebar-backdrop show", else: "sidebar-backdrop"} phx-click="toggle_sidebar"></div>
-      
-      <!-- 侧边栏 -->
-      <div id="sidebar" class={get_sidebar_classes(@show_sidebar)}>
-        <div class="sidebar-header">
-          <div class="flex items-center justify-between">
-            <div class="text-xl font-medium">我的对话</div>
-            <button phx-click="new_conversation" class="send-button" style="padding: 8px; margin: 0; background-color: #10b981;">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
+      .sidebar-footer {
+        padding: 12px 10px 20px 10px; /* Increased padding, especially at bottom */
+        border-top: 1px solid #374151;
+        margin-bottom: 10px; /* Added margin to ensure content isn't cut off */
+      }
+    </style>
+  </head>
+  <body id="page-body" class="h-full m-0 p-0 overflow-hidden" phx-hook="PageHook">
+    <.flash_group flash={@flash} />
+    <div class="chat-container">
+      <div class="flex h-full w-full">
+        <!-- 侧边栏背景遮罩 - 移动设备上显示 -->
+        <div
+          id="sidebar-backdrop"
+          class={if @show_sidebar, do: "sidebar-backdrop show", else: "sidebar-backdrop"}
+          phx-click="toggle_sidebar"
+        >
         </div>
-        <div class="conversation-list">
-          <%= for conv <- @conversations do %>
-            <%# Handle the temporary :new conversation differently if needed %>
-            <%= if conv.id == :new do %>
-              <div class={"conversation active"}> <!-- Keep it visually selected, but non-clickable? -->
-                <div class="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <div class="truncate"><%= conv.title %></div>
-                </div>
-              </div>
-            <% else %>
-              <div class={"conversation #{if @current_conversation && conv.id == @current_conversation.id, do: "active"}"}>
-                <div class="flex w-full items-center justify-between">
-                  <!-- 左侧：会话选择区 -->
-                  <div class="flex-grow flex items-center mr-2" phx-click={if @editing_conversation_id == conv.id, do: nil, else: "select_conversation"} phx-value-id={conv.id}>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    
-                    <!-- 显示标题（非编辑状态） -->
-                    <%= if @editing_conversation_id != conv.id do %>
-                      <div class="truncate"><%= conv.title || "(无标题)" %></div>
-                    <% else %>
-                      <!-- 编辑状态 -->
-                      <form phx-submit="save_conversation_name" class="flex-grow flex items-center" phx-click-away="cancel_edit_name" onsubmit="event.target.querySelector('input[type=text]').blur(); return true;">
-                        <input type="hidden" name="conversation_id" value={conv.id}>
-                        <input type="text" name="title" value={conv.title || "(无标题)"} 
-                               class="bg-white text-gray-800 border border-sky-500 focus:outline-none focus:border-sky-600 w-full px-2 py-1 rounded"
-                               phx-window-keydown="handle_edit_keydown"
-                               phx-key="escape"
-                               phx-value-id={conv.id}
-                               id={"edit-conversation-#{conv.id}"}
-                               autocomplete="off"
-                               phx-hook="EditInput"
-                               onfocus="this.select();"
-                               onkeydown="if(event.key === 'Enter') { this.form.requestSubmit(); event.preventDefault(); }"
-                               autofocus>
-                        <button type="submit" class="ml-2 p-1 bg-sky-600 hover:bg-sky-700 text-white rounded" title="保存">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                          </svg>
-                        </button>
-                        <button type="button" class="ml-1 p-1 bg-gray-600 hover:bg-gray-700 text-white rounded" title="取消" phx-click="cancel_edit_name">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                          </svg>
-                        </button>
-                      </form>
-                    <% end %>
-                  </div>
-                  
-                  <!-- 右侧：操作区 -->
-                  <div class="conversation-actions-container">
-                    <!-- 操作按钮（非编辑状态和非删除状态） -->
-                    <%= if @editing_conversation_id != conv.id && @deleting_conversation_id != conv.id do %>
-                      <div class="conversation-actions">
-                        <!-- 编辑按钮 -->
-                        <button type="button" class="action-btn edit-btn" phx-click="edit_conversation_name" phx-value-id={conv.id}>
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <!-- 删除按钮 -->
-                        <button type="button" class="action-btn delete-btn" phx-click="confirm_delete_conversation" phx-value-id={conv.id}>
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    <% end %>
-                  </div>
-                </div>
-                
-                <!-- 删除确认（独立区域） -->
-                <%= if @deleting_conversation_id == conv.id do %>
-                  <div class="delete-confirm text-center" phx-click-away="cancel_delete">
-                    <p class="mb-3 text-white text-sm">确定要删除这个对话吗？</p>
-                    <div class="flex justify-between px-4">
-                      <button type="button" phx-click="delete_conversation" phx-value-id={conv.id} class="delete-btn px-4 py-1 flex items-center justify-center bg-transparent text-white rounded transition-all" title="确认删除">
-                        删除
-                      </button>
-                      <button type="button" phx-click="cancel_delete" class="cancel-btn px-4 py-1 flex items-center justify-center bg-transparent text-white rounded transition-all" title="取消删除">
-                        取消
-                      </button>
-                    </div>
-                  </div>
-                <% end %>
-              </div>
-            <% end %>
-          <% end %>
-          <%= if @conversations == [] do %>
-            <p class="text-gray-400 text-center p-4 text-sm">还没有对话，点击上方 "+" 新建一个吧！</p>
-          <% end %>
-        </div>
-        <div class="sidebar-footer">
-          <!-- 优化的布局设计 -->
-          <div class="flex flex-col w-full">
-            <!-- 用户信息行 - 采用左对齐头像，右边文字和操作按钮的布局 -->
-            <div class="flex items-center w-full">
-              <!-- 左侧头像 -->
-              <div class="avatar user" style="margin-right: 10px; min-width: 36px; margin-left: 2px;">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="white">
-                  <!-- Head -->
-                  <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" />
-                  <!-- Body -->
-                  <path d="M12 14C8.13401 14 5 16.134 5 19V20H19V19C19 16.134 15.866 14 12 14Z" />
-                </svg>
-              </div>
-              
-              <!-- 右侧信息区 - 垂直排列邮箱和按钮 -->
-              <div class="flex flex-col flex-grow">
-                <!-- 邮箱显示 -->
-                <div class="font-medium truncate" style="max-width: 200px;"><%= @current_user.email %></div>
-                
-                <!-- 操作按钮 - 在邮箱下方，左对齐 -->
-                <div class="flex mt-2">
-                  <.link href={~p"/users/settings"} class="text-gray-400 hover:text-white transition-all mr-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </.link>
-                  
-                  <!-- 修改登出链接，使用form替代link，确保包含CSRF令牌 -->
-                  <form action={~p"/users/log_out"} method="post" class="inline">
-                    <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()}>
-                    <input type="hidden" name="_method" value="delete">
-                    <button type="submit" class="text-gray-400 hover:text-white transition-all">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7" />
-                      </svg>
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 主内容区 -->
-      <div class="main-content">
-        <!-- 顶部导航栏 -->
-        <div class="top-bar">
-          <button phx-click="toggle_sidebar" class="p-2 mr-3 rounded-md hover:bg-gray-100">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <h2 class="text-xl font-medium truncate"><%= if @current_conversation, do: @current_conversation.title, else: "请选择或新建对话" %></h2>
-        </div>
-
-        <!-- 消息区域 -->
-        <div id={"messages-container-#{@current_conversation && @current_conversation.id}"} class="messages-container">
-          <%= if @current_conversation do %>
-            <%= for {message, _idx} <- Enum.with_index(@messages) do %>
-              <%# Use specific CSS classes for alignment and structure %>
-              <div id={"message-#{message.id}"} class={if message.role == "user", do: "user-message-row", else: "ai-message-row"}>
-                <div class={if message.role == "user", do: "message-wrapper user", else: "message-wrapper ai"}>
-                  <div class={if message.role == "user", do: "avatar user", else: "avatar ai"}>
-                    <%= if message.role == "assistant" do %>
-                      <!-- Robot icon -->
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                      </svg>
-                    <% else %>
-                      <!-- User icon -->
-                      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="white">
-                        <!-- Head -->
-                        <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" />
-                        <!-- Body -->
-                        <path d="M12 14C8.13401 14 5 16.134 5 19V20H19V19C19 16.134 15.866 14 12 14Z" />
-                      </svg>
-                    <% end %>
-                  </div>
-                  <div class={if message.role == "user", do: "message-content user-message", else: "message-content ai-message"}>
-                    <div class="message-header" style={"margin-bottom: 4px; " <> (if message.role == "user", do: "text-align: right;", else: "")}>
-                      <span class="font-medium"><%= if message.role == "assistant", do: "AI助手", else: @current_user.email %></span>
-                      <span style="margin-left: 8px; font-size: 12px; color: #6b7280;"><%= format_time(message.inserted_at) %></span>
-                    </div>
-                    <div class="message-text"><%= message.content %></div>
-                  </div>
-                </div>
-              </div>
-            <% end %>
-            <%= if @messages == [] do %>
-              <p class="text-gray-500 text-center mt-10">这个对话还没有消息。</p>
-            <% end %>
-          <% else %>
-            <p class="text-gray-500 text-center mt-10">请在左侧选择一个对话或新建对话开始聊天。</p>
-          <% end %>
-        </div>
-
-        <!-- 输入区域 -->
-        <div class="input-container">
-          <%= if @current_conversation do %>
-            <form phx-submit="send_message" class="input-group">
-              <textarea
-                id="live-message-input"
-                name="message"
-                placeholder="输入消息..."
-                class="message-input"
-                phx-debounce="100"></textarea>
-              <button type="submit" class="send-button">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M22 2L11 13"></path>
-                  <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+        
+<!-- 侧边栏 -->
+        <div id="sidebar" class={get_sidebar_classes(@show_sidebar)}>
+          <div class="sidebar-header">
+            <div class="flex items-center justify-between">
+              <div class="text-xl font-medium">我的对话</div>
+              <button
+                phx-click="new_conversation"
+                class="send-button"
+                style="padding: 8px; margin: 0; background-color: #10b981;"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
               </button>
-            </form>
-            <!-- 提示信息 -->
-            <div class="message-hint">
-              <p>输入您的问题，AI助手将为您提供专业解答</p>
             </div>
-          <% else %>
-            <p class="text-gray-500 text-center">请先选择或创建对话。</p>
-          <% end %>
+          </div>
+          <div class="conversation-list">
+            <%= for conv <- @conversations do %>
+              
+              <%= if conv.id == :new do %>
+                <div class="conversation active">
+                  <!-- Keep it visually selected, but non-clickable? -->
+                  <div class="flex items-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="w-5 h-5 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <div class="truncate">{conv.title}</div>
+                  </div>
+                </div>
+              <% else %>
+                <div class={"conversation #{if @current_conversation && conv.id == @current_conversation.id, do: "active"}"}>
+                  <div class="flex w-full items-center justify-between">
+                    <!-- 左侧：会话选择区 -->
+                    <div
+                      class="flex-grow flex items-center mr-2"
+                      phx-click={
+                        if @editing_conversation_id == conv.id,
+                          do: nil,
+                          else: "select_conversation"
+                      }
+                      phx-value-id={conv.id}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="w-5 h-5 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                      </svg>
+                      
+<!-- 显示标题（非编辑状态） -->
+                      <%= if @editing_conversation_id != conv.id do %>
+                        <div class="truncate">{conv.title || "(无标题)"}</div>
+                      <% else %>
+                        <!-- 编辑状态 -->
+                        <form
+                          phx-submit="save_conversation_name"
+                          class="flex-grow flex items-center"
+                          phx-click-away="cancel_edit_name"
+                          onsubmit="event.target.querySelector('input[type=text]').blur(); return true;"
+                        >
+                          <input type="hidden" name="conversation_id" value={conv.id} />
+                          <input
+                            type="text"
+                            name="title"
+                            value={conv.title || "(无标题)"}
+                            class="bg-white text-gray-800 border border-sky-500 focus:outline-none focus:border-sky-600 w-full px-2 py-1 rounded"
+                            phx-window-keydown="handle_edit_keydown"
+                            phx-key="escape"
+                            phx-value-id={conv.id}
+                            id={"edit-conversation-#{conv.id}"}
+                            autocomplete="off"
+                            phx-hook="EditInput"
+                            onfocus="this.select();"
+                            onkeydown="if(event.key === 'Enter') { this.form.requestSubmit(); event.preventDefault(); }"
+                            autofocus
+                          />
+                          <button
+                            type="submit"
+                            class="ml-2 p-1 bg-sky-600 hover:bg-sky-700 text-white rounded"
+                            title="保存"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            class="ml-1 p-1 bg-gray-600 hover:bg-gray-700 text-white rounded"
+                            title="取消"
+                            phx-click="cancel_edit_name"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fill-rule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clip-rule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </form>
+                      <% end %>
+                    </div>
+                    
+<!-- 右侧：操作区 -->
+                    <div class="conversation-actions-container">
+                      <!-- 操作按钮（非编辑状态和非删除状态） -->
+                      <%= if @editing_conversation_id != conv.id && @deleting_conversation_id != conv.id do %>
+                        <div class="conversation-actions">
+                          <!-- 编辑按钮 -->
+                          <button
+                            type="button"
+                            class="action-btn edit-btn"
+                            phx-click="edit_conversation_name"
+                            phx-value-id={conv.id}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              />
+                            </svg>
+                          </button>
+                          <!-- 删除按钮 -->
+                          <button
+                            type="button"
+                            class="action-btn delete-btn"
+                            phx-click="confirm_delete_conversation"
+                            phx-value-id={conv.id}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              class="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                  
+<!-- 删除确认（独立区域） -->
+                  <%= if @deleting_conversation_id == conv.id do %>
+                    <div class="delete-confirm text-center" phx-click-away="cancel_delete">
+                      <p class="mb-3 text-white text-sm">确定要删除这个对话吗？</p>
+                      <div class="flex justify-between px-4">
+                        <button
+                          type="button"
+                          phx-click="delete_conversation"
+                          phx-value-id={conv.id}
+                          class="delete-btn px-4 py-1 flex items-center justify-center bg-transparent text-white rounded transition-all"
+                          title="确认删除"
+                        >
+                          删除
+                        </button>
+                        <button
+                          type="button"
+                          phx-click="cancel_delete"
+                          class="cancel-btn px-4 py-1 flex items-center justify-center bg-transparent text-white rounded transition-all"
+                          title="取消删除"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            <% end %>
+            <%= if @conversations == [] do %>
+              <p class="text-gray-400 text-center p-4 text-sm">还没有对话，点击上方 "+" 新建一个吧！</p>
+            <% end %>
+          </div>
+          <div class="sidebar-footer">
+            <!-- 优化的布局设计 -->
+            <div class="flex flex-col w-full">
+              <!-- 用户信息行 - 采用左对齐头像，右边文字和操作按钮的布局 -->
+              <div class="flex items-center w-full">
+                <!-- 左侧头像 -->
+                <div
+                  class="avatar user"
+                  style="margin-right: 10px; min-width: 36px; margin-left: 2px;"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="white"
+                  >
+                    <!-- Head -->
+                    <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" />
+                    <!-- Body -->
+                    <path d="M12 14C8.13401 14 5 16.134 5 19V20H19V19C19 16.134 15.866 14 12 14Z" />
+                  </svg>
+                </div>
+                
+<!-- 右侧信息区 - 垂直排列邮箱和按钮 -->
+                <div class="flex flex-col flex-grow">
+                  <!-- 邮箱显示 -->
+                  <div class="font-medium truncate" style="max-width: 200px;">
+                    {@current_user.email}
+                  </div>
+                  
+<!-- 操作按钮 - 在邮箱下方，左对齐 -->
+                  <div class="flex mt-2">
+                    <.link
+                      href={~p"/users/settings"}
+                      class="text-gray-400 hover:text-white transition-all mr-3"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                    </.link>
+                    
+<!-- 修改登出链接，使用form替代link，确保包含CSRF令牌 -->
+                    <form action={~p"/users/log_out"} method="post" class="inline">
+                      <input
+                        type="hidden"
+                        name="_csrf_token"
+                        value={Phoenix.Controller.get_csrf_token()}
+                      />
+                      <input type="hidden" name="_method" value="delete" />
+                      <button type="submit" class="text-gray-400 hover:text-white transition-all">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-5 h-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7"
+                          />
+                        </svg>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+<!-- 主内容区 -->
+        <div class="main-content">
+          <!-- 顶部导航栏 -->
+          <div class="top-bar">
+            <button phx-click="toggle_sidebar" class="p-2 mr-3 rounded-md hover:bg-gray-100">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <h2 class="text-xl font-medium truncate">
+              {if @current_conversation, do: @current_conversation.title, else: "请选择或新建对话"}
+            </h2>
+          </div>
+          
+<!-- 消息区域 -->
+          <div
+            id={"messages-container-#{@current_conversation && @current_conversation.id}"}
+            class="messages-container"
+          >
+            <%= if @current_conversation do %>
+              <%= for {message, _idx} <- Enum.with_index(@messages) do %>
+                
+                <div
+                  id={"message-#{message.id}"}
+                  class={
+                    if message.role == "user", do: "user-message-row", else: "ai-message-row"
+                  }
+                >
+                  <div class={
+                    if message.role == "user",
+                      do: "message-wrapper user",
+                      else: "message-wrapper ai"
+                  }>
+                    <div class={if message.role == "user", do: "avatar user", else: "avatar ai"}>
+                      <%= if message.role == "assistant" do %>
+                        <!-- Robot icon -->
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                          />
+                        </svg>
+                      <% else %>
+                        <!-- User icon -->
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="w-6 h-6"
+                          viewBox="0 0 24 24"
+                          fill="white"
+                        >
+                          <!-- Head -->
+                          <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" />
+                          <!-- Body -->
+                          <path d="M12 14C8.13401 14 5 16.134 5 19V20H19V19C19 16.134 15.866 14 12 14Z" />
+                        </svg>
+                      <% end %>
+                    </div>
+                    <div class={
+                      if message.role == "user",
+                        do: "message-content user-message",
+                        else: "message-content ai-message"
+                    }>
+                      <div
+                        class="message-header"
+                        style={"margin-bottom: 4px; " <> (if message.role == "user", do: "text-align: right;", else: "")}
+                      >
+                        <span class="font-medium">
+                          {if message.role == "assistant", do: "AI助手", else: @current_user.email}
+                        </span>
+                        <span style="margin-left: 8px; font-size: 12px; color: #6b7280;">
+                          {format_time(message.inserted_at)}
+                        </span>
+                      </div>
+                      <div class="message-text">{message.content}</div>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+              <%= if @messages == [] do %>
+                <p class="text-gray-500 text-center mt-10">这个对话还没有消息。</p>
+              <% end %>
+            <% else %>
+              <p class="text-gray-500 text-center mt-10">请在左侧选择一个对话或新建对话开始聊天。</p>
+            <% end %>
+          </div>
+          
+<!-- 输入区域 -->
+          <div class="input-container">
+            <%= if @current_conversation do %>
+              <form phx-submit="send_message" class="input-group">
+                <textarea
+                  id="live-message-input"
+                  name="message"
+                  placeholder="输入消息..."
+                  class="message-input"
+                  phx-debounce="100"
+                ></textarea>
+                <button type="submit" class="send-button">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M22 2L11 13"></path>
+                    <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                  </svg>
+                </button>
+              </form>
+              <!-- 提示信息 -->
+              <div class="message-hint">
+                <p>输入您的问题，AI助手将为您提供专业解答</p>
+              </div>
+            <% else %>
+              <p class="text-gray-500 text-center">请先选择或创建对话。</p>
+            <% end %>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script>
-    // 页面钩子不再重新定义，使用app.js中定义的钩子
-    document.addEventListener('DOMContentLoaded', () => {
-      initChat();
-      setupMobileEvents();
-    });
-    
-    // 聊天初始化函数
-    function initChat() {
-      // 使用正确的ID选择器找到消息容器
-      const messagesContainer = document.querySelector('.messages-container');
-      if (messagesContainer) {
-        // 初始滚动到底部
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        // 监听内容变化，保持滚动到底部
-        const observer = new MutationObserver(() => {
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        });
-        
-        observer.observe(messagesContainer, { childList: true, subtree: true });
-      }
-    }
-    
-    // 设置移动设备事件处理
-    function setupMobileEvents() {
-      // 检测设备类型
-      const isMobile = window.matchMedia("(max-width: 768px)").matches;
-      const isDesktop = !isMobile;
-      
-      if (isMobile) {
-        // 添加触摸滑动手势支持
-        let touchStartX = 0;
-        const body = document.body;
-        
-        body.addEventListener('touchstart', (e) => {
-          touchStartX = e.touches[0].clientX;
-        }, { passive: true });
-        
-        body.addEventListener('touchmove', (e) => {
-          if (!e.touches || !e.touches[0]) return;
-          
-          const touchX = e.touches[0].clientX;
-          const diff = touchX - touchStartX;
-          
-          // 从左向右滑动，打开侧边栏
-          if (diff > 50 && touchStartX < 30) {
-            const event = new CustomEvent('phx:sidebar-toggle', { detail: { show: true } });
-            window.dispatchEvent(event);
-          }
-          
-          // 从右向左滑动，关闭侧边栏（当侧边栏已打开）
-          if (diff < -50 && document.getElementById('sidebar').classList.contains('show')) {
-            const event = new CustomEvent('phx:sidebar-toggle', { detail: { show: false } });
-            window.dispatchEvent(event);
-          }
-        }, { passive: true });
-      }
-      
-      // 为顶部导航栏的菜单按钮添加点击事件（适用于桌面端）
-      const menuToggle = document.querySelector('.top-bar button[phx-click="toggle_sidebar"]');
-      if (menuToggle && isDesktop) {
-        // 确保桌面端的点击事件能够正常触发
-        menuToggle.addEventListener('click', (e) => {
-          // 这个事件会通过 phx-click 触发服务器端事件
-          // 但为确保前端立即响应，我们也直接更新类名
-          const sidebar = document.getElementById('sidebar');
-          if (sidebar) {
-            console.log('菜单按钮点击，当前类名：', sidebar.className);
-          }
-        });
-      }
-      
-      // 监听自定义事件，然后调用服务器端toggle_sidebar
-      window.addEventListener('phx:sidebar-toggle', (e) => {
-        if (window.liveSocket) {
-          const view = window.liveSocket.getViewByEl(document.querySelector('body'));
-          if (view) {
-            view.pushEvent('toggle_sidebar');
-          }
-        }
+    <script>
+      // 页面钩子不再重新定义，使用app.js中定义的钩子
+      document.addEventListener('DOMContentLoaded', () => {
+        initChat();
+        setupMobileEvents();
       });
-    }
-    
-    // LiveView更新回调
-    window.addEventListener('phx:update', () => {
-      initChat();
-    });
-  </script>
-</body>
+
+      // 聊天初始化函数
+      function initChat() {
+        // 使用正确的ID选择器找到消息容器
+        const messagesContainer = document.querySelector('.messages-container');
+        if (messagesContainer) {
+          // 初始滚动到底部
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          
+          // 监听内容变化，保持滚动到底部
+          const observer = new MutationObserver(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          });
+          
+          observer.observe(messagesContainer, { childList: true, subtree: true });
+        }
+      }
+
+      // 设置移动设备事件处理
+      function setupMobileEvents() {
+        // 检测设备类型
+        const isMobile = window.matchMedia("(max-width: 768px)").matches;
+        const isDesktop = !isMobile;
+        
+        if (isMobile) {
+          // 添加触摸滑动手势支持
+          let touchStartX = 0;
+          const body = document.body;
+          
+          body.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+          }, { passive: true });
+          
+          body.addEventListener('touchmove', (e) => {
+            if (!e.touches || !e.touches[0]) return;
+            
+            const touchX = e.touches[0].clientX;
+            const diff = touchX - touchStartX;
+            
+            // 从左向右滑动，打开侧边栏
+            if (diff > 50 && touchStartX < 30) {
+              const event = new CustomEvent('phx:sidebar-toggle', { detail: { show: true } });
+              window.dispatchEvent(event);
+            }
+            
+            // 从右向左滑动，关闭侧边栏（当侧边栏已打开）
+            if (diff < -50 && document.getElementById('sidebar').classList.contains('show')) {
+              const event = new CustomEvent('phx:sidebar-toggle', { detail: { show: false } });
+              window.dispatchEvent(event);
+            }
+          }, { passive: true });
+        }
+        
+        // 为顶部导航栏的菜单按钮添加点击事件（适用于桌面端）
+        const menuToggle = document.querySelector('.top-bar button[phx-click="toggle_sidebar"]');
+        if (menuToggle && isDesktop) {
+          // 确保桌面端的点击事件能够正常触发
+          menuToggle.addEventListener('click', (e) => {
+            // 这个事件会通过 phx-click 触发服务器端事件
+            // 但为确保前端立即响应，我们也直接更新类名
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+              console.log('菜单按钮点击，当前类名：', sidebar.className);
+            }
+          });
+        }
+        
+        // 监听自定义事件，然后调用服务器端toggle_sidebar
+        window.addEventListener('phx:sidebar-toggle', (e) => {
+          if (window.liveSocket) {
+            const view = window.liveSocket.getViewByEl(document.querySelector('body'));
+            if (view) {
+              view.pushEvent('toggle_sidebar');
+            }
+          }
+        });
+      }
+
+      // LiveView更新回调
+      window.addEventListener('phx:update', () => {
+        initChat();
+      });
+    </script>
+  </body>
 </html>

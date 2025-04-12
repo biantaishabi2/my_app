@@ -25,8 +25,25 @@ defmodule MyApp.Upload.UploadedFile do
   @doc false
   def changeset(uploaded_file, attrs) do
     uploaded_file
-    |> cast(attrs, [:form_id, :form_item_id, :response_id, :original_filename, :filename, :path, :size, :content_type])
-    |> validate_required([:form_id, :form_item_id, :original_filename, :filename, :path, :size, :content_type])
+    |> cast(attrs, [
+      :form_id,
+      :form_item_id,
+      :response_id,
+      :original_filename,
+      :filename,
+      :path,
+      :size,
+      :content_type
+    ])
+    |> validate_required([
+      :form_id,
+      :form_item_id,
+      :original_filename,
+      :filename,
+      :path,
+      :size,
+      :content_type
+    ])
     |> foreign_key_constraint(:form_id)
     |> foreign_key_constraint(:form_item_id)
     |> foreign_key_constraint(:response_id)

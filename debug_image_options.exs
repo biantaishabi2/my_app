@@ -21,7 +21,8 @@ item_params = %{
   "page_id" => page_id,
   "selection_type" => :single,
   "image_caption_position" => :bottom,
-  "order" => 999 # 放在最后
+  # 放在最后
+  "order" => 999
 }
 
 # 添加表单项
@@ -31,14 +32,14 @@ IO.puts("新表单项ID: #{new_item.id}")
 
 # 2. 添加选项
 option_params1 = %{
-  "label" => "测试选项1", 
+  "label" => "测试选项1",
   "value" => "option_1",
   "order" => 1,
   "form_item_id" => new_item.id
 }
 
 option_params2 = %{
-  "label" => "测试选项2", 
+  "label" => "测试选项2",
   "value" => "option_2",
   "order" => 2,
   "form_item_id" => new_item.id,
@@ -48,8 +49,13 @@ option_params2 = %{
 }
 
 # 添加选项
-{result1, option1} = MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{}, option_params1) |> MyApp.Repo.insert()
-{result2, option2} = MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{}, option_params2) |> MyApp.Repo.insert()
+{result1, option1} =
+  MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{}, option_params1)
+  |> MyApp.Repo.insert()
+
+{result2, option2} =
+  MyApp.Forms.ItemOption.changeset(%MyApp.Forms.ItemOption{}, option_params2)
+  |> MyApp.Repo.insert()
 
 IO.puts("添加选项1结果: #{result1}, ID: #{option1.id}")
 IO.puts("添加选项2结果: #{result2}, ID: #{option2.id}")
@@ -59,6 +65,7 @@ item_with_options = MyApp.Forms.get_form_item_with_options(new_item.id)
 options = item_with_options.options || []
 
 IO.puts("\n表单项选项数量: #{length(options)}")
+
 Enum.each(options, fn option ->
   IO.puts("- 选项ID: #{option.id}, 标签: #{option.label}, 值: #{option.value}")
   IO.puts("  图片ID: #{option.image_id || "无"}, 图片文件名: #{option.image_filename || "无"}")
@@ -79,30 +86,35 @@ test_process_options = fn item, options ->
   IO.puts("\n==== TEST: 处理表单项选项 ====")
   IO.puts("表单项: #{inspect(item)}")
   IO.puts("传入选项列表: #{inspect(options)}")
-  
+
   # 预处理选项
-  options_to_save = options
+  options_to_save =
+    options
     |> Enum.map(fn opt ->
-        # 提取字段
-        %{
-          "label" => opt.label || "", 
-          "value" => opt.value || "",
-          "image_id" => opt.image_id,
-          "image_filename" => opt.image_filename
-        }
-      end)
-    |> Enum.filter(fn opt -> 
-        # 过滤掉完全空的选项（除非它有关联的图片）
-        IO.puts("检查选项: #{inspect(opt)}")
-        IO.puts("过滤条件: label=#{opt["label"] != ""}, value=#{opt["value"] != ""}, image_id=#{!is_nil(opt["image_id"])}")
-        result = opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
-        IO.puts("保留选项? #{result}")
-        result
-      end)
+      # 提取字段
+      %{
+        "label" => opt.label || "",
+        "value" => opt.value || "",
+        "image_id" => opt.image_id,
+        "image_filename" => opt.image_filename
+      }
+    end)
+    |> Enum.filter(fn opt ->
+      # 过滤掉完全空的选项（除非它有关联的图片）
+      IO.puts("检查选项: #{inspect(opt)}")
+
+      IO.puts(
+        "过滤条件: label=#{opt["label"] != ""}, value=#{opt["value"] != ""}, image_id=#{!is_nil(opt["image_id"])}"
+      )
+
+      result = opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
+      IO.puts("保留选项? #{result}")
+      result
+    end)
 
   IO.puts("最终准备保存的选项数量: #{length(options_to_save)}")
   IO.puts("最终选项内容: #{inspect(options_to_save)}")
-  
+
   options_to_save
 end
 
@@ -112,13 +124,18 @@ test_process_options.(new_item, updated_options)
 # 5. 测试选项过滤
 # 我们不直接调用process_options以避免修改数据库,但模拟相同的过滤逻辑
 test_options = [
-  %{label: "", value: "", image_id: nil, image_filename: nil},  # 应该被过滤掉
-  %{label: "有标签", value: "", image_id: nil, image_filename: nil},  # 应该保留
-  %{label: "", value: "有值", image_id: nil, image_filename: nil},  # 应该保留
-  %{label: "", value: "", image_id: "有图片", image_filename: "test.jpg"}  # 应该保留
+  # 应该被过滤掉
+  %{label: "", value: "", image_id: nil, image_filename: nil},
+  # 应该保留
+  %{label: "有标签", value: "", image_id: nil, image_filename: nil},
+  # 应该保留
+  %{label: "", value: "有值", image_id: nil, image_filename: nil},
+  # 应该保留
+  %{label: "", value: "", image_id: "有图片", image_filename: "test.jpg"}
 ]
 
-filtered_options = Enum.filter(test_options, fn opt -> 
+filtered_options =
+  Enum.filter(test_options, fn opt ->
     opt.label != "" || opt.value != "" || !is_nil(opt.image_id)
   end)
 

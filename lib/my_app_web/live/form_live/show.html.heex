@@ -2,17 +2,17 @@
   <div class="bg-white rounded-lg shadow-lg overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200">
       <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-800"><%= @form.title %></h1>
+        <h1 class="text-2xl font-bold text-gray-800">{@form.title}</h1>
         <div class="flex space-x-2">
           <%= if @form.user_id == @current_user.id do %>
-            <a 
+            <a
               href={~p"/forms/#{@form.id}/edit"}
               class="px-4 py-2 bg-indigo-600 text-white text-sm rounded shadow hover:bg-indigo-700 transition"
             >
               编辑表单
             </a>
           <% end %>
-          
+
           <%= if @form.status == :published do %>
             <a
               href={~p"/forms/#{@form.id}/submit"}
@@ -23,19 +23,19 @@
           <% end %>
         </div>
       </div>
-      
+
       <%= if @form.description do %>
         <p class="mt-2 text-gray-600">
-          <%= @form.description %>
+          {@form.description}
         </p>
       <% end %>
 
       <div class="mt-2 text-sm">
         <span class="mr-4 text-gray-500">
-          创建于: <%= Calendar.strftime(@form.inserted_at, "%Y-%m-%d %H:%M") %>
+          创建于: {Calendar.strftime(@form.inserted_at, "%Y-%m-%d %H:%M")}
         </span>
         <span class="text-gray-500">
-          状态: 
+          状态:
           <%= case @form.status do %>
             <% :draft -> %>
               <span class="status-badge px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs">
@@ -49,22 +49,30 @@
         </span>
       </div>
     </div>
-    
+
     <div class="px-6 py-4">
       <h2 class="text-xl font-semibold mb-4">表单项目</h2>
-      
+
       <%= if Enum.empty?(@form.items) do %>
         <div class="text-center py-10 text-gray-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-12 w-12 mx-auto mb-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+            />
           </svg>
           <p>此表单还没有任何表单项</p>
           <%= if @form.user_id == @current_user.id do %>
             <p class="mt-2">
-              <a
-                href={~p"/forms/#{@form.id}/edit"}
-                class="text-indigo-600 hover:text-indigo-800"
-              >
+              <a href={~p"/forms/#{@form.id}/edit"} class="text-indigo-600 hover:text-indigo-800">
                 点击编辑表单
               </a>
               来添加表单项
@@ -79,26 +87,26 @@
         </div>
       <% end %>
     </div>
-    
+
     <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
       <div class="flex justify-between items-center">
         <a href={~p"/forms"} class="text-gray-600 hover:text-gray-800">
           ← 返回表单列表
         </a>
-        
+
         <div class="flex space-x-2">
           <%= if @form.user_id == @current_user.id && @form.status == :published do %>
             <div class="public-share-link">
               <div x-data="{ showCopied: false }" class="flex items-center">
                 <div class="relative flex items-center">
-                  <input 
-                    id="public-link" 
-                    type="text" 
-                    readonly 
+                  <input
+                    id="public-link"
+                    type="text"
+                    readonly
                     value={url(~p"/public/forms/#{@form.id}")}
                     class="pr-16 pl-3 py-2 border border-gray-300 rounded text-sm"
                   />
-                  <button 
+                  <button
                     type="button"
                     class="absolute right-0 h-full px-2 text-sm text-blue-600 hover:text-blue-800"
                     onclick="navigator.clipboard.writeText(document.getElementById('public-link').value);
@@ -110,7 +118,7 @@
                 </div>
               </div>
             </div>
-            
+
             <a
               href={~p"/forms/#{@form.id}/responses"}
               class="px-4 py-2 bg-blue-600 text-white text-sm rounded shadow hover:bg-blue-700 transition"

@@ -3,17 +3,34 @@
     <%= if @submitted do %>
       <div class="bg-white rounded-lg shadow-lg p-8 text-center">
         <div class="bg-green-100 text-green-700 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-8 w-8"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </div>
         <h1 class="text-2xl font-bold mb-2">提交成功</h1>
         <p class="text-gray-600 mb-6">感谢您填写表单！</p>
         <div class="flex justify-center gap-4">
-          <a href={~p"/forms"} class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+          <a
+            href={~p"/forms"}
+            class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+          >
             返回表单列表
           </a>
-          <a href={~p"/forms/#{@form.id}"} class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition">
+          <a
+            href={~p"/forms/#{@form.id}"}
+            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition"
+          >
             查看表单
           </a>
         </div>
@@ -21,33 +38,37 @@
     <% else %>
       <div class="bg-white rounded-lg shadow-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
-          <h1 class="text-2xl font-bold"><%= @form.title %></h1>
+          <h1 class="text-2xl font-bold">{@form.title}</h1>
           <%= if @form.description do %>
-            <p class="mt-2 text-gray-600"><%= @form.description %></p>
+            <p class="mt-2 text-gray-600">{@form.description}</p>
           <% end %>
         </div>
-        
+
         <%= if length(@form.pages || []) > 0 do %>
           <div class="px-6 pt-4 border-b border-gray-200 form-pagination-container">
             <!-- 分页导航 -->
             <div class="form-pagination-header">
               <h2 class="form-pagination-title">
-                <%= if @current_page, do: @current_page.title, else: "表单内容" %>
+                {if @current_page, do: @current_page.title, else: "表单内容"}
               </h2>
               <div class="form-pagination-counter">
-                <%= @current_page_idx + 1 %> / <%= length(@form.pages) %>
+                {@current_page_idx + 1} / {length(@form.pages)}
               </div>
             </div>
             
-            <!-- 页面进度指示器 -->
+<!-- 页面进度指示器 -->
             <div class="form-pagination-progress">
-              <div class="form-pagination-progress-bar" style={"width: #{(@current_page_idx + 1) / length(@form.pages) * 100}%"}></div>
+              <div
+                class="form-pagination-progress-bar"
+                style={"width: #{(@current_page_idx + 1) / length(@form.pages) * 100}%"}
+              >
+              </div>
             </div>
             
-            <!-- 页面切换指示器 -->
+<!-- 页面切换指示器 -->
             <div class="form-pagination-indicators">
               <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
-                <button 
+                <button
                   type="button"
                   class={"form-pagination-indicator #{cond do
                             idx == @current_page_idx -> "active"
@@ -58,32 +79,34 @@
                   phx-value-index={idx}
                   aria-label={"跳转到第#{idx + 1}页#{if page.title, do: ": #{page.title}", else: ""}"}
                 >
-                  <%= idx + 1 %>
+                  {idx + 1}
                 </button>
               <% end %>
             </div>
           </div>
         <% end %>
-        
+
         <div class="p-6">
-          <form
-            id="form-submission"
-            phx-change="validate"
-            phx-submit="submit_form"
-          >
+          <form id="form-submission" phx-change="validate" phx-submit="submit_form">
             <!-- 只显示当前页面的表单项 -->
             <div class="space-y-6">
               <%= for item <- @page_items do %>
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <input 
+                      <input
                         type="text"
                         id={item.id}
                         name={"form[#{item.id}]"}
@@ -94,15 +117,23 @@
                         phx-change="validate"
                       />
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                  
                   <% :radio -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
                       <fieldset>
                         <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
-                          <%= item.label %>
+                          {item.label}
                           <%= if item.required do %>
                             <span class="form-item-required text-red-500 required-mark">*</span>
                           <% end %>
@@ -110,41 +141,60 @@
                         <div id={"radio-options-container-#{item.id}"} class="space-y-2">
                           <%= for option <- item.options || [] do %>
                             <div class="flex items-center form-item-option">
-                              <input 
-                                type="radio" 
+                              <input
+                                type="radio"
                                 id={"#{item.id}_#{option.value}"}
                                 name={"form[#{item.id}]"}
                                 value={option.value}
-                                checked={option.value == Map.get(@form_state || %{}, "#{item.id}")}
+                                checked={
+                                  option.value == Map.get(@form_state || %{}, "#{item.id}")
+                                }
                                 required={item.required}
-                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                 phx-debounce="blur"
                               />
-                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
+                              <label
+                                for={"#{item.id}_#{option.value}"}
+                                class="ml-2 text-sm text-gray-700 block whitespace-normal"
+                                style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;"
+                              >
                                 <%= if option.label && option.label != "" do %>
-                                  <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                                  {option.label} {if option.value && option.value != "" &&
+                                                       option.label != option.value,
+                                                     do: "(#{option.value})"}
                                 <% else %>
-                                  选项 <%= option.value %>
+                                  选项 {option.value}
                                 <% end %>
                               </label>
                             </div>
                           <% end %>
                         </div>
                         <%= if Map.get(@errors || %{}, item.id) do %>
-                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                          <div
+                            id={"error_#{item.id}"}
+                            class="text-red-500 text-sm mt-1 error-message"
+                            role="alert"
+                          >
+                            {@errors[item.id]}
+                          </div>
                         <% end %>
                       </fieldset>
                     </div>
-                  
                   <% :dropdown -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <select 
+                      <select
                         id={item.id}
                         name={"form[#{item.id}]"}
                         required={item.required}
@@ -152,34 +202,50 @@
                         phx-debounce="blur"
                         phx-change="validate"
                       >
-                        <option value="" disabled selected={!Map.get(@form_state || %{}, "#{item.id}", "")}>请选择...</option>
+                        <option
+                          value=""
+                          disabled
+                          selected={!Map.get(@form_state || %{}, "#{item.id}", "")}
+                        >
+                          请选择...
+                        </option>
                         <%= for option <- item.options || [] do %>
-                          <option 
-                            value={option.value} 
+                          <option
+                            value={option.value}
                             selected={Map.get(@form_state || %{}, "#{item.id}") == option.value}
                             style="white-space: normal; overflow: visible;"
                           >
                             <%= if option.label && option.label != "" do %>
-                              <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                              {option.label} {if option.value && option.value != "" &&
+                                                   option.label != option.value,
+                                                 do: "(#{option.value})"}
                             <% else %>
-                              选项 <%= option.value %>
+                              选项 {option.value}
                             <% end %>
                           </option>
                         <% end %>
                       </select>
                       <%= if item.description do %>
-                        <div class="text-sm text-gray-500 mt-1"><%= item.description %></div>
+                        <div class="text-sm text-gray-500 mt-1">{item.description}</div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                  
                   <% :checkbox -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
                       <fieldset>
                         <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
-                          <%= item.label %>
+                          {item.label}
                           <%= if item.required do %>
                             <span class="form-item-required text-red-500 required-mark">*</span>
                           <% end %>
@@ -187,41 +253,60 @@
                         <div id={"checkbox-options-container-#{item.id}"} class="space-y-2">
                           <%= for option <- item.options || [] do %>
                             <div class="flex items-center form-item-option">
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 id={"#{item.id}_#{option.value}"}
                                 name={"form[#{item.id}][]"}
                                 value={option.value}
-                                checked={is_list(Map.get(@form_state || %{}, "#{item.id}")) && 
-                                         option.value in Map.get(@form_state || %{}, "#{item.id}", [])}
-                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                checked={
+                                  is_list(Map.get(@form_state || %{}, "#{item.id}")) &&
+                                    option.value in Map.get(@form_state || %{}, "#{item.id}", [])
+                                }
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                 phx-debounce="blur"
                               />
-                              <label for={"#{item.id}_#{option.value}"} class="ml-2 text-sm text-gray-700 block whitespace-normal" style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;">
+                              <label
+                                for={"#{item.id}_#{option.value}"}
+                                class="ml-2 text-sm text-gray-700 block whitespace-normal"
+                                style="display: inline-block; width: auto; overflow: visible; border: 1px dotted transparent;"
+                              >
                                 <%= if option.label && option.label != "" do %>
-                                  <%= option.label %> <%= if option.value && option.value != "" && option.label != option.value, do: "(#{option.value})" %>
+                                  {option.label} {if option.value && option.value != "" &&
+                                                       option.label != option.value,
+                                                     do: "(#{option.value})"}
                                 <% else %>
-                                  选项 <%= option.value %>
+                                  选项 {option.value}
                                 <% end %>
                               </label>
                             </div>
                           <% end %>
                         </div>
                         <%= if Map.get(@errors || %{}, item.id) do %>
-                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                          <div
+                            id={"error_#{item.id}"}
+                            class="text-red-500 text-sm mt-1 error-message"
+                            role="alert"
+                          >
+                            {@errors[item.id]}
+                          </div>
                         <% end %>
                       </fieldset>
                     </div>
-                  
                   <% :textarea -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <textarea 
+                      <textarea
                         id={item.id}
                         name={"form[#{item.id}]"}
                         rows="4"
@@ -231,13 +316,25 @@
                         phx-change="validate"
                       ><%= Map.get(@form_state || %{}, "#{item.id}", "") %></textarea>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
                   <% :rating -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
@@ -251,15 +348,16 @@
                               id={"rating-star-#{item.id}-#{i}"}
                               data-value={i}
                               data-field-id={item.id}
-                              class={"rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{
-                                rating_str = Map.get(@form_state || %{}, "#{item.id}") # Get the value
+                              class={
+                                # Get the value
                                 # Check if it's a valid number string and compare
+                                "rating-star mx-1 text-2xl cursor-pointer hover:text-yellow-500 focus:outline-none transition-colors #{rating_str = Map.get(@form_state || %{}, "#{item.id}")
                                 if rating_str != nil && rating_str != "" && i <= String.to_integer(rating_str) do
                                   "text-yellow-500"
                                 else
                                   "text-gray-300"
-                                end
-                              }"}
+                                end}"
+                              }
                               phx-click="set_rating"
                               phx-value-field-id={item.id}
                               phx-value-rating={i}
@@ -267,31 +365,48 @@
                               ★
                             </button>
                           <% end %>
-                          <input 
-                            type="hidden" 
+                          <input
+                            type="hidden"
                             id={item.id}
                             name={"form[#{item.id}]"}
                             value={Map.get(@form_state || %{}, "#{item.id}", "")}
                             required={item.required}
                           />
-                          <span class="ml-3 text-gray-600 rating-display" id={"rating-display-#{item.id}"}>
-                            <%= if rating = Map.get(@form_state || %{}, "#{item.id}"), do: rating <> "星", else: "请评分" %>
+                          <span
+                            class="ml-3 text-gray-600 rating-display"
+                            id={"rating-display-#{item.id}"}
+                          >
+                            {if rating = Map.get(@form_state || %{}, "#{item.id}"),
+                              do: rating <> "星",
+                              else: "请评分"}
                           </span>
                         </div>
                       </div>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
                   <% :number -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <input 
+                      <input
                         type="number"
                         id={item.id}
                         name={"form[#{item.id}]"}
@@ -305,22 +420,35 @@
                         phx-change="validate"
                       />
                       <%= if Map.get(item, :min) && Map.get(item, :max) do %>
-                        <div class="text-gray-500 text-xs mt-1">有效范围: <%= item.min %> - <%= item.max %></div>
+                        <div class="text-gray-500 text-xs mt-1">
+                          有效范围: {item.min} - {item.max}
+                        </div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                  
                   <% :email -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <input 
+                      <input
                         type="email"
                         id={item.id}
                         name={"form[#{item.id}]"}
@@ -334,26 +462,41 @@
                         <div class="text-gray-500 text-xs mt-1">示例格式: example@domain.com</div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                  
                   <% :phone -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-                      <input 
+                      <input
                         type="tel"
                         id={item.id}
                         name={"form[#{item.id}]"}
                         value={Map.get(@form_state || %{}, "#{item.id}", "")}
                         required={item.required}
-                        pattern={if Map.get(item, :format_display, false), do: "[0-9]{11}", else: nil}
-                        placeholder={if Map.get(item, :format_display, false), do: "13800138000", else: nil}
+                        pattern={
+                          if Map.get(item, :format_display, false), do: "[0-9]{11}", else: nil
+                        }
+                        placeholder={
+                          if Map.get(item, :format_display, false), do: "13800138000", else: nil
+                        }
                         class={"w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
                         phx-debounce="blur"
                         phx-change="validate"
@@ -362,20 +505,31 @@
                         <div class="text-gray-500 text-xs mt-1">请输入11位手机号码</div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                    
                   <% :date -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
                       <div class="relative">
-                        <input 
+                        <input
                           type="date"
                           id={item.id}
                           name={"form[#{item.id}]"}
@@ -389,29 +543,53 @@
                           phx-change="validate"
                         />
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
                           </svg>
                         </div>
                       </div>
                       <%= if item.min_date && item.max_date do %>
-                        <div class="text-gray-500 text-xs mt-1">可选日期: <%= item.min_date %> 至 <%= item.max_date %></div>
+                        <div class="text-gray-500 text-xs mt-1">
+                          可选日期: {item.min_date} 至 {item.max_date}
+                        </div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                    
                   <% :time -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
-                      <label for={item.id} class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
+                      <label
+                        for={item.id}
+                        class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}
+                      >
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
                       <div class="relative">
-                        <input 
+                        <input
                           type="time"
                           id={item.id}
                           name={"form[#{item.id}]"}
@@ -419,36 +597,57 @@
                           required={item.required}
                           min={item.min_time}
                           max={item.max_time}
-                          placeholder={item.time_format == "12h" && "HH:MM AM/PM" || "HH:MM"}
+                          placeholder={(item.time_format == "12h" && "HH:MM AM/PM") || "HH:MM"}
                           class={"w-full px-3 py-2 pl-3 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if @errors[item.id], do: "border-red-500", else: "border-gray-300"}"}
                           phx-debounce="blur"
                           phx-change="validate"
                         />
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                         </div>
                       </div>
                       <%= if item.min_time && item.max_time do %>
-                        <div class="text-gray-500 text-xs mt-1">可选时间: <%= item.min_time %> 至 <%= item.max_time %></div>
+                        <div class="text-gray-500 text-xs mt-1">
+                          可选时间: {item.min_time} 至 {item.max_time}
+                        </div>
                       <% end %>
                       <%= if Map.get(@errors || %{}, item.id) do %>
-                        <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                        <div
+                          id={"error_#{item.id}"}
+                          class="text-red-500 text-sm mt-1 error-message"
+                          role="alert"
+                        >
+                          {@errors[item.id]}
+                        </div>
                       <% end %>
                     </div>
-                    
                   <% :region -> %>
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
                       <label class={"block text-sm font-medium mb-1 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
                       
-                      <!-- 使用自定义区域选择组件 -->
-                      <MyAppWeb.Components.RegionSelect.region_select 
+<!-- 使用自定义区域选择组件 -->
+                      <MyAppWeb.Components.RegionSelect.region_select
                         field_id={item.id}
                         region_level={item.region_level || 3}
                         form_state={@form_state}
@@ -456,21 +655,23 @@
                         disabled={false}
                       />
                     </div>
-                    
                   <% :matrix -> %>
-                    <div class={"form-field form-item mb-6 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                    <div
+                      class={"form-field form-item mb-6 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
                       <fieldset>
                         <legend class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
-                          <%= item.label %>
+                          {item.label}
                           <%= if item.required do %>
                             <span class="form-item-required text-red-500">*</span>
                           <% end %>
                         </legend>
-                        
+
                         <%= if item.description do %>
-                          <div class="text-sm text-gray-500 mb-2"><%= item.description %></div>
+                          <div class="text-sm text-gray-500 mb-2">{item.description}</div>
                         <% end %>
-                        
+
                         <div class="overflow-x-auto">
                           <table class="w-full border-collapse rounded-lg overflow-hidden">
                             <thead>
@@ -478,7 +679,7 @@
                                 <th class="p-2 border border-gray-300 bg-gray-50"></th>
                                 <%= for {column, _col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
                                   <th class="p-2 border border-gray-300 bg-gray-50 text-center">
-                                    <%= column %>
+                                    {column}
                                   </th>
                                 <% end %>
                               </tr>
@@ -486,35 +687,47 @@
                             <tbody>
                               <%= for {row, row_idx} <- Enum.with_index(item.matrix_rows || []) do %>
                                 <tr>
-                                  <td class="p-2 border border-gray-300 font-medium bg-gray-50"><%= row %></td>
+                                  <td class="p-2 border border-gray-300 font-medium bg-gray-50">
+                                    {row}
+                                  </td>
                                   <%= for {_, col_idx} <- Enum.with_index(item.matrix_columns || []) do %>
                                     <td class="p-2 border border-gray-300 text-center">
                                       <%= if item.matrix_type == :multiple do %>
-                                        <input 
-                                          type="checkbox" 
+                                        <input
+                                          type="checkbox"
                                           id={"#{item.id}_#{row_idx}_#{col_idx}"}
                                           name={"form[#{item.id}][#{row_idx}][#{col_idx}]"}
                                           value="true"
-                                          checked={get_matrix_value(@form_state, item.id, row_idx, col_idx)}
+                                          checked={
+                                            get_matrix_value(
+                                              @form_state,
+                                              item.id,
+                                              row_idx,
+                                              col_idx
+                                            )
+                                          }
                                           phx-change="matrix_change"
                                           phx-value-field-id={item.id}
                                           phx-value-row-idx={row_idx}
                                           phx-value-col-idx={col_idx}
-                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                         />
                                       <% else %>
-                                        <input 
-                                          type="radio" 
+                                        <input
+                                          type="radio"
                                           id={"#{item.id}_#{row_idx}_#{col_idx}"}
                                           name={"form[#{item.id}][#{row_idx}]"}
                                           value={col_idx}
-                                          checked={get_matrix_value(@form_state, item.id, row_idx) == "#{col_idx}"}
+                                          checked={
+                                            get_matrix_value(@form_state, item.id, row_idx) ==
+                                              "#{col_idx}"
+                                          }
                                           phx-change="matrix_change"
                                           phx-value-field-id={item.id}
                                           phx-value-row-idx={row_idx}
                                           phx-value-col-idx={col_idx}
                                           required={item.required}
-                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500" 
+                                          class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                         />
                                       <% end %>
                                     </td>
@@ -525,43 +738,74 @@
                           </table>
                         </div>
                         
-                        <!-- 隐藏的输入字段，用于存储矩阵值 -->
-                        <input type="hidden" id={item.id} name={"form[#{item.id}]"} 
-                          value={Jason.encode!(Map.get(@form_state || %{}, item.id) || %{})} />
-                        
+<!-- 隐藏的输入字段，用于存储矩阵值 -->
+                        <input
+                          type="hidden"
+                          id={item.id}
+                          name={"form[#{item.id}]"}
+                          value={Jason.encode!(Map.get(@form_state || %{}, item.id) || %{})}
+                        />
+
                         <%= if Map.get(@errors || %{}, item.id) do %>
-                          <div id={"error_#{item.id}"} class="text-red-500 text-sm mt-1 error-message" role="alert"><%= @errors[item.id] %></div>
+                          <div
+                            id={"error_#{item.id}"}
+                            class="text-red-500 text-sm mt-1 error-message"
+                            role="alert"
+                          >
+                            {@errors[item.id]}
+                          </div>
                         <% end %>
                       </fieldset>
                     </div>
-                    
                   <% :file_upload -> %>
                     <!-- 使用新的文件上传组件 -->
-                    <div class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"} id={"form-field-#{item.id}"}>
+                    <div
+                      class={"form-field form-item mb-4 #{if Map.get(@errors || %{}, item.id), do: "field-error", else: ""}"}
+                      id={"form-field-#{item.id}"}
+                    >
                       <label class={"block text-sm font-medium mb-2 #{if item.required, do: "required", else: ""}"}>
-                        <%= item.label %>
+                        {item.label}
                         <%= if item.required do %>
                           <span class="form-item-required text-red-500 required-mark">*</span>
                         <% end %>
                       </label>
-
-                      <!-- 显示已上传的文件列表 (从 @existing_files_map 获取) -->
+                      
+<!-- 显示已上传的文件列表 (从 @existing_files_map 获取) -->
                       <%= if existing_files = Map.get(@existing_files_map || %{}, item.id) do %>
                         <div class="mb-4 existing-files-list">
                           <h3 class="text-sm font-medium text-gray-700 mb-2">已关联的文件：</h3>
                           <div class="space-y-2">
                             <%= for file <- existing_files do %>
-                              <%# file 是 UploadedFile 结构体 %>
+                              
                               <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
                                 <div class="flex items-center gap-2">
-                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-5 w-5 text-gray-400"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round"
+                                      stroke-width="2"
+                                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                    />
                                   </svg>
-                                  <span class="text-gray-700"><%= file.original_filename || file.filename %></span>
-                                  <span class="text-xs text-gray-500">(<%= MyAppWeb.Helpers.format_file_size(file.size) %>)</span>
+                                  <span class="text-gray-700">
+                                    {file.original_filename || file.filename}
+                                  </span>
+                                  <span class="text-xs text-gray-500">
+                                    ({MyAppWeb.Helpers.format_file_size(file.size)})
+                                  </span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                  <a href={file.path} target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
+                                  <a
+                                    href={file.path}
+                                    target="_blank"
+                                    class="text-indigo-600 hover:text-indigo-800 text-sm"
+                                  >
                                     查看
                                   </a>
                                   <!-- 添加删除按钮 -->
@@ -581,8 +825,8 @@
                           </div>
                         </div>
                       <% end %>
-
-                      <!-- 文件上传组件 -->
+                      
+<!-- 文件上传组件 -->
                       <.file_upload_field
                         field={item}
                         form_id={@form.id}
@@ -592,7 +836,6 @@
                         upload_names={@upload_names}
                       />
                     </div>
-                    
                   <% :image_choice -> %>
                     <!-- 使用图片选择组件 -->
                     <.image_choice_field
@@ -605,7 +848,7 @@
               <% end %>
             </div>
             
-            <!-- 分页导航按钮 -->
+<!-- 分页导航按钮 -->
             <%= if length(@form.pages || []) > 0 do %>
               <div class="mt-8 form-pagination-navigation">
                 <%= if @current_page_idx > 0 do %>
@@ -615,15 +858,25 @@
                     class="form-pagination-button form-pagination-prev"
                     phx-click="prev_page"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4 mr-1"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                        clip-rule="evenodd"
+                      />
                     </svg>
                     上一页
                   </button>
                 <% else %>
-                  <div></div> <!-- 占位元素 -->
+                  <div></div>
+                  <!-- 占位元素 -->
                 <% end %>
-                
+
                 <div class="flex space-x-2">
                   <%= if @current_page_idx < length(@form.pages || []) - 1 do %>
                     <button
@@ -633,8 +886,17 @@
                       phx-click="next_page"
                     >
                       下一页
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4 ml-1"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                          clip-rule="evenodd"
+                        />
                       </svg>
                     </button>
                   <% else %>
@@ -644,8 +906,17 @@
                       class="form-pagination-button form-pagination-next"
                     >
                       提交表单
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4 ml-1"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clip-rule="evenodd"
+                        />
                       </svg>
                     </button>
                   <% end %>
@@ -660,8 +931,17 @@
                   class="form-pagination-button form-pagination-next"
                 >
                   提交表单
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 ml-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                 </button>
               </div>

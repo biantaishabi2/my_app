@@ -17,7 +17,7 @@ defmodule MyAppWeb.FormLive.IndexTest do
       # 登出用户
       conn = delete_session(conn, :user_token)
       conn = assign(conn, :current_user, nil)
-      
+
       # 尝试访问表单页面
       assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/forms")
       assert path =~ "/users/log_in"
@@ -27,9 +27,9 @@ defmodule MyAppWeb.FormLive.IndexTest do
       # 创建两个测试表单
       _form1 = form_fixture(%{user_id: user.id, title: "测试表单1"})
       _form2 = form_fixture(%{user_id: user.id, title: "测试表单2"})
-      
+
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 验证表单显示
       assert has_element?(view, "td", "测试表单1")
       assert has_element?(view, "td", "测试表单2")
@@ -39,9 +39,9 @@ defmodule MyAppWeb.FormLive.IndexTest do
       # 创建另一个用户和表单
       other_user = user_fixture()
       _other_form = form_fixture(%{user_id: other_user.id, title: "其他用户的表单"})
-      
+
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 确认不显示其他用户的表单
       refute has_element?(view, "td", "其他用户的表单")
     end
@@ -50,10 +50,10 @@ defmodule MyAppWeb.FormLive.IndexTest do
   describe "表单创建功能" do
     test "点击创建按钮显示表单创建界面", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 点击创建按钮
       view |> element("button", "创建新表单") |> render_click()
-      
+
       # 验证创建表单界面显示
       assert has_element?(view, "h2", "创建新表单")
       assert has_element?(view, "input#form_title")
@@ -61,22 +61,23 @@ defmodule MyAppWeb.FormLive.IndexTest do
 
     test "成功创建表单后跳转到编辑页面", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 显示创建表单界面
       view |> element("button", "创建新表单") |> render_click()
-      
+
       # 提交表单
       form_data = %{
         "form[title]" => "新表单测试",
         "form[description]" => "这是一个测试表单"
       }
-      
+
       # 提交表单并跟随重定向
-      {:ok, view, _html} = view 
-                        |> form("form", form_data)
-                        |> render_submit()
-                        |> follow_redirect(conn)
-      
+      {:ok, view, _html} =
+        view
+        |> form("form", form_data)
+        |> render_submit()
+        |> follow_redirect(conn)
+
       # 验证跳转到编辑页面
       assert view.module == MyAppWeb.FormLive.Edit
       assert has_element?(view, "h1", "新表单测试")
@@ -84,37 +85,38 @@ defmodule MyAppWeb.FormLive.IndexTest do
 
     test "表单标题为空时显示错误", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 显示创建表单界面
       view |> element("button", "创建新表单") |> render_click()
-      
+
       # 提交空标题的表单
       form_data = %{
         "form[title]" => "",
         "form[description]" => "这是一个测试表单"
       }
-      
-      html = view 
-           |> form("form", form_data)
-           |> render_submit()
-      
+
+      html =
+        view
+        |> form("form", form_data)
+        |> render_submit()
+
       # 验证错误信息显示
       assert html =~ "不能为空"
-      
+
       # 确认表单仍然显示
       assert has_element?(view, "h2", "创建新表单")
     end
 
     test "取消创建表单操作", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/forms")
-      
+
       # 显示创建表单界面
       view |> element("button", "创建新表单") |> render_click()
       assert has_element?(view, "h2", "创建新表单")
-      
+
       # 点击取消按钮
       view |> element("button", "取消") |> render_click()
-      
+
       # 验证创建表单界面已关闭
       refute has_element?(view, "h2", "创建新表单")
     end

@@ -15,6 +15,7 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
           %{type: "text", name: "field3", label: "Field 3"}
         ]
       }
+
       form_data = %{}
 
       rendered_html = FormTemplate.render(template, form_data)
@@ -32,6 +33,7 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
           %{type: "select", name: "field3", label: "Field 3", options: ["Option 1", "Option 2"]}
         ]
       }
+
       form_data = %{}
 
       rendered_html = FormTemplate.render(template, form_data)
@@ -136,6 +138,7 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
           %{type: "text", name: "field2", label: "Field 2"}
         ]
       }
+
       form_data = %{"field1" => "value1", "field2" => "value2"}
 
       rendered_html = FormTemplate.render(template, form_data)
@@ -152,6 +155,7 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
           %{type: "text", name: "field2", label: "Field 2"}
         ]
       }
+
       form_data = %{"field1" => "value1"}
 
       rendered_html = FormTemplate.render(template, form_data)
@@ -168,22 +172,30 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
       # 假设的模板结构，包含不同类型的元素和条件
       template = %FormTemplate{
         structure: [
-          %{id: "id_intro", type: "introduction", content: "Intro"}, # 不应编号
-          %{id: "id1", type: "text", name: "field1", label: "Field 1"}, # 应编号 1
-          %{id: "id_section", type: "section", title: "Section 1"}, # 不应编号
+          # 不应编号
+          %{id: "id_intro", type: "introduction", content: "Intro"},
+          # 应编号 1
+          %{id: "id1", type: "text", name: "field1", label: "Field 1"},
+          # 不应编号
+          %{id: "id_section", type: "section", title: "Section 1"},
           %{
             id: "id2",
             type: "number",
             name: "field2",
             label: "Field 2",
-            condition: %{ # 条件渲染
+            # 条件渲染
+            condition: %{
               operator: "==",
               left: %{type: "field", name: "field1"},
               right: %{type: "value", value: "show"}
             }
-          }, # 如果可见，应编号 2
-          %{id: "id3", type: "select", name: "field3", label: "Field 3"}, # 如果 field2 可见，应编号 3；否则编号 2
-          %{id: "id_deco", type: "decoration", image_url: "img.png"} # 不应编号
+          },
+
+          # 如果可见，应编号 2
+          # 如果 field2 可见，应编号 3；否则编号 2
+          %{id: "id3", type: "select", name: "field3", label: "Field 3"},
+          # 不应编号
+          %{id: "id_deco", type: "decoration", image_url: "img.png"}
         ]
       }
 
@@ -193,27 +205,36 @@ defmodule MyApp.FormTemplates.FormTemplateTest do
       rendered_show = FormTemplate.render(template, form_data_show)
 
       # 断言：检查序号 span 的总数是否正确
-      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_show) |> length() == 3
+      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_show)
+             |> length() == 3
+
       # 仍然可以检查关键字段的序号是否正确
       assert rendered_show =~ ~r/<span class="dynamic-item-number">1\.<\/span>.*Field 1/s
-      assert rendered_show =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 2/s # field2 可见，编号 2
-      assert rendered_show =~ ~r/<span class="dynamic-item-number">3\.<\/span>.*Field 3/s # field3 编号 3
+      # field2 可见，编号 2
+      assert rendered_show =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 2/s
+      # field3 编号 3
+      assert rendered_show =~ ~r/<span class="dynamic-item-number">3\.<\/span>.*Field 3/s
       # 移除之前导致误报的 refute 断言
       # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Intro/s
       # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Section 1/s
       # refute rendered_show =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*decoration/s
 
       # 情况 2: field2 不可见
-      form_data_hide = %{"field1" => "hide"} # field2 的条件不满足
+      # field2 的条件不满足
+      form_data_hide = %{"field1" => "hide"}
       rendered_hide = FormTemplate.render(template, form_data_hide)
 
       # --- 修改断言 ---
       # 检查序号 span 的总数是否正确
-      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_hide) |> length() == 2
+      assert Regex.scan(~r/<span class="dynamic-item-number">\d+\.<\/span>/, rendered_hide)
+             |> length() == 2
+
       # 检查关键字段的序号
       assert rendered_hide =~ ~r/<span class="dynamic-item-number">1\.<\/span>.*Field 1/s
-      refute rendered_hide =~ ~r/name="field2"/ # field2 不渲染
-      assert rendered_hide =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 3/s # field3 现在编号 2
+      # field2 不渲染
+      refute rendered_hide =~ ~r/name="field2"/
+      # field3 现在编号 2
+      assert rendered_hide =~ ~r/<span class="dynamic-item-number">2\.<\/span>.*Field 3/s
       # 移除之前导致误报的 refute 断言
       # refute rendered_hide =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Intro/s
       # refute rendered_hide =~ ~r/<span class="dynamic-item-number">\d+\.<\/span>.*Section 1/s

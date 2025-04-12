@@ -8,6 +8,7 @@ defmodule MyApp.Repo.Migrations.CreateChatTables do
 
       timestamps()
     end
+
     create index(:conversations, [:user_id])
 
     create table(:messages) do
@@ -17,6 +18,7 @@ defmodule MyApp.Repo.Migrations.CreateChatTables do
 
       timestamps()
     end
+
     create index(:messages, [:conversation_id])
   end
 end

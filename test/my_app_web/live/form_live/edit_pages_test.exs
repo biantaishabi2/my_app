@@ -15,7 +15,7 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
   describe "表单页面管理" do
     test "显示页面管理面板", %{conn: conn, user: user, form: form} do
-      {:ok, view, html} = 
+      {:ok, view, html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -26,7 +26,7 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
     end
 
     test "添加新页面", %{conn: conn, user: user, form: form} do
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -56,13 +56,14 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
     test "编辑现有页面", %{conn: conn, user: user, form: form} do
       # 创建测试页面
-      {:ok, page} = Forms.create_form_page(form, %{
-        title: "测试页面",
-        description: "测试描述",
-        order: 1
-      })
+      {:ok, page} =
+        Forms.create_form_page(form, %{
+          title: "测试页面",
+          description: "测试描述",
+          order: 1
+        })
 
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -97,13 +98,14 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
     test "删除页面", %{conn: conn, user: user, form: form} do
       # 创建测试页面
-      {:ok, page} = Forms.create_form_page(form, %{
-        title: "待删除页面",
-        description: "即将被删除",
-        order: 1
-      })
+      {:ok, page} =
+        Forms.create_form_page(form, %{
+          title: "待删除页面",
+          description: "即将被删除",
+          order: 1
+        })
 
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -131,7 +133,7 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
       {:ok, page2} = Forms.create_form_page(form, %{title: "第二页", order: 2})
       {:ok, page3} = Forms.create_form_page(form, %{title: "第三页", order: 3})
 
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -142,7 +144,7 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
       # 模拟拖动排序操作（LiveView测试不支持真实拖拽，使用事件模拟）
       reordered_ids = [page3.id, page1.id, page2.id]
-      
+
       view
       |> element("[data-test-id='form-pages-list']")
       |> render_hook("pages_reordered", %{"pageIds" => reordered_ids})
@@ -158,12 +160,12 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
       # 创建两个测试页面
       {:ok, page1} = Forms.create_form_page(form, %{title: "页面一", order: 1})
       {:ok, page2} = Forms.create_form_page(form, %{title: "页面二", order: 2})
-      
+
       %{page1: page1, page2: page2}
     end
 
     test "新建表单项时选择页面", %{conn: conn, user: user, form: form, page1: page1, page2: page2} do
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -197,13 +199,14 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
     test "编辑表单项时可以更改页面", %{conn: conn, user: user, form: form, page1: page1, page2: page2} do
       # 创建一个在page1的表单项
-      {:ok, item} = Forms.add_form_item(form, %{
-        label: "要移动的表单项",
-        type: :text_input,
-        page_id: page1.id
-      })
+      {:ok, item} =
+        Forms.add_form_item(form, %{
+          label: "要移动的表单项",
+          type: :text_input,
+          page_id: page1.id
+        })
 
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -233,10 +236,12 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
 
     test "拖拽表单项到不同页面", %{conn: conn, user: user, form: form, page1: page1, page2: page2} do
       # 创建几个测试表单项
-      {:ok, item1} = Forms.add_form_item(form, %{label: "项目1", type: :text_input, page_id: page1.id})
+      {:ok, item1} =
+        Forms.add_form_item(form, %{label: "项目1", type: :text_input, page_id: page1.id})
+
       {:ok, item2} = Forms.add_form_item(form, %{label: "项目2", type: :radio, page_id: page1.id})
 
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -265,16 +270,16 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
       # 创建两个测试页面并添加表单项
       {:ok, page1} = Forms.create_form_page(form, %{title: "个人信息", order: 1})
       {:ok, page2} = Forms.create_form_page(form, %{title: "联系方式", order: 2})
-      
+
       # 为每个页面添加表单项
       {:ok, _} = Forms.add_form_item(form, %{label: "姓名", type: :text_input, page_id: page1.id})
       {:ok, _} = Forms.add_form_item(form, %{label: "邮箱", type: :email, page_id: page2.id})
-      
+
       %{page1: page1, page2: page2}
     end
 
     test "页面预览模式显示分页表单", %{conn: conn, user: user, form: form, page1: page1, page2: page2} do
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")
@@ -302,7 +307,7 @@ defmodule MyAppWeb.FormLive.EditPagesTest do
     end
 
     test "返回到编辑模式", %{conn: conn, user: user, form: form} do
-      {:ok, view, _html} = 
+      {:ok, view, _html} =
         conn
         |> log_in_user(user)
         |> live(~p"/forms/#{form.id}/edit")

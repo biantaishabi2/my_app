@@ -29,7 +29,7 @@ defmodule MyAppWeb.ConnCase do
       import Phoenix.ConnTest
       import Phoenix.LiveViewTest
       import MyAppWeb.ConnCase
-      
+
       # 辅助函数，用于获取HTML元素的属性
       def attribute(element, name) do
         element

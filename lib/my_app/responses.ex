@@ -6,9 +6,10 @@ defmodule MyApp.Responses do
   import Ecto.Query, warn: false
   alias MyApp.Repo
   alias MyApp.Forms
+
   alias MyApp.Responses.Response
   alias MyApp.Responses.Answer
-  alias MyApp.Forms.FormItem
+  # alias MyApp.Forms.FormItem
 
   @doc """
   Creates a response with answers for a published form.
@@ -41,7 +42,7 @@ defmodule MyApp.Responses do
 
       form ->
         # Load form items and their options for validation
-        form = Repo.preload(form, [items: :options])
+        form = Repo.preload(form, items: :options)
 
         # Check if form is published
         if form.status != :published do
@@ -53,48 +54,50 @@ defmodule MyApp.Responses do
           case validation_result do
             :ok ->
               # Create the response in a transaction
-              result = Repo.transaction(fn ->
-                # Create response
-                now = DateTime.utc_now()
-                response_attrs = %{
-                  form_id: form_id,
-                  submitted_at: now,
-                  respondent_info: respondent_info,
-                  inserted_at: now,
-                  updated_at: now
-                }
+              result =
+                Repo.transaction(fn ->
+                  # Create response
+                  now = DateTime.utc_now()
 
-                case %Response{}
-                     |> Response.changeset(response_attrs)
-                     |> Repo.insert() do
-                  {:ok, response} ->
-                    # Create answers for each provided answer
-                    answers = 
-                      Enum.map(answers_map, fn {item_id, value} ->
-                        answer_attrs = %{
-                          response_id: response.id,
-                          form_item_id: item_id,
-                          value: %{"value" => value},
-                          inserted_at: now,
-                          updated_at: now
-                        }
+                  response_attrs = %{
+                    form_id: form_id,
+                    submitted_at: now,
+                    respondent_info: respondent_info,
+                    inserted_at: now,
+                    updated_at: now
+                  }
 
-                        case %Answer{}
-                             |> Answer.changeset(answer_attrs)
-                             |> Repo.insert() do
-                          {:ok, answer} -> answer
-                          {:error, changeset} -> Repo.rollback(changeset)
-                        end
-                      end)
+                  case %Response{}
+                       |> Response.changeset(response_attrs)
+                       |> Repo.insert() do
+                    {:ok, response} ->
+                      # Create answers for each provided answer
+                      answers =
+                        Enum.map(answers_map, fn {item_id, value} ->
+                          answer_attrs = %{
+                            response_id: response.id,
+                            form_item_id: item_id,
+                            value: %{"value" => value},
+                            inserted_at: now,
+                            updated_at: now
+                          }
 
-                    # Return response with answers
-                    %{response | answers: answers}
-                    
-                  {:error, changeset} ->
-                    Repo.rollback(changeset)
-                end
-              end)
-              
+                          case %Answer{}
+                               |> Answer.changeset(answer_attrs)
+                               |> Repo.insert() do
+                            {:ok, answer} -> answer
+                            {:error, changeset} -> Repo.rollback(changeset)
+                          end
+                        end)
+
+                      # Return response with answers
+                      %{response | answers: answers}
+
+                    {:error, changeset} ->
+                      Repo.rollback(changeset)
+                  end
+                end)
+
               result
 
             {:error, reason} ->
@@ -113,16 +116,16 @@ defmodule MyApp.Responses do
       :ok
     end
   end
-  
+
   # Validate all required items have answers
   defp validate_required_items(items, answers_map) do
-    missing_required = Enum.filter(items, fn item -> 
-      item.required && (
-        !Map.has_key?(answers_map, item.id) || 
-        (item.type == :checkbox && 
-         (answers_map[item.id] == [] || is_nil(answers_map[item.id])))
-      )
-    end)
+    missing_required =
+      Enum.filter(items, fn item ->
+        item.required &&
+          (!Map.has_key?(answers_map, item.id) ||
+             (item.type == :checkbox &&
+                (answers_map[item.id] == [] || is_nil(answers_map[item.id]))))
+      end)
 
     if length(missing_required) > 0 do
       {:error, :validation_failed}
@@ -130,18 +133,19 @@ defmodule MyApp.Responses do
       :ok
     end
   end
-  
+
   # Validate radio answers have valid option values
   defp validate_radio_values(items, answers_map) do
-    invalid_radio = Enum.find(items, fn item ->
-      if item.type == :radio && Map.has_key?(answers_map, item.id) do
-        answer_value = answers_map[item.id]
-        valid_values = Enum.map(item.options, & &1.value)
-        answer_value not in valid_values
-      else
-        false
-      end
-    end)
+    invalid_radio =
+      Enum.find(items, fn item ->
+        if item.type == :radio && Map.has_key?(answers_map, item.id) do
+          answer_value = answers_map[item.id]
+          valid_values = Enum.map(item.options, & &1.value)
+          answer_value not in valid_values
+        else
+          false
+        end
+      end)
 
     if invalid_radio do
       {:error, :validation_failed}
@@ -149,43 +153,45 @@ defmodule MyApp.Responses do
       :ok
     end
   end
-  
+
   # Validate dropdown answers have valid option values
   defp validate_dropdown_values(items, answers_map) do
-    invalid_dropdown = Enum.find(items, fn item ->
-      if item.type == :dropdown && Map.has_key?(answers_map, item.id) do
-        answer_value = answers_map[item.id]
-        valid_values = Enum.map(item.options, & &1.value)
-        answer_value not in valid_values
-      else
-        false
-      end
-    end)
-    
+    invalid_dropdown =
+      Enum.find(items, fn item ->
+        if item.type == :dropdown && Map.has_key?(answers_map, item.id) do
+          answer_value = answers_map[item.id]
+          valid_values = Enum.map(item.options, & &1.value)
+          answer_value not in valid_values
+        else
+          false
+        end
+      end)
+
     if invalid_dropdown do
       {:error, :validation_failed}
     else
       :ok
     end
   end
-  
+
   # Validate checkbox answers have valid option values
   defp validate_checkbox_values(items, answers_map) do
-    invalid_checkbox = Enum.find(items, fn item ->
-      if item.type == :checkbox && Map.has_key?(answers_map, item.id) do
-        answer_values = 
-          case answers_map[item.id] do
-            values when is_list(values) -> values
-            single_value -> [single_value]
-          end
-        
-        valid_values = Enum.map(item.options, & &1.value)
-        
-        Enum.any?(answer_values, fn value -> value not in valid_values end)
-      else
-        false
-      end
-    end)
+    invalid_checkbox =
+      Enum.find(items, fn item ->
+        if item.type == :checkbox && Map.has_key?(answers_map, item.id) do
+          answer_values =
+            case answers_map[item.id] do
+              values when is_list(values) -> values
+              single_value -> [single_value]
+            end
+
+          valid_values = Enum.map(item.options, & &1.value)
+
+          Enum.any?(answer_values, fn value -> value not in valid_values end)
+        else
+          false
+        end
+      end)
 
     if invalid_checkbox do
       {:error, :validation_failed}
@@ -214,23 +220,24 @@ defmodule MyApp.Responses do
     |> Repo.get(id)
     |> preload_response_answers()
   end
-  
+
   @doc """
   Preloads answers for a response.
   This is a utility function to standardize preloading across different functions.
   Returns nil if the response is nil.
-  
+
   ## Examples
-  
+
       iex> preload_response_answers(response)
       %Response{answers: [...]}
-      
+
   """
   def preload_response_answers(nil), do: nil
+
   def preload_response_answers(response) do
-    Repo.preload(response, [
+    Repo.preload(response,
       answers: from(a in Answer, order_by: a.inserted_at)
-    ])
+    )
   end
 
   @doc """
@@ -246,15 +253,16 @@ defmodule MyApp.Responses do
 
   """
   def list_responses_for_form(form_id) do
-    responses = Response
-    |> where([r], r.form_id == ^form_id)
-    |> order_by([r], desc: r.submitted_at)
-    |> Repo.all()
-    
+    responses =
+      Response
+      |> where([r], r.form_id == ^form_id)
+      |> order_by([r], desc: r.submitted_at)
+      |> Repo.all()
+
     # 使用批量预加载而不是单独加载每个响应
-    Repo.preload(responses, [
+    Repo.preload(responses,
       answers: from(a in Answer, order_by: a.inserted_at)
-    ])
+    )
   end
 
   @doc """
@@ -283,5 +291,4 @@ defmodule MyApp.Responses do
   def delete_response(%Response{} = response) do
     Repo.delete(response)
   end
-
-end 
+end

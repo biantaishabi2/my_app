@@ -113,14 +113,14 @@ defmodule MyApp.Chat do
   """
   def delete_conversation(id, %User{} = user) do
     conversation = Repo.get_by(Conversation, id: id, user_id: user.id)
-    
+
     if conversation do
       # 使用事务删除对话及其消息
       Repo.transaction(fn ->
         # 先删除关联的消息
         from(m in Message, where: m.conversation_id == ^id)
         |> Repo.delete_all()
-        
+
         # 再删除对话
         Repo.delete(conversation)
       end)
@@ -143,7 +143,7 @@ defmodule MyApp.Chat do
   """
   def update_conversation_title(id, title, %User{} = user) do
     conversation = Repo.get_by(Conversation, id: id, user_id: user.id)
-    
+
     if conversation do
       update_conversation(conversation, %{title: title})
     else

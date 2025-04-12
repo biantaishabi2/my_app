@@ -14,15 +14,18 @@ defmodule MyAppWeb.Endpoint do
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [
       connect_info: [session: @session_options],
-      timeout: 60_000,  # 增加超时时间到60秒
-      check_origin: false,  # 临时禁用源检查用于测试
+      # 增加超时时间到60秒
+      timeout: 60_000,
+      # 临时禁用源检查用于测试
+      check_origin: false,
       # 关键配置：允许处理代理标头
       proxy_headers: {"CF-Connecting-IP", "CF-IPCountry", "CF-RAY"},
       proxy_redir: true
     ],
     longpoll: [
       connect_info: [session: @session_options],
-      pubsub_timeout: 30_000  # 增加长轮询超时时间
+      # 增加长轮询超时时间
+      pubsub_timeout: 30_000
     ]
 
   # Serve at "/" the static files from "priv/static" directory.

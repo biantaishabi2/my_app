@@ -9,7 +9,8 @@ defmodule MyApp.Forms.ItemOption do
   @foreign_key_type :binary_id
   schema "item_options" do
     field :label, :string
-    field :value, :string # Or consider :text if values can be long
+    # Or consider :text if values can be long
+    field :value, :string
     field :order, :integer
     field :image_filename, :string
 
@@ -27,4 +28,4 @@ defmodule MyApp.Forms.ItemOption do
     |> foreign_key_constraint(:form_item_id)
     |> foreign_key_constraint(:image_id)
   end
-end 
+end

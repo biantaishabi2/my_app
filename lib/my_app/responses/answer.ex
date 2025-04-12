@@ -8,7 +8,8 @@ defmodule MyApp.Responses.Answer do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "answers" do
-    field :value, :map # Use JSONB/Map to store various answer types (string, list, etc.)
+    # Use JSONB/Map to store various answer types (string, list, etc.)
+    field :value, :map
 
     belongs_to :response, Response
     belongs_to :form_item, FormItem
@@ -26,4 +27,4 @@ defmodule MyApp.Responses.Answer do
     |> foreign_key_constraint(:response_id)
     |> foreign_key_constraint(:form_item_id)
   end
-end 
+end

@@ -16,8 +16,12 @@ defmodule MyApp.Repo.Migrations.CreateResponsesTables do
     create table(:answers, primary_key: false) do
       add :id, :binary_id, primary_key: true
       add :value, :map, null: false
-      add :response_id, references(:responses, type: :binary_id, on_delete: :delete_all), null: false
-      add :form_item_id, references(:form_items, type: :binary_id, on_delete: :restrict), null: false
+
+      add :response_id, references(:responses, type: :binary_id, on_delete: :delete_all),
+        null: false
+
+      add :form_item_id, references(:form_items, type: :binary_id, on_delete: :restrict),
+        null: false
 
       timestamps()
     end

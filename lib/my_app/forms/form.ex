@@ -35,6 +35,7 @@ defmodule MyApp.Forms.Form do
     |> validate_required([:title, :status, :user_id])
     |> foreign_key_constraint(:default_page_id)
     |> foreign_key_constraint(:form_template_id)
+
     # Add other validations as needed
   end
 end

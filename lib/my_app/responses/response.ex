@@ -9,8 +9,10 @@ defmodule MyApp.Responses.Response do
   @foreign_key_type :binary_id
   schema "responses" do
     # Use Ecto.ULID or keep :binary_id depending on preference
-    field :submitted_at, :utc_datetime_usec # Precise submission time
-    field :respondent_info, :map, default: %{} # Store user info, etc. as JSONB/Map
+    # Precise submission time
+    field :submitted_at, :utc_datetime_usec
+    # Store user info, etc. as JSONB/Map
+    field :respondent_info, :map, default: %{}
 
     belongs_to :form, Form
     has_many :answers, Answer, on_delete: :delete_all
@@ -27,6 +29,7 @@ defmodule MyApp.Responses.Response do
     |> cast(attrs, [:form_id, :submitted_at, :respondent_info, :inserted_at, :updated_at])
     |> validate_required([:form_id, :submitted_at])
     |> foreign_key_constraint(:form_id)
-    |> put_assoc(:answers, attrs[:answers] || []) # Basic handling for nested answers
+    # Basic handling for nested answers
+    |> put_assoc(:answers, attrs[:answers] || [])
   end
-end 
+end

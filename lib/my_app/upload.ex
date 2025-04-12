@@ -6,6 +6,7 @@ defmodule MyApp.Upload do
   import Ecto.Query, warn: false, only: [from: 2]
   alias MyApp.Repo
   alias MyApp.Upload.UploadedFile
+  require Logger
 
   @doc """
   Saves uploaded file information and creates a record in the database.
@@ -54,8 +55,9 @@ defmodule MyApp.Upload do
   def get_files_for_form_item(form_id, form_item_id) do
     Repo.all(
       from f in UploadedFile,
-      where: f.form_id == ^form_id and f.form_item_id == ^form_item_id and is_nil(f.response_id),
-      order_by: [desc: f.inserted_at]
+        where:
+          f.form_id == ^form_id and f.form_item_id == ^form_item_id and is_nil(f.response_id),
+        order_by: [desc: f.inserted_at]
     )
   end
 
@@ -72,8 +74,8 @@ defmodule MyApp.Upload do
   def get_files_for_form(form_id) do
     Repo.all(
       from f in UploadedFile,
-      where: f.form_id == ^form_id and is_nil(f.response_id),
-      order_by: [desc: f.inserted_at]
+        where: f.form_id == ^form_id and is_nil(f.response_id),
+        order_by: [desc: f.inserted_at]
     )
     |> Enum.group_by(& &1.form_item_id)
   end
@@ -93,9 +95,10 @@ defmodule MyApp.Upload do
   def associate_files_with_response(form_id, form_item_id, response_id) do
     Repo.update_all(
       from(f in UploadedFile,
-        where: f.form_id == ^form_id and
-               f.form_item_id == ^form_item_id and
-               is_nil(f.response_id)
+        where:
+          f.form_id == ^form_id and
+            f.form_item_id == ^form_item_id and
+            is_nil(f.response_id)
       ),
       set: [response_id: response_id, updated_at: DateTime.utc_now()]
     )
@@ -142,8 +145,8 @@ defmodule MyApp.Upload do
   def get_files_for_response(response_id) do
     Repo.all(
       from f in UploadedFile,
-      where: f.response_id == ^response_id,
-      order_by: [desc: f.inserted_at]
+        where: f.response_id == ^response_id,
+        order_by: [desc: f.inserted_at]
     )
     |> Enum.group_by(& &1.form_item_id)
   end
@@ -164,6 +167,7 @@ defmodule MyApp.Upload do
   def get_file(id) when is_binary(id) do
     Repo.get(UploadedFile, id)
   end
+
   def get_file(_), do: nil
 
   @doc """
@@ -182,14 +186,19 @@ defmodule MyApp.Upload do
   """
   def delete_uploaded_file(form_id, file_path) do
     # Use a query with is_nil() for safe nil comparison
-    query = from u in UploadedFile,
-              where: u.form_id == ^form_id and u.path == ^file_path and is_nil(u.response_id)
+    query =
+      from u in UploadedFile,
+        where: u.form_id == ^form_id and u.path == ^file_path and is_nil(u.response_id)
 
     case Repo.one(query) do
       nil ->
         # If not found (or already submitted, i.e., response_id is not nil), return :not_found
-        Logger.warn("Attempted to delete file with path '#{file_path}' for form '#{form_id}', but it was not found or already submitted.")
+        Logger.warning(
+          "Attempted to delete file with path '#{file_path}' for form '#{form_id}', but it was not found or already submitted."
+        )
+
         {:error, :not_found}
+
       %UploadedFile{id: file_id} = _file ->
         # Call the existing delete_file function which handles filesystem and DB deletion
         delete_file(file_id)
