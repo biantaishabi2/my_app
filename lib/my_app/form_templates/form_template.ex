@@ -125,34 +125,109 @@ defmodule MyApp.FormTemplates.FormTemplate do
   
   # 处理并渲染组合的表单结构和装饰元素
   defp render_combined_elements(structure, decoration, form_data, field_indices) do
-    # 1. 为表单元素添加类型标识，方便后续渲染处理
+    # 1. 为表单元素和装饰元素添加通用标识
     form_elements = Enum.map(structure, fn element -> 
-      Map.put(element, "element_type", "form_item")
+      element_id = Map.get(element, "id") || Map.get(element, :id)
+      element
+      |> Map.put("element_type", "form_item")
+      |> Map.put("element_id", element_id)
     end)
     
-    # 2. 为装饰元素添加类型标识
     decoration_elements = Enum.map(decoration, fn element -> 
-      Map.put(element, "element_type", "decoration")
+      element_id = Map.get(element, "id") || Map.get(element, :id)
+      element
+      |> Map.put("element_type", "decoration")
+      |> Map.put("element_id", element_id)
     end)
     
-    # 3. 处理带位置信息的装饰元素
-    {start_decorations, positioned_decorations, end_decorations} =
-      split_decorations_by_position(decoration_elements)
+    # 2. 创建ID到元素的映射，用于快速查找
+    element_map = (form_elements ++ decoration_elements)
+                  |> Enum.into(%{}, fn element -> 
+                    {Map.get(element, "element_id"), element} 
+                  end)
     
-    # 4. 组合所有元素
-    # 首先添加开始位置的装饰元素
-    start_elements = start_decorations
+    # 3. 收集所有应该在开头显示的装饰元素
+    start_elements = decoration_elements
+                     |> Enum.filter(fn element ->
+                       position = Map.get(element, "position")
+                       position != nil && position["type"] == "start"
+                     end)
+                     
+    # 4. 收集所有应该在末尾显示的装饰元素
+    end_elements = decoration_elements
+                   |> Enum.filter(fn element ->
+                     position = Map.get(element, "position")
+                     position != nil && position["type"] == "end"
+                   end)
     
-    # 然后处理表单元素与定位在表单元素前/后的装饰元素
-    middle_elements = intersperse_positioned_decorations(form_elements, positioned_decorations)
+    # 5. 根据位置属性将装饰元素插入到正确的位置
+    positioned_elements = %{}
     
-    # 最后添加结束位置的装饰元素
-    end_elements = end_decorations
+    # 收集所有带"before"和"after"位置的装饰元素
+    positioned_elements = decoration_elements
+                          |> Enum.reduce(positioned_elements, fn element, acc ->
+                            position = Map.get(element, "position")
+                            if position != nil && position["type"] in ["before", "after"] && position["target_id"] != nil do
+                              target_id = position["target_id"]
+                              pos_type = position["type"]
+                              
+                              # 根据位置类型更新收集器
+                              case pos_type do
+                                "before" ->
+                                  before_list = Map.get(acc, {:before, target_id}, [])
+                                  Map.put(acc, {:before, target_id}, before_list ++ [element])
+                                "after" ->
+                                  after_list = Map.get(acc, {:after, target_id}, [])
+                                  Map.put(acc, {:after, target_id}, after_list ++ [element])
+                              end
+                            else
+                              acc
+                            end
+                          end)
     
-    # 5. 组合所有元素并渲染
-    all_elements = start_elements ++ middle_elements ++ end_elements
-
-    all_elements
+    # 6. 获取没有特殊位置的装饰元素（既不是start/end/before/after）
+    neutral_decorations = decoration_elements
+                         |> Enum.filter(fn element ->
+                           position = Map.get(element, "position")
+                           is_nil(position) || 
+                           (position["type"] != "start" && 
+                            position["type"] != "end" && 
+                            position["type"] != "before" && 
+                            position["type"] != "after")
+                         end)
+    
+    # 7. 构建最终的元素列表，首先添加开头元素
+    final_elements = start_elements
+    
+    # 8. 按照原始顺序添加表单控件和中间装饰元素，并把before/after元素插入到对应位置
+    main_elements = form_elements ++ neutral_decorations
+                    |> Enum.filter(fn element ->
+                      # 过滤掉已经在start或end列表中的元素，避免重复
+                      element_id = Map.get(element, "element_id")
+                      !(Enum.any?(start_elements ++ end_elements, fn e -> 
+                        Map.get(e, "element_id") == element_id
+                      end))
+                    end)
+    
+    # 9. 添加主要元素和它们对应的before/after装饰元素
+    final_elements = Enum.reduce(main_elements, final_elements, fn element, acc ->
+      element_id = Map.get(element, "element_id")
+      
+      # 获取应放在此元素前面的装饰元素
+      before_list = Map.get(positioned_elements, {:before, element_id}, [])
+      
+      # 获取应放在此元素后面的装饰元素
+      after_list = Map.get(positioned_elements, {:after, element_id}, [])
+      
+      # 按顺序添加：before元素 + 当前元素 + after元素
+      acc ++ before_list ++ [element] ++ after_list
+    end)
+    
+    # 10. 最后添加结尾元素
+    final_elements = final_elements ++ end_elements
+    
+    # 11. 渲染最终的元素列表
+    final_elements
     |> Enum.map(fn element -> 
       element_type = Map.get(element, "element_type")
       case element_type do
@@ -164,76 +239,6 @@ defmodule MyApp.FormTemplates.FormTemplate do
     |> Enum.join("\n")
   end
   
-  # 按位置将装饰元素分为三组：开始、定位（在特定元素前后）和结束
-  defp split_decorations_by_position(decoration_elements) do
-    # 初始化三个列表
-    start_decorations = []
-    positioned_decorations = []
-    end_decorations = []
-    
-    # 遍历所有装饰元素并根据位置信息分组
-    Enum.reduce(decoration_elements, {start_decorations, positioned_decorations, end_decorations}, fn element, {start_acc, positioned_acc, end_acc} ->
-      # 获取位置信息
-      position = Map.get(element, "position")
-      
-      cond do
-        # 如果没有位置信息，根据元素类型进行默认分组
-        is_nil(position) ->
-          type = Map.get(element, "type") || Map.get(element, :type)
-          cond do
-            type in ["header_image", "title"] ->
-              {start_acc ++ [element], positioned_acc, end_acc}
-            type in ["section", "paragraph", "explanation"] ->
-              {start_acc, positioned_acc ++ [element], end_acc}
-            true ->
-              {start_acc, positioned_acc, end_acc ++ [element]}
-          end
-          
-        # 如果有位置信息，按位置类型分组
-        position["type"] == "start" ->
-          {start_acc ++ [element], positioned_acc, end_acc}
-          
-        position["type"] == "end" ->
-          {start_acc, positioned_acc, end_acc ++ [element]}
-          
-        position["type"] in ["before", "after"] && not is_nil(position["target_id"]) ->
-          {start_acc, positioned_acc ++ [element], end_acc}
-          
-        # 默认情况，放在结束位置
-        true ->
-          {start_acc, positioned_acc, end_acc ++ [element]}
-      end
-    end)
-  end
-  
-  # 将带定位信息的装饰元素与表单元素交错组合
-  defp intersperse_positioned_decorations(form_elements, positioned_decorations) do
-    # 创建一个表单元素ID到位置的映射（未使用但保留为文档）
-    _form_elements_map = Enum.into(form_elements, %{}, fn element ->
-      element_id = Map.get(element, "id") || Map.get(element, :id)
-      {element_id, element}
-    end)
-    
-    # 遍历表单元素，并在每个元素前后插入对应的装饰元素
-    Enum.reduce(form_elements, [], fn form_element, acc ->
-      form_element_id = Map.get(form_element, "id") || Map.get(form_element, :id)
-      
-      # 找出所有应该放在这个表单元素前面的装饰元素
-      before_elements = Enum.filter(positioned_decorations, fn decoration ->
-        position = Map.get(decoration, "position")
-        position["type"] == "before" && position["target_id"] == form_element_id
-      end)
-      
-      # 找出所有应该放在这个表单元素后面的装饰元素
-      after_elements = Enum.filter(positioned_decorations, fn decoration ->
-        position = Map.get(decoration, "position")
-        position["type"] == "after" && position["target_id"] == form_element_id
-      end)
-      
-      # 按顺序组合元素：前装饰 + 表单元素 + 后装饰
-      acc ++ before_elements ++ [form_element] ++ after_elements
-    end)
-  end
   
   # 渲染装饰元素
   defp render_decoration_element(element) do

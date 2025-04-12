@@ -289,25 +289,7 @@
   color: #047857;
 }
 
-/* 表单元素和装饰元素之间的分隔线 */
-.elements-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #e5e7eb 10%, #e5e7eb 90%, transparent);
-  margin: 1.5rem 0;
-  position: relative;
-}
-
-.elements-divider::after {
-  content: "表单控件与装饰元素分界线";
-  position: absolute;
-  top: -0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: white;
-  padding: 0 0.75rem;
-  font-size: 0.75rem;
-  color: #6b7280;
-}
+/* 装饰元素的提示 */
 
 /* 帮助提示样式 */
 .decoration-help-tooltip {

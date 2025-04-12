@@ -97,7 +97,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           socket
           |> assign(:template, updated_template)
           |> assign(:structure, updated_template.structure)
-          |> put_flash(:info, "模板结构已保存")
+          |> put_flash(:info, "模板结构已保存成功")
         }
 
       {:error, _changeset} ->
@@ -482,6 +482,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     position_type = socket.assigns.position_type
     position_target_id = socket.assigns.position_target_id
     
+    IO.puts("添加装饰元素: 类型=#{decoration_type}, 位置=#{position_type}, 目标ID=#{position_target_id || "nil"}")
+    
     # 确保装饰元素类型不为 nil
     if decoration_type == nil do
       {:noreply,
@@ -556,7 +558,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           }
       end
     
-      # 添加位置信息
+      # 添加位置信息，无论target_id是表单元素还是装饰元素，都正确记录
       target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
       position = %{
         "type" => position_type,
@@ -565,8 +567,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     
       new_element = Map.put(base_element, "position", position)
 
-      # 添加新元素到装饰元素列表
+      # 保存新元素的位置信息
       updated_decoration = socket.assigns.decoration ++ [new_element]
+      # 注意：这里不再修改元素在装饰元素列表中的位置
+      # 只保存正确的位置属性，表单模板渲染时会按照位置属性渲染
 
       # 保存更新后的模板
       case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
@@ -718,9 +722,30 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   
   defp add_decoration_at_position(decoration, new_element, %{"type" => position_type, "target_id" => target_id}, _structure) 
     when position_type in ["before", "after"] and not is_nil(target_id) do
-    # 这里我们只是将位置信息保存到元素中，实际的渲染位置逻辑在渲染函数中处理
-    # 仍然将元素添加到列表末尾，只是带有特殊的位置标记
-    decoration ++ [new_element]
+    # 直接将元素添加到目标元素的前面或后面，而不是添加到列表末尾
+    case position_type do
+      "before" ->
+        # 将元素添加到目标元素前面
+        Enum.reduce(decoration, [], fn element, acc ->
+          element_id = Map.get(element, "id") || Map.get(element, :id)
+          if element_id == target_id do
+            acc ++ [new_element, element]  # 先添加新元素，再添加目标元素
+          else
+            acc ++ [element]
+          end
+        end)
+      
+      "after" ->
+        # 将元素添加到目标元素后面
+        Enum.reduce(decoration, [], fn element, acc ->
+          element_id = Map.get(element, "id") || Map.get(element, :id)
+          if element_id == target_id do
+            acc ++ [element, new_element]  # 先添加目标元素，再添加新元素
+          else
+            acc ++ [element]
+          end
+        end)
+    end
   end
   
   defp add_decoration_at_position(decoration, new_element, _position, _structure) do
@@ -2522,6 +2547,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           </button>
                         </div>
                         
+                        <!-- 渲染开头位置的装饰元素 -->
+                        <%= for element <- Enum.filter(@decoration, fn elem -> 
+                          position = Map.get(elem, "position") || Map.get(elem, :position)
+                          position != nil && (position["type"] == "start" || position[:type] == "start")
+                        end) do %>
+                          <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                        <% end %>
+                        
                         <%= for {item, index} <- Enum.with_index(@structure) do %>
                           <%
                             elem_id = Map.get(item, "id", "unknown")
@@ -2602,6 +2635,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             elem_type = to_string(form_item.type)
                             elem_label = form_item.label
                           %>
+                          <!-- 渲染"before"位置的装饰元素 -->
+                          <%= for element <- Enum.filter(@decoration, fn elem -> 
+                            position = Map.get(elem, "position") || Map.get(elem, :position)
+                            target_id = if position, do: position["target_id"] || position[:target_id], else: nil
+                            position != nil && 
+                            (position["type"] == "before" || position[:type] == "before") && 
+                            target_id == elem_id
+                          end) do %>
+                            <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                          <% end %>
+
                           <div id={"form-item-#{elem_id}"} class="p-3 border rounded bg-white shadow-sm form-card opacity-75">
                             <div class="flex justify-between items-center">
                               <div class="flex items-center">
@@ -2622,6 +2666,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             </div>
                           </div>
                           
+                          <!-- 渲染"after"位置的装饰元素 -->
+                          <%= for element <- Enum.filter(@decoration, fn elem -> 
+                            position = Map.get(elem, "position") || Map.get(elem, :position)
+                            target_id = if position, do: position["target_id"] || position[:target_id], else: nil
+                            position != nil && 
+                            (position["type"] == "after" || position[:type] == "after") && 
+                            target_id == elem_id
+                          end) do %>
+                            <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                          <% end %>
+                          
                           <!-- 在控件后面添加装饰元素的插入点 -->
                           <div class="insertion-point" style="padding: 0.5rem 0; text-align: center;">
                             <button phx-click="show_decoration_selector" phx-value-position="after" phx-value-target_id={elem_id} class="insertion-button"
@@ -2636,133 +2691,23 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       <% end %>
                     </div>
                     
-                    <div class="elements-divider"></div>
+                    <!-- 渲染"end"位置的装饰元素 -->
+                    <%= for element <- Enum.filter(@decoration, fn elem -> 
+                      position = Map.get(elem, "position") || Map.get(elem, :position)
+                      position != nil && (position["type"] == "end" || position[:type] == "end")
+                    end) do %>
+                      <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                    <% end %>
                     
-                    <!-- 装饰元素部分 -->
-                    <div class="decoration-element-container">
-                      <div class="flex items-center mb-4">
-                        <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; padding-bottom: 0.5rem;">页面装饰元素 (可编辑)</h3>
-                        <div class="decoration-help-tooltip ml-2">
-                          <span class="tooltip-icon">?</span>
-                          <span class="tooltip-text">
-                            装饰元素可以通过选择位置控制元素的放置位置：<br><br>
-                            • <b>表单最前面</b>：元素将显示在表单的最开始<br>
-                            • <b>表单最后面</b>：元素将显示在表单的最末尾<br>
-                            • <b>在特定控件之前</b>：元素将显示在选定控件的前面<br>
-                            • <b>在特定控件之后</b>：元素将显示在选定控件的后面<br><br>
-                            添加元素后，您还可以通过拖拽调整它们在各自位置区域内的顺序。
-                          </span>
-                        </div>
-                      </div>
-                    
-                      <div id="decoration-list" phx-hook="DecorationSortable" class="space-y-4">
-                        <%= if Enum.empty?(@decoration) do %>
-                          <div style="text-align: center; padding: 2rem 0; background-color: #f9fafb; border: 1px dashed #d1d5db; border-radius: 0.375rem;">
-                            <div style="margin: 0 auto; height: 2.5rem; width: 2.5rem; color: #9ca3af;">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                              </svg>
-                            </div>
-                            <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">暂无装饰元素</h3>
-                            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择装饰元素类型并点击"添加装饰元素"按钮</p>
-                          </div>
-                        <% else %>
-                          <%= for element <- @decoration do %>
-                            <%
-                              elem_id = element["id"] || element[:id]
-                              elem_type = element["type"] || element[:type]
-                              elem_title = case elem_type do
-                                "title" -> element["title"] || element[:title] || "未命名标题"
-                                "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
-                                "section" -> element["title"] || element[:title] || "章节分隔"
-                                "explanation" -> element["content"] || element[:content] || "解释框"
-                                "header_image" -> "题图"
-                                "inline_image" -> element["caption"] || element[:caption] || "插图"
-                                "spacer" -> "空间"
-                                _ -> "未知元素"
-                              end
-                              
-                              # 判断装饰元素位置类型
-                              position_type = cond do
-                                elem_type in ["header_image", "title"] -> "顶部装饰"
-                                elem_type in ["section", "paragraph", "explanation"] -> "内容装饰"
-                                true -> "底部装饰"
-                              end
-                              
-                              # 位置提示类名
-                              position_class = cond do
-                                elem_type in ["header_image", "title"] -> "bg-indigo-50 border-indigo-200"
-                                elem_type in ["section", "paragraph", "explanation"] -> "bg-amber-50 border-amber-200"
-                                true -> "bg-emerald-50 border-emerald-200"
-                              end
-                            %>
-                            <div
-                              id={"decoration-#{elem_id}"}
-                              data-id={elem_id}
-                              class={"p-3 border rounded shadow-sm decoration-card #{position_class}"}
-                            >
-                              <div class="flex justify-between items-center">
-                                <div class="flex items-center">
-                                  <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
-                                  <span class="decoration-badge"><%= position_type %></span>
-                                  <div>
-                                    <div class="flex items-center">
-                                      <span class="font-medium text-gray-700"><%= elem_title %></span>
-                                    </div>
-                                    <div class="text-xs text-gray-500 mt-1">
-                                      元素类型: <%= display_decoration_type(elem_type) %>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div class="flex gap-2">
-                                  <button
-                                    type="button"
-                                    phx-click="edit_decoration_element"
-                                    phx-value-id={elem_id}
-                                    class="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded bg-blue-50 hover:bg-blue-100"
-                                  >
-                                    编辑
-                                  </button>
-                                  <button
-                                    type="button"
-                                    phx-click="delete_decoration_element"
-                                    phx-value-id={elem_id}
-                                    class="px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded bg-red-50 hover:bg-red-100"
-                                  >
-                                    删除
-                                  </button>
-                                </div>
-                              </div>
-
-                              <!-- 预览区域 -->
-                              <div class="mt-3 border-t pt-3">
-                                <%= render_decoration_preview(element) %>
-                              </div>
-
-                              <!-- 编辑面板 - 仅在选中时显示 -->
-                              <%= if @editing_decoration_id == elem_id do %>
-                                <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
-                                  <div class="flex justify-between items-center mb-3">
-                                    <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
-                                    <button
-                                      type="button"
-                                      phx-click="close_decoration_editor"
-                                      class="text-gray-500 hover:text-gray-800"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                      </svg>
-                                    </button>
-                                  </div>
-
-                                  <%= render_decoration_editor(element) %>
-                                </div>
-                              <% end %>
-                            </div>
-                          <% end %>
-                        <% end %>
-                      </div>
+                    <!-- 表单的最后添加一个可以添加元素的按钮 -->
+                    <div class="insertion-point mt-8" style="padding: 0.5rem 0; text-align: center;">
+                      <button phx-click="show_decoration_selector" phx-value-position="end" class="insertion-button"
+                        style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>在表单末尾添加装饰元素</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2891,6 +2836,119 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   defp display_decoration_type("inline_image"), do: "插图"
   defp display_decoration_type("spacer"), do: "空间"
   defp display_decoration_type(_), do: "未知类型"
+  
+  # 添加一个辅助函数，用于渲染装饰元素编辑卡片
+  defp render_decoration_editor_card(element, editing_decoration_id) do
+    elem_id = element["id"] || element[:id]
+    elem_type = element["type"] || element[:type]
+    elem_title = case elem_type do
+      "title" -> element["title"] || element[:title] || "未命名标题"
+      "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
+      "section" -> element["title"] || element[:title] || "章节分隔"
+      "explanation" -> element["content"] || element[:content] || "解释框"
+      "header_image" -> "题图"
+      "inline_image" -> element["caption"] || element[:caption] || "插图"
+      "spacer" -> "空间"
+      _ -> "未知元素"
+    end
+    
+    # 判断装饰元素位置类型
+    position = element["position"] || element[:position]
+    position_text = if position do
+      case position["type"] || position[:type] do
+        "start" -> "开头装饰"
+        "end" -> "结尾装饰"
+        "before" -> "前置装饰"
+        "after" -> "后置装饰"
+        _ -> "装饰元素"
+      end
+    else
+      "装饰元素"
+    end
+    
+    # 位置提示类名
+    position_class = cond do
+      elem_type in ["header_image", "title"] -> "bg-indigo-50 border-indigo-200"
+      elem_type in ["section", "paragraph", "explanation"] -> "bg-amber-50 border-amber-200"
+      true -> "bg-emerald-50 border-emerald-200"
+    end
+    
+    assigns = %{
+      elem_id: elem_id, 
+      elem_title: elem_title, 
+      position_text: position_text,
+      position_class: position_class,
+      element: element, 
+      editing_decoration_id: editing_decoration_id,
+      elem_type: elem_type
+    }
+    
+    ~H"""
+    <div
+      id={"decoration-#{@elem_id}"}
+      data-id={@elem_id}
+      class={"p-3 mb-3 border rounded shadow-sm decoration-card #{@position_class}"}
+    >
+      <div class="flex justify-between items-center">
+        <div class="flex items-center">
+          <span class="decoration-badge"><%= @position_text %></span>
+          <div>
+            <div class="flex items-center">
+              <span class="font-medium text-gray-700"><%= @elem_title %></span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">
+              元素类型: <%= display_decoration_type(@elem_type) %>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button
+            type="button"
+            phx-click="edit_decoration_element"
+            phx-value-id={@elem_id}
+            class="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded bg-blue-50 hover:bg-blue-100"
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            phx-click="delete_decoration_element"
+            phx-value-id={@elem_id}
+            class="px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded bg-red-50 hover:bg-red-100"
+          >
+            删除
+          </button>
+        </div>
+      </div>
+
+      <!-- 预览区域 -->
+      <div class="mt-3 border-t pt-3">
+        <%= render_decoration_preview(@element) %>
+      </div>
+
+      <!-- 编辑面板 - 仅在选中时显示 -->
+      <%= if @editing_decoration_id == @elem_id do %>
+        <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
+            <button
+              type="button"
+              phx-click="close_decoration_editor"
+              class="text-gray-500 hover:text-gray-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+
+          <%= render_decoration_editor(@element) %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
 
   # 截取字符串的辅助函数
   defp truncate(text, max_length) when is_binary(text) do

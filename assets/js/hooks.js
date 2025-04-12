@@ -355,70 +355,97 @@ Hooks.Sortable = {
     
     // 初始化排序按钮 - 为移动设备添加上下移动按钮
     const setupMobileControls = () => {
-      getItems().forEach((item) => {
-        // 如果已经有移动控件，不重复添加
-        if (item.querySelector('.mobile-item-controls')) return;
-        
-        // 确保有 data-id 属性
-        if (!item.getAttribute('data-id')) {
-          const itemId = item.id && item.id.replace('item-', '');
-          if (itemId) {
-            item.setAttribute('data-id', itemId);
+      try {
+        getItems().forEach((item) => {
+          try {
+            // 如果已经有移动控件，不重复添加
+            if (item.querySelector('.mobile-item-controls')) return;
+            
+            // 确保有 data-id 属性
+            if (!item.getAttribute('data-id')) {
+              const itemId = item.id && item.id.replace('item-', '');
+              if (itemId) {
+                item.setAttribute('data-id', itemId);
+              }
+            }
+            
+            // 找到操作按钮区域，通常在控件右上角
+            let actionArea = item.querySelector('.flex.gap-2, .flex.justify-between');
+            
+            if (!actionArea) {
+              console.log("未找到操作区域，创建新区域", item.id);
+              // 如果找不到现有按钮区，创建一个
+              actionArea = document.createElement('div');
+              actionArea.className = 'flex gap-2';
+              const itemContent = item.querySelector('div');
+              
+              // 安全地添加操作区域
+              try {
+                if (itemContent) {
+                  itemContent.appendChild(actionArea);
+                } else {
+                  item.appendChild(actionArea);
+                }
+              } catch (error) {
+                console.error("添加操作区域失败:", error);
+                return; // 跳过此项目
+              }
+            }
+            
+            // 创建移动控件容器
+            const controlsContainer = document.createElement('div');
+            controlsContainer.className = 'mobile-item-controls flex gap-1';
+            
+            // 创建上移按钮
+            const upButton = document.createElement('button');
+            upButton.type = 'button';
+            upButton.className = 'move-up-button text-blue-600 px-1';
+            upButton.innerHTML = '↑';
+            upButton.title = '上移';
+            upButton.style.fontSize = '1.2rem';
+            upButton.style.lineHeight = '1';
+            
+            // 创建下移按钮
+            const downButton = document.createElement('button');
+            downButton.type = 'button';
+            downButton.className = 'move-down-button text-blue-600 px-1';
+            downButton.innerHTML = '↓';
+            downButton.title = '下移';
+            downButton.style.fontSize = '1.2rem';
+            downButton.style.lineHeight = '1';
+            
+            // 添加按钮到容器
+            controlsContainer.appendChild(upButton);
+            controlsContainer.appendChild(downButton);
+            
+            // 在删除按钮前插入移动控件
+            try {
+              const deleteButton = actionArea.querySelector('[phx-click="delete_item"]');
+              if (deleteButton) {
+                actionArea.insertBefore(controlsContainer, deleteButton);
+              } else {
+                actionArea.appendChild(controlsContainer);
+              }
+            } catch (error) {
+              console.error("添加移动控件时出错:", error);
+              // 安全添加到末尾
+              try {
+                actionArea.appendChild(controlsContainer);
+              } catch (appendError) {
+                console.error("添加到末尾也失败:", appendError);
+              }
+            }
+            
+            // 添加事件处理
+            upButton.addEventListener('click', () => this.moveItem(item, 'up'));
+            downButton.addEventListener('click', () => this.moveItem(item, 'down'));
+          } catch (itemError) {
+            console.error("处理项目时出错:", itemError);
           }
-        }
-        
-        // 找到操作按钮区域，通常在控件右上角
-        let actionArea = item.querySelector('.flex.gap-2, .flex.justify-between');
-        
-        if (!actionArea) {
-          // 如果找不到现有按钮区，创建一个
-          actionArea = document.createElement('div');
-          actionArea.className = 'flex gap-2';
-          const itemContent = item.querySelector('div');
-          if (itemContent) {
-            itemContent.appendChild(actionArea);
-          } else {
-            item.appendChild(actionArea);
-          }
-        }
-        
-        // 创建移动控件容器
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'mobile-item-controls flex gap-1';
-        
-        // 创建上移按钮
-        const upButton = document.createElement('button');
-        upButton.type = 'button';
-        upButton.className = 'move-up-button text-blue-600 px-1';
-        upButton.innerHTML = '↑';
-        upButton.title = '上移';
-        upButton.style.fontSize = '1.2rem';
-        upButton.style.lineHeight = '1';
-        
-        // 创建下移按钮
-        const downButton = document.createElement('button');
-        downButton.type = 'button';
-        downButton.className = 'move-down-button text-blue-600 px-1';
-        downButton.innerHTML = '↓';
-        downButton.title = '下移';
-        downButton.style.fontSize = '1.2rem';
-        downButton.style.lineHeight = '1';
-        
-        // 添加按钮到容器
-        controlsContainer.appendChild(upButton);
-        controlsContainer.appendChild(downButton);
-        
-        // 在删除按钮前插入移动控件
-        const deleteButton = actionArea.querySelector('[phx-click="delete_item"]');
-        if (deleteButton) {
-          actionArea.insertBefore(controlsContainer, deleteButton);
-        } else {
-          actionArea.appendChild(controlsContainer);
-        }
-        
-        // 添加事件处理
-        upButton.addEventListener('click', () => this.moveItem(item, 'up'));
-        downButton.addEventListener('click', () => this.moveItem(item, 'down'));
+        });
+      } catch (error) {
+        console.error("setupMobileControls整体错误:", error);
+      }
       });
     };
     
@@ -472,13 +499,21 @@ Hooks.Sortable = {
       }
     };
     
-    // 为移动设备设置触控拖拽功能
+    // 为移动设备设置触控拖拽功能 - 禁用移动控件以修复错误
     if (isMobile) {
-      // !!! FIX: Only setup mobile controls for the structure list !!!
+      // 暂时禁用移动控件以修复错误
+      console.log("检测到移动设备，但暂时禁用移动控件以修复错误");
+      // 禁用移动控件相关功能
+      /*
       if (this.el.id === 'structure-list') {
-        setupMobileControls();
-        updateMobileControls();
+        try {
+          setupMobileControls();
+          updateMobileControls();
+        } catch (error) {
+          console.error("初始化移动控件失败:", error);
+        }
       }
+      */
       
       // 监听DOM变化，为新添加的元素设置移动控件
       const observer = new MutationObserver((mutations) => {
@@ -490,14 +525,24 @@ Hooks.Sortable = {
           }
         });
         
-        // !!! FIX: Only update mobile controls for the structure list !!!
+        // 同样禁用移动控件更新
+        /*
         if (needsUpdate && this.el.id === 'structure-list') {
-          setupMobileControls();
-          updateMobileControls();
+          try {
+            setupMobileControls();
+            updateMobileControls();
+          } catch (error) {
+            console.error("更新移动控件失败:", error);
+          }
         }
+        */
       });
       
-      observer.observe(this.el, { childList: true, subtree: true });
+      try {
+        observer.observe(this.el, { childList: true, subtree: true });
+      } catch (error) {
+        console.error("设置观察器失败:", error);
+      }
     } else {
       // 桌面设备使用原始拖放功能
       let draggedItem = null;
