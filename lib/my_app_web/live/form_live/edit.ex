@@ -137,6 +137,56 @@ defmodule MyAppWeb.FormLive.Edit do
      )}
   end
 
+  @impl true
+  # 处理异步表单项添加后的事件，确保界面正确更新
+  def handle_info({:update_matrix_defaults, updated_item}, socket) do
+    IO.puts("Updating matrix defaults")
+    {:noreply, assign(socket, :current_item, updated_item)}
+  end
+
+  @impl true
+  def handle_info(:after_item_added, socket) do
+    # 重新获取最新数据
+    updated_form = Forms.get_form(socket.assigns.form.id)
+    IO.puts("异步更新表单项，确保渲染: #{length(updated_form.items)}项")
+
+    # 收集所有页面的表单项
+    all_form_items =
+      Enum.flat_map(updated_form.pages, fn page ->
+        # 提取每个页面的表单项
+        page.items || []
+      end)
+
+    IO.puts("从页面收集到 #{length(all_form_items)} 个表单项")
+
+    # 输出所有表单项，用于调试
+    items_debug = Enum.map(all_form_items, &"#{&1.id}: #{&1.label}") |> Enum.join(", ")
+    IO.puts("表单项详情: #{items_debug}")
+
+    # 在测试环境中，也手动查询所有表单项以验证
+    if Mix.env() == :test do
+      # 使用不同的查询方式再次获取表单项
+      alias MyApp.Forms.FormItem
+      import Ecto.Query
+
+      form_id = socket.assigns.form.id
+
+      direct_items =
+        MyApp.Repo.all(from i in FormItem, where: i.form_id == ^form_id, order_by: i.order)
+
+      IO.puts("直接查询到 #{length(direct_items)} 个表单项")
+
+      direct_labels = Enum.map(direct_items, &"#{&1.id}: #{&1.label}") |> Enum.join(", ")
+      IO.puts("直接查询表单项: #{direct_labels}")
+    end
+
+    {:noreply,
+     socket
+     |> assign(:form, updated_form)
+     # 使用从页面收集的表单项
+     |> assign(:form_items, all_form_items)}
+  end
+
   defp apply_action(socket, :edit, _params) do
     socket
     |> assign(:page_title, "编辑表单 - #{socket.assigns.form.title}")
@@ -1199,13 +1249,6 @@ defmodule MyAppWeb.FormLive.Edit do
     {:noreply,
      socket
      |> assign(:search_term, filtered_types)}
-  end
-
-  @impl true
-  # 处理异步表单项添加后的事件，确保界面正确更新
-  def handle_info({:update_matrix_defaults, updated_item}, socket) do
-    IO.puts("Updating matrix defaults")
-    {:noreply, assign(socket, :current_item, updated_item)}
   end
 
   @impl true
