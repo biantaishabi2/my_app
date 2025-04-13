@@ -47,8 +47,8 @@ defmodule MyAppWeb.Router do
     live "/test-upload", TestUploadLive
     live "/test-upload/:form_id/:field_id", TestUploadLive
 
-    # Add the debug route
-    live "/debug", Live.DebugParentLive
+    # Remove the debug route
+    # live "/debug", Live.DebugParentLive
   end
 
   # Other scopes may use custom stacks.

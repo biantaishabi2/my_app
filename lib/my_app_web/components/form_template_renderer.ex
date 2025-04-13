@@ -78,11 +78,6 @@ defmodule MyAppWeb.FormTemplateRenderer do
   attr :jump_state, :map, default: %{active: false, target_id: nil}
 
   def render_form_with_decorations(assigns) do
-    # --- LOGGING AT FUNCTION ENTRY ---
-    Logger.debug("[FormTemplateRenderer ENTRY] Received assigns: #{inspect(assigns)}")
-    Logger.debug("[FormTemplateRenderer ENTRY] Received form_data specifically: #{inspect(assigns[:form_data])}")
-    # --- END LOGGING ---
-
     ~H"""
     <div id="form-renderer-#{@form.id}" class="form-container">
       <%= if @form_template do %>
@@ -119,11 +114,6 @@ defmodule MyAppWeb.FormTemplateRenderer do
   attr :form_render_key, :any # Keep this if added previously
 
   def render_page_with_decorations(assigns) do
-    # --- LOGGING AT FUNCTION ENTRY ---
-    Logger.debug("[FormTemplateRenderer Page ENTRY] Received assigns: #{inspect(assigns)}")
-    Logger.debug("[FormTemplateRenderer Page ENTRY] Received form_data specifically: #{inspect(assigns[:form_data])}")
-    # --- END LOGGING ---
-
     ~H"""
     <div id="form-renderer-page-#{@current_page.id}" class="form-page">
       <%= if @form_template do %>
@@ -180,29 +170,24 @@ defmodule MyAppWeb.FormTemplateRenderer do
 
   # 使用装饰元素渲染完整表单
   defp render_template_with_decorations(form, template, form_data, errors, jump_state) do
-    require Logger
-
     form_items = form.items || []
     decorations = template.decoration || []
-    items_map = build_items_map(form_items) # Build map from original items
+    items_map = build_items_map(form_items)
 
-    # Log the received jump_state
-    Logger.debug("[Renderer] Received jump_state: #{inspect(jump_state)}")
-
-    # === Fix assigns name and include jump_state ===
+    # 构建模板变量
     assigns = %{
       form: form,
       template: template,
-      form_items: form_items, # Pass original items
+      form_items: form_items,
       decorations: decorations,
       items_map: items_map,
       form_data: form_data,
-      form_state: form_data,  # Add form_state (same as form_data for compatibility)
+      form_state: form_data,  # 保持form_state与form_data一致，以支持CSS隐藏方案
       errors: errors,
-      jump_state: jump_state # Pass jump_state to HEEx context
+      jump_state: jump_state
     }
 
-    # === Restore original HEEx structure with correct jump_state usage ===
+    # 渲染模板
     ~H"""
     <div class="form-container-with-decorations">
       <!-- 显示跳转状态指示器（如果激活） -->
@@ -236,11 +221,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
         }%>
         <%!-- === 使用CSS隐藏而非条件渲染 === --%>
         <div phx-key={item.id} style={if !show_item, do: "display: none;", else: ""}>
-          <%
-            # --- LOGGING BEFORE CALLING ItemRendererComponent ---
-            Logger.debug("[FormTemplateRenderer] About to render item ID: #{inspect(item.id)}. Current @form_data: #{inspect(@form_data)}")
-            # --- END LOGGING ---
-          %>
+          <%# 渲染表单项 %>
           <!-- 渲染"before"装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}
@@ -446,32 +427,29 @@ defmodule MyAppWeb.FormTemplateRenderer do
     """
   end
 
-  # === Modify to accept jump_state, fix assigns, restore HEEx ===
+  # 渲染带有模板的页面
   defp render_page_with_template(form, template, current_page, page_items, form_data, errors, jump_state) do
     decorations = template.decoration || []
     pages = form.pages || []
     total_pages = length(pages)
     current_page_number = current_page.order
 
-    # Log the received jump_state
-    Logger.debug("[Renderer Page] Received jump_state: #{inspect(jump_state)}")
-
-    # === Fix assigns name and include jump_state ===
+    # 构建模板变量
     assigns = %{
       form: form,
       template: template,
       current_page: current_page,
-      page_items: page_items, # Pass original page items
+      page_items: page_items,
       form_data: form_data,
-      form_state: form_data,  # Add form_state (same as form_data for compatibility) 
+      form_state: form_data,  # 保持form_state与form_data一致，以支持CSS隐藏方案
       errors: errors,
       decorations: decorations,
       current_page_number: current_page_number,
       total_pages: total_pages,
-      jump_state: jump_state # Pass jump_state to HEEx context
+      jump_state: jump_state
     }
 
-    # === Restore original HEEx structure with correct jump_state usage ===
+    # 渲染模板
     ~H"""
     <div class="form-page-items">
       <!-- 显示跳转状态指示器（如果激活） -->
@@ -507,11 +485,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
         }%>
         <%!-- === 使用CSS隐藏而非条件渲染 === --%>
         <div phx-key={item.id} style={if !show_item, do: "display: none;", else: ""}>
-          <%
-            # --- LOGGING BEFORE CALLING ItemRendererComponent ---
-            Logger.debug("[FormTemplateRenderer] About to render item ID: #{inspect(item.id)}. Current @form_data: #{inspect(@form_data)}")
-            # --- END LOGGING ---
-          %>
+          <%# 渲染表单项 %>
           <!-- 渲染 "before" 装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}

@@ -268,40 +268,22 @@ defmodule MyAppWeb.FormLive.Submit do
       socket.assigns.form_state
       |> Map.merge(form_data)
 
-    # 当用户与表单交互时，检查是否有特殊逻辑
+    # 当用户与表单交互时，检查变更的字段
     changed_field_id = case params["_target"] do
       ["form_data", field_id] -> field_id
       _ -> nil
     end
 
     if changed_field_id do
-      field_value = Map.get(form_data, changed_field_id) # Note: form_data here is the partial update from the client
-      Logger.info("字段变更: #{changed_field_id}, 值: #{inspect(field_value)}")
+      # 处理字段变更 - 日志和特殊处理
+      field_value = Map.get(form_data, changed_field_id)
+      Logger.debug("字段变更: #{changed_field_id}, 值: #{inspect(field_value)}")
 
-      # 记录特殊值情况 - 使用 updated_form_state 中的值进行检查
-      current_value = Map.get(updated_form_state, changed_field_id)
-      if "#{current_value}" == "我是🐷" do
-        Logger.info("🚨 检测到特殊值 '我是🐷'，这可能会触发跳转逻辑")
-      end
-
-      # 识别表单项是否有逻辑规则
-      item = Map.get(socket.assigns.items_map || %{}, changed_field_id)
-      if item && (Map.get(item, :logic) || Map.get(item, "logic")) do
-        logic = Map.get(item, :logic) || Map.get(item, "logic")
-        Logger.info("字段 #{changed_field_id} 有逻辑规则: #{inspect(logic)}")
-      end
+      # 可以在这里添加特定字段的特殊处理逻辑
     end
 
-    # 重要：更新form_data，这是模板逻辑渲染评估所需的
-    # 将 updated_form_state 传递给 maybe_validate_form
-    updated_socket = socket
-                     # |> assign(:form_state, updated_form_state) # Assigning form_state might be redundant if maybe_validate_form assigns form_data
-                     |> maybe_validate_form(updated_form_state) # Pass the complete, updated state
-
-    # --- LOGGING BEFORE ASSIGN ---
-    Logger.debug("[Submit validate] FINAL state before assign - form_state: #{inspect(updated_form_state)}")
-    Logger.debug("[Submit validate] FINAL state before assign - jump_state: #{inspect(socket.assigns.jump_state)}")
-    # --- END LOGGING ---
+    # 更新状态并应用验证逻辑
+    updated_socket = socket |> maybe_validate_form(updated_form_state)
 
     {:noreply, updated_socket}
   end
@@ -640,88 +622,60 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
 
-  # 辅助函数：在表单状态更新后进行验证
+  # 辅助函数：在表单状态更新后进行验证和跳转逻辑评估
   defp maybe_validate_form(socket, current_form_data) do
     require Logger
 
-    # === 移除调试日志 ===
-    # relevant_item_id = "fe01d45d-fb33-4a47-b19c-fdd53b35d93e"
-    # item_in_assigns = Enum.find(socket.assigns.form_items || [], &(&1.id == relevant_item_id))
-    # Logger.debug("[MaybeValidate] Checking item #{relevant_item_id} in socket.assigns.form_items: #{inspect(item_in_assigns)}")
-
-    # 执行基本验证 - 使用完整的当前表单数据
+    # 执行基本验证
     errors = validate_form_data(current_form_data, socket.assigns.items_map)
 
-    # 记录表单数据更新
-    Logger.info("表单数据更新 (传入 maybe_validate_form): #{inspect(current_form_data)}")
-
-    # --- 开始计算跳转状态 - 直接从模板获取逻辑 ---
+    # 计算跳转状态 - 从模板获取逻辑
     form_template = socket.assigns.form_template
     template_structure = if form_template, do: form_template.structure || [], else: []
 
-    Logger.debug("[Jump Eval] Checking template structure (length: #{length(template_structure)}) for jump logic.")
-
-    # 评估跳转条件，确定是否激活跳转 - 遍历模板结构
+    # 评估跳转条件，确定是否激活跳转
     active_jump = Enum.find_value(template_structure, %{active: false}, fn template_item ->
       # 检查模板项是否有跳转逻辑
       logic = template_item["logic"] || Map.get(template_item, :logic)
       logic_type = if logic, do: logic["type"] || Map.get(logic, :type), else: nil
 
       if logic && logic_type == "jump" do
-        # 找到了跳转逻辑
         source_id = template_item["id"] || Map.get(template_item, :id)
-        Logger.info("[Jump Eval] >>> 发现模板项 #{source_id} 有跳转逻辑.")
-
         condition = Map.get(logic, "condition") || Map.get(logic, :condition) || %{}
         target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
         operator = Map.get(condition, "operator") || Map.get(condition, :operator)
         value_to_match = Map.get(condition, "value") || Map.get(condition, :value)
 
-        Logger.info("[Jump Eval] 解析逻辑: 源=#{source_id}, 操作符=#{operator}, 匹配值=#{inspect(value_to_match)}, 目标=#{target_id}")
-
         unless target_id do
-          Logger.warning("[Jump Eval] 源项 #{source_id} 缺少 target_id! 跳过此项.")
+          Logger.warning("跳转逻辑缺少目标ID: 源=#{source_id}")
           nil
         else
-          # 从 current_form_data 获取源字段的当前值
-          source_value = Map.get(current_form_data, source_id) # 使用模板项ID作为 key
-          Logger.info("[Jump Eval] 获取当前值 for #{source_id}: #{inspect(source_value)}")
+          # 从表单数据获取源字段的当前值
+          source_value = Map.get(current_form_data, source_id)
 
+          # 条件评估
           condition_met = case operator do
             "equals" -> "#{source_value}" == "#{value_to_match}"
             "not_equals" -> "#{source_value}" != "#{value_to_match}"
             "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value_to_match}")
-            _ ->
-              Logger.warning("[Jump Eval] 未知操作符: #{operator}")
-              false
+            _ -> false
           end
-          Logger.info("[Jump Eval] 条件评估结果 (condition_met): #{condition_met}")
 
-          # 标准跳转逻辑：条件满足时激活跳转
-          activate_jump = condition_met
-          Logger.info("[Jump Eval] 是否激活跳转? (activate_jump): #{activate_jump}")
-
-          if activate_jump do
-            Logger.info("[Jump Eval] 🚨🚨 确定激活跳转! 返回激活状态.")
+          # 条件满足则激活跳转
+          if condition_met do
             %{active: true, source_id: source_id, target_id: target_id}
           else
-            Logger.info("[Jump Eval] <<< 条件不满足，不激活此跳转规则，继续检查下一个.")
             nil
           end
-        end # End of unless target_id
+        end
       else
-        # 不是跳转逻辑，继续检查下一个模板项
         nil
-      end # End of if logic && logic_type == "jump"
-    end) # End of Enum.find_value block
-    # --- 结束计算跳转状态 ---
+      end
+    end)
 
-    # 记录最终的跳转状态
-    Logger.info("最终计算的跳转状态 (active_jump): #{inspect(active_jump)}")
-
-    # 更新视图状态 - 直接使用form_state作为唯一数据源
+    # 更新视图状态 - 使用form_state作为唯一数据源
     socket
-      |> assign(:form_state, current_form_data)  # 直接更新form_state，不再需要单独的form_data
+      |> assign(:form_state, current_form_data)
       |> assign(:errors, errors)
       |> assign(:jump_state, active_jump)
   end
