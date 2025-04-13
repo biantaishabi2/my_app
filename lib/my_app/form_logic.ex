@@ -90,16 +90,33 @@ defmodule MyApp.FormLogic do
     布尔值，表示表单项是否应该显示
   """
   def should_show_item?(form_item, form_data) do
-    cond do
+    require Logger
+    
+    result = cond do
       # 没有可见性条件，默认显示
       is_nil(form_item.visibility_condition) ->
+        Logger.debug("表单项 #{form_item.id} 没有可见性条件，默认显示")
         true
 
       # 有可见性条件，评估条件是否满足
       true ->
-        condition = Jason.decode!(form_item.visibility_condition)
-        evaluate_condition(condition, form_data)
+        try do
+          condition = Jason.decode!(form_item.visibility_condition)
+          Logger.debug("评估表单项 #{form_item.id} 可见性条件: #{inspect(condition)}")
+          Logger.debug("使用表单数据: #{inspect(form_data)}")
+          
+          should_show = evaluate_condition(condition, form_data)
+          Logger.info("表单项 #{form_item.id} 的可见性评估结果: #{should_show}")
+          should_show
+        rescue
+          e ->
+            # 解析出错时记录错误并默认显示该字段
+            Logger.error("解析可见性条件时出错: #{inspect(e)}, condition: #{inspect(form_item.visibility_condition)}")
+            true
+        end
     end
+    
+    result
   end
 
   @doc """
@@ -135,58 +152,70 @@ defmodule MyApp.FormLogic do
          form_data
        ) do
     # 获取表单数据中的值
-    actual_value = Map.get(form_data, "#{source_item_id}")
+    actual_value = Map.get(form_data, "#{source_item_id}") || Map.get(form_data, source_item_id)
 
     # 如果值不存在，则条件不满足
     if is_nil(actual_value) do
       false
     else
-      # 根据操作符评估条件
+      # 将目标值转换为字符串以确保一致性
+      string_target = if is_binary(target_value), do: target_value, else: to_string(target_value)
+      string_actual = if is_binary(actual_value), do: actual_value, else: to_string(actual_value)
+      
+      # 安全处理：防止nil或空字符串比较错误
       case operator do
         "equals" ->
-          actual_value == to_string(target_value)
+          string_actual == string_target
 
         "not_equals" ->
-          actual_value != to_string(target_value)
+          string_actual != string_target
 
         "greater_than" ->
           # 尝试转换为数字进行比较
-          with {actual_num, _} <- Integer.parse(actual_value),
-               target_num when is_number(target_num) <- target_value do
+          try do
+            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
+            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
             actual_num > target_num
-          else
+          rescue
             _ -> false
           end
 
         "greater_than_or_equal" ->
           # 尝试转换为数字进行比较
-          with {actual_num, _} <- Integer.parse(actual_value),
-               target_num when is_number(target_num) <- target_value do
+          try do
+            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
+            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
             actual_num >= target_num
-          else
+          rescue
             _ -> false
           end
 
         "less_than" ->
           # 尝试转换为数字进行比较
-          with {actual_num, _} <- Integer.parse(actual_value),
-               target_num when is_number(target_num) <- target_value do
+          try do
+            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
+            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
             actual_num < target_num
-          else
+          rescue
             _ -> false
           end
 
         "less_than_or_equal" ->
           # 尝试转换为数字进行比较
-          with {actual_num, _} <- Integer.parse(actual_value),
-               target_num when is_number(target_num) <- target_value do
+          try do
+            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
+            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
             actual_num <= target_num
-          else
+          rescue
             _ -> false
           end
 
         "contains" ->
-          String.contains?(actual_value, to_string(target_value))
+          cond do
+            is_binary(actual_value) -> String.contains?(actual_value, string_target)
+            is_list(actual_value) -> string_target in Enum.map(actual_value, &to_string/1)
+            true -> false
+          end
 
         _ ->
           # 未知操作符，默认返回false

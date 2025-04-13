@@ -7,6 +7,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
 
   use Phoenix.Component
   import Phoenix.HTML
+  require Logger
 
   alias MyApp.FormTemplates
   alias MyApp.Forms
@@ -162,11 +163,28 @@ defmodule MyAppWeb.FormTemplateRenderer do
     items_map = Enum.reduce(form_items, %{}, fn item, acc ->
       Map.put(acc, item.id, item)
     end)
+    
+    # 预处理表单项的可见性状态
+    form_items_with_visibility = Enum.map(form_items, fn item ->
+      # 检查常规可见性条件
+      visibility_condition_result = is_nil(item.visibility_condition) || 
+                                   MyApp.FormLogic.should_show_item?(item, form_data)
+      
+      # 检查模板逻辑中的条件
+      template_logic = Map.get(item, :logic) || Map.get(item, "logic")
+      
+      should_show = evaluate_item_visibility(item, template_logic, form_data, visibility_condition_result)
+      
+      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性结果: #{should_show}")
+      
+      # 将可见性状态添加到表单项
+      Map.put(item, :should_show, should_show)
+    end)
 
     assigns = %{
       form: form,
       template: template,
-      form_items: form_items,
+      form_items: form_items_with_visibility,
       decorations: decorations,
       items_map: items_map,
       form_data: form_data,
@@ -196,8 +214,12 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <.render_decoration element={decoration} />
         <% end %>
 
-        <!-- 渲染表单项 -->
-        <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
+        <!-- 渲染表单项，检查条件可见性 -->
+        <%= if Map.get(item, :should_show, true) do %>
+          <div data-item-id={item.id}>
+            <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
+          </div>
+        <% end %>
 
         <!-- 渲染"after"装饰元素 -->
         <%= for decoration <- Enum.filter(@decorations, fn d ->
@@ -391,26 +413,99 @@ defmodule MyAppWeb.FormTemplateRenderer do
 
   # 使用模板渲染特定页面
   defp render_page_with_template(form, template, current_page, page_items, form_data, errors) do
-    # 这里需要实现针对特定页面的模板渲染
-    # 可能需要从模板中筛选出属于当前页面的装饰元素
-    # 临时解决方案：直接使用ItemRendererComponent渲染页面项目
+    # 获取所有装饰元素
+    decorations = template.decoration || []
 
-    # !!! FIX: Create assigns map for ~H sigil !!!
+    # 获取当前页码和总页数 (假设 form.pages 是一个列表，并且 current_page 有 order)
+    pages = form.pages || []
+    total_pages = length(pages)
+    current_page_number = current_page.order # 假设 current_page.order 代表页码 (从1开始)
+    
+    # 预处理表单项的可见性状态
+    page_items_with_visibility = Enum.map(page_items, fn item ->
+      # 检查常规可见性条件
+      visibility_condition_result = is_nil(item.visibility_condition) || 
+                                   MyApp.FormLogic.should_show_item?(item, form_data)
+      
+      # 检查模板逻辑中的条件
+      template_logic = Map.get(item, :logic) || Map.get(item, "logic")
+      
+      should_show = evaluate_item_visibility(item, template_logic, form_data, visibility_condition_result)
+      
+      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性结果: #{should_show}")
+      
+      # 将可见性状态添加到表单项
+      Map.put(item, :should_show, should_show)
+    end)
+
     assigns = %{
       form: form,
       template: template,
       current_page: current_page,
-      page_items: page_items,
+      page_items: page_items_with_visibility,
       form_data: form_data,
-      errors: errors
+      errors: errors,
+      decorations: decorations,
+      current_page_number: current_page_number,
+      total_pages: total_pages
     }
 
     ~H"""
     <div class="form-page-items">
-      <!-- TODO: 实现将装饰元素与页面表单项组合的逻辑 -->
-      <%= for item <- @page_items do %>
-        <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
+      <!-- 1. 仅在第一页渲染 "start" 装饰元素 -->
+      <%= if @current_page_number == 1 do %>
+        <%= for decoration <- Enum.filter(@decorations, fn d ->
+            position = Map.get(d, "position") || Map.get(d, :position) || %{}
+            position_type = Map.get(position, "type") || Map.get(position, :type)
+            position_type == "start"
+          end) do %>
+          <.render_decoration element={decoration} />
+        <% end %>
       <% end %>
+
+      <!-- 2. 遍历当前页的表单项，渲染 before/after 装饰元素 -->
+      <%= for item <- @page_items do %>
+        <!-- 渲染 "before" 装饰元素 -->
+        <%= for decoration <- Enum.filter(@decorations, fn d ->
+            position = Map.get(d, "position") || Map.get(d, :position) || %{}
+            position_type = Map.get(position, "type") || Map.get(position, :type)
+            target_id = Map.get(position, "target_id") || Map.get(position, :target_id)
+            position_type == "before" && target_id == item.id
+          end) do %>
+          <.render_decoration element={decoration} />
+        <% end %>
+
+        <!-- 渲染表单项，检查条件可见性 -->
+        <%= if Map.get(item, :should_show, true) do %>
+          <div data-item-id={item.id}>
+            <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
+          </div>
+        <% end %>
+
+        <!-- 渲染 "after" 装饰元素 -->
+        <%= for decoration <- Enum.filter(@decorations, fn d ->
+            position = Map.get(d, "position") || Map.get(d, :position) || %{}
+            position_type = Map.get(position, "type") || Map.get(position, :type)
+            target_id = Map.get(position, "target_id") || Map.get(position, :target_id)
+            position_type == "after" && target_id == item.id
+          end) do %>
+          <.render_decoration element={decoration} />
+        <% end %>
+      <% end %>
+
+      <!-- 3. 仅在最后一页渲染 "end" 装饰元素 -->
+      <%= if @current_page_number == @total_pages do %>
+        <%= for decoration <- Enum.filter(@decorations, fn d ->
+            position = Map.get(d, "position") || Map.get(d, :position) || %{}
+            position_type = Map.get(position, "type") || Map.get(position, :type)
+            position_type == "end"
+          end) do %>
+          <.render_decoration element={decoration} />
+        <% end %>
+      <% end %>
+
+      <!-- 4. 不渲染无位置或未知位置的装饰元素 -->
+
     </div>
     """
   end
@@ -435,4 +530,49 @@ defmodule MyAppWeb.FormTemplateRenderer do
   end
 
   # 其他辅助函数可以在这里添加...
+  
+  # 评估表单项可见性
+  defp evaluate_item_visibility(item, template_logic, form_data, default_visibility) do
+    if template_logic && (Map.get(template_logic, "type") == "visibility" || Map.get(template_logic, "type") == "jump") do
+      # 从模板逻辑中提取条件
+      condition = Map.get(template_logic, "condition") || %{}
+      source_id = Map.get(template_logic, "source_id") || Map.get(template_logic, :source_id) || 
+                   Map.get(condition, "source_id") || Map.get(condition, :source_id)
+      operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+      value = Map.get(condition, "value") || Map.get(condition, :value)
+      
+      Logger.info("评估模板条件逻辑 - 项目: #{item.id}, 源: #{source_id}, 操作符: #{operator}, 值: #{inspect(value)}")
+      
+      # 创建简单条件并评估
+      if source_id && operator && value do
+        # 如果是跳转逻辑，处理方式稍有不同
+        if Map.get(template_logic, "type") == "jump" do
+          # 获取源字段的值和目标ID
+          source_value = Map.get(form_data, source_id)
+          target_id = Map.get(template_logic, "target_id")
+          
+          # 评估条件
+          simple_condition = %{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => value}
+          condition_result = MyApp.FormLogic.evaluate_condition(simple_condition, form_data)
+          
+          # 如果条件满足，则只显示目标项；如果不满足，显示所有项
+          if condition_result do
+            # 跳转逻辑满足时，只有目标项显示
+            item.id == target_id
+          else
+            # 跳转逻辑不满足时，显示所有项
+            true
+          end
+        else
+          # 标准可见性逻辑
+          simple_condition = %{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => value}
+          MyApp.FormLogic.evaluate_condition(simple_condition, form_data)
+        end
+      else
+        true # 如果条件不完整，默认显示
+      end
+    else
+      default_visibility # 如果没有模板逻辑，使用传入的默认可见性
+    end
+  end
 end

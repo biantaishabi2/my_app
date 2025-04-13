@@ -435,7 +435,8 @@ defmodule MyAppWeb.FormComponents do
         <% end %>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <!-- 类型选择 -->
+          <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
             <%= if @item.id != nil do %>
               <div class="text-gray-700 py-2">
@@ -443,13 +444,14 @@ defmodule MyAppWeb.FormComponents do
               </div>
               <input type="hidden" name="item[type]" value={@item_type || to_string(@item.type)} />
             <% else %>
-              <div class="flex space-x-2">
+              <div class="flex flex-wrap gap-2">
+                <!-- 类型按钮 -->
                 <button
                   type="button"
                   id="text-input-type-btn"
                   phx-click="type_changed"
                   phx-value-type="text_input"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "text_input" || @item.type == :text_input, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "text_input" || @item.type == :text_input, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   文本输入
                 </button>
@@ -458,7 +460,7 @@ defmodule MyAppWeb.FormComponents do
                   id="textarea-type-btn"
                   phx-click="type_changed"
                   phx-value-type="textarea"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "textarea" || @item.type == :textarea, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "textarea" || @item.type == :textarea, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   文本区域
                 </button>
@@ -467,7 +469,7 @@ defmodule MyAppWeb.FormComponents do
                   id="radio-type-btn"
                   phx-click="type_changed"
                   phx-value-type="radio"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "radio" || @item.type == :radio, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "radio" || @item.type == :radio, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   单选按钮
                 </button>
@@ -476,7 +478,7 @@ defmodule MyAppWeb.FormComponents do
                   id="dropdown-type-btn"
                   phx-click="type_changed"
                   phx-value-type="dropdown"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "dropdown" || @item.type == :dropdown, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "dropdown" || @item.type == :dropdown, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   下拉菜单
                 </button>
@@ -485,7 +487,7 @@ defmodule MyAppWeb.FormComponents do
                   id="checkbox-type-btn"
                   phx-click="type_changed"
                   phx-value-type="checkbox"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "checkbox" || @item.type == :checkbox, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "checkbox" || @item.type == :checkbox, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   复选框
                 </button>
@@ -494,7 +496,7 @@ defmodule MyAppWeb.FormComponents do
                   id="rating-type-btn"
                   phx-click="type_changed"
                   phx-value-type="rating"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "rating" || @item.type == :rating, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "rating" || @item.type == :rating, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   评分
                 </button>
@@ -503,7 +505,7 @@ defmodule MyAppWeb.FormComponents do
                   id="number-type-btn"
                   phx-click="type_changed"
                   phx-value-type="number"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "number" || @item.type == :number, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "number" || @item.type == :number, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   数字输入
                 </button>
@@ -512,7 +514,7 @@ defmodule MyAppWeb.FormComponents do
                   id="email-type-btn"
                   phx-click="type_changed"
                   phx-value-type="email"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "email" || @item.type == :email, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "email" || @item.type == :email, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   邮箱输入
                 </button>
@@ -521,7 +523,7 @@ defmodule MyAppWeb.FormComponents do
                   id="phone-type-btn"
                   phx-click="type_changed"
                   phx-value-type="phone"
-                  class={"px-3 py-2 border rounded-md #{if @item_type == "phone" || @item.type == :phone, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
+                  class={"px-3 py-2 border rounded-md text-sm #{if @item_type == "phone" || @item.type == :phone, do: "bg-indigo-100 border-indigo-500", else: "bg-white border-gray-300"}"}
                 >
                   电话号码
                 </button>
@@ -530,7 +532,8 @@ defmodule MyAppWeb.FormComponents do
             <% end %>
           </div>
 
-          <div>
+          <!-- 标签输入 -->
+          <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">
               标签 <span class="text-red-500">*</span>
             </label>
@@ -547,8 +550,30 @@ defmodule MyAppWeb.FormComponents do
             />
           </div>
 
+          <!-- 是否必填 - 移动到新行，横跨 -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">是否必填</label>
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id={if @item.id, do: "item-required", else: "new-item-required"}
+                name="item[required]"
+                checked={@item.required}
+                phx-change="form_change"
+                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label
+                for={if @item.id, do: "item-required", else: "new-item-required"}
+                class="ml-2 text-sm text-gray-700"
+              >
+                必填项
+              </label>
+            </div>
+          </div>
+
+          <!-- 占位提示 - 移动到新行，横跨，并移除重复 -->
           <%= if @item_type in ["text_input", "textarea", "number", "email", "phone"] or @item.type in [:text_input, :textarea, :number, :email, :phone] do %>
-            <div class="mt-4">
+            <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">占位提示</label>
               <input
                 type="text"
@@ -562,44 +587,11 @@ defmodule MyAppWeb.FormComponents do
               />
             </div>
           <% end %>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">是否必填</label>
-            <input
-              type="checkbox"
-              id={if @item.id, do: "item-required", else: "new-item-required"}
-              name="item[required]"
-              checked={@item.required}
-              phx-change="form_change"
-              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-            />
-            <label
-              for={if @item.id, do: "item-required", else: "new-item-required"}
-              class="ml-2 text-sm text-gray-700"
-            >
-              必填项
-            </label>
-          </div>
         </div>
 
-        <%= if @item_type in ["text_input", "textarea", "number", "email", "phone"] or @item.type in [:text_input, :textarea, :number, :email, :phone] do %>
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">占位提示</label>
-            <input
-              type="text"
-              name="item[placeholder]"
-              value={@item.placeholder || ""}
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="请输入占位提示文字 (可选)"
-              id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
-              phx-value-id={if @item.id, do: "edit-item-placeholder", else: "new-item-placeholder"}
-              phx-change="form_change"
-            />
-          </div>
-        <% end %>
-
+        <!-- 选项编辑器等其他部分保持不变，但它们通常自然占满宽度 -->
         <%= if @item_type in ["radio", "checkbox", "dropdown"] or @item.type in [:radio, :checkbox, :dropdown] do %>
-          <div class="options-editor mt-4">
+          <div class="options-editor mt-4 border-t pt-4">
             <div class="flex justify-between items-center mb-2">
               <label class="block text-sm font-medium text-gray-700">选项</label>
               <button

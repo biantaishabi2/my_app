@@ -906,4 +906,13 @@ Hooks.DecorationSortable = {
   }
 };
 
+// 新增：滚动到视图钩子
+Hooks.ScrollIntoView = {
+  mounted() {
+    console.log("ScrollIntoView hook mounted for:", this.el.id);
+    // 使用平滑滚动，并将元素顶部与视口顶部对齐
+    this.el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+};
+
 export default Hooks;

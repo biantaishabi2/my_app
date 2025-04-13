@@ -356,13 +356,13 @@ const FormBuilderHooks = {
 // 表单页面列表排序钩子
 const FormPagesList = {
   mounted() {
-    console.log("FormPagesList 钩子已挂载");
-    this.initPagesSortable();
+    console.log("FormPagesList 钩子已挂载 - 初始化拖拽");
+    this.initPagesSortable(); // 只在挂载时初始化
   },
-  
+
   updated() {
-    console.log("FormPagesList 钩子已更新");
-    this.initPagesSortable();
+    console.log("FormPagesList 钩子已更新 - 不再重新初始化拖拽");
+    // this.initPagesSortable(); // <--- 注释掉或删除这一行
   },
   
   // 初始化页面拖拽排序功能

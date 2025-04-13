@@ -144,15 +144,15 @@ defmodule MyAppWeb.FormLive.Edit do
     IO.puts("Updating matrix defaults")
     {:noreply, assign(socket, :current_item, updated_item)}
   end
-  
+
   @impl true
   def handle_info({:respondent_attributes_updated, updated_form}, socket) do
-    {:noreply, 
+    {:noreply,
      socket
      |> assign(:form, updated_form)
      |> put_flash(:info, "回答者属性设置已更新")}
   end
-  
+
   @impl true
   def handle_info({:respondent_attributes_error, message}, socket) do
     {:noreply, put_flash(socket, :error, message)}
@@ -170,18 +170,18 @@ defmodule MyAppWeb.FormLive.Edit do
      |> assign(:editing_page, true)
      |> assign(:current_page, nil)}
   end
-  
+
   @impl true
   def handle_event("delete_page", %{"id" => id}, socket) do
     # 设置要删除的页面ID，以便确认
     {:noreply, assign(socket, :delete_page_id, id)}
   end
-  
+
   @impl true
   def handle_event("cancel_delete_page", _params, socket) do
     {:noreply, assign(socket, :delete_page_id, nil)}
   end
-  
+
   @impl true
   def handle_event("pages_reordered", %{"pageIds" => page_ids}, socket) do
     form = socket.assigns.form
@@ -234,15 +234,23 @@ defmodule MyAppWeb.FormLive.Edit do
     page = Enum.find(socket.assigns.form.pages, fn p -> p.id == id end)
 
     if page do
-      {:noreply,
-       socket
-       |> assign(:editing_page, true)
-       |> assign(:current_page, page)}
+      # Assign the values
+      new_socket =
+        socket
+        |> assign(:editing_page, true)
+        |> assign(:current_page, page)
+
+      # ---- 新增日志 ----
+      IO.inspect(new_socket.assigns.editing_page, label: "[edit_page] editing_page assigned")
+      IO.inspect(new_socket.assigns.current_page.id, label: "[edit_page] current_page.id assigned")
+      # ---- 结束新增日志 ----
+
+      {:noreply, new_socket} # 返回修改后的 socket
     else
       {:noreply, put_flash(socket, :error, "页面不存在")}
     end
   end
-  
+
   @impl true
   def handle_event("cancel_edit_page", _params, socket) do
     {:noreply,
@@ -250,7 +258,7 @@ defmodule MyAppWeb.FormLive.Edit do
      |> assign(:editing_page, false)
      |> assign(:current_page, nil)}
   end
-  
+
   @impl true
   def handle_event("save_page", %{"page" => page_params}, socket) do
     form = socket.assigns.form
@@ -302,12 +310,12 @@ defmodule MyAppWeb.FormLive.Edit do
   def handle_event("cancel_edit_form_info", _params, socket) do
     {:noreply, assign(socket, :editing_form_info, false)}
   end
-  
+
   @impl true
   def handle_event("edit_respondent_attributes", _params, socket) do
     {:noreply, assign(socket, :editing_respondent_attributes, true)}
   end
-  
+
   @impl true
   def handle_event("cancel_edit_respondent_attributes", _params, socket) do
     {:noreply, assign(socket, :editing_respondent_attributes, false)}
@@ -1091,7 +1099,7 @@ defmodule MyAppWeb.FormLive.Edit do
 
     {:noreply, assign(socket, :item_options, current_options ++ [new_option])}
   end
-  
+
   @impl true
   def handle_event("select_image_for_option", %{"index" => index_str}, socket) do
     index = String.to_integer(index_str)
@@ -1112,7 +1120,7 @@ defmodule MyAppWeb.FormLive.Edit do
     # 准备图片上传
     {:noreply, socket}
   end
-  
+
   @impl true
   def handle_event("remove_image_from_option", %{"index" => index_str}, socket) do
     index = String.to_integer(index_str)
@@ -1570,7 +1578,7 @@ defmodule MyAppWeb.FormLive.Edit do
         {:noreply, put_flash(socket, :error, "表单项排序失败: #{inspect(reason)}")}
     end
   end
-  
+
   @impl true
   def handle_event(
         "item_moved_to_page",
@@ -1662,7 +1670,7 @@ defmodule MyAppWeb.FormLive.Edit do
      |> assign(:search_term, filtered_types)}
   end
 
-  
+
   # 辅助函数
 
   # 处理表单项参数
@@ -1881,7 +1889,7 @@ defmodule MyAppWeb.FormLive.Edit do
     |> put_flash(:info, info_message)
   end
 
-  # 
+  #
   # 页面管理相关函数都已移至前面相关的函数区域
   #
 
@@ -1905,7 +1913,7 @@ defmodule MyAppWeb.FormLive.Edit do
   defp display_selected_type(_), do: "未知类型"
 
   # 条件相关辅助函数（简化版）
-  
+
   # 辅助函数：将上传错误转换为友好字符串
   defp error_to_string(:too_large), do: "文件太大"
   defp error_to_string(:too_many_files), do: "文件数量过多"

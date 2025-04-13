@@ -89,6 +89,7 @@ defmodule MyAppWeb.FormLive.Submit do
         form_state: %{},
         upload_names: upload_names,
         items_map: items_map,
+        form_updated_at: System.system_time(:millisecond), # 添加时间戳用于强制视图更新
         changeset: MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, %{}),
         current_user: current_user,
         errors: %{},
@@ -228,11 +229,49 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def handle_event("validate", %{"form_response" => response_params}, socket) do
-    Logger.info("Handling validate event")
+    Logger.info("Handling validate event with form_response")
     changeset = MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, response_params)
 
     # 这里不需要手动处理 @uploads, LiveView 会自动验证
     {:noreply, assign(socket, changeset: changeset)}
+  end
+  
+  @impl true
+  def handle_event("validate", %{"form_data" => form_data} = params, socket) do
+    Logger.info("Handling validate event with form_data: #{inspect(params["_target"])}")
+    
+    # 处理表单字段更改，更新表单状态
+    updated_form_state = 
+      socket.assigns.form_state
+      |> Map.merge(form_data)
+    
+    # 当用户与单选按钮交互时，应执行条件逻辑
+    changed_field_id = case params["_target"] do
+      ["form_data", field_id] -> field_id
+      _ -> nil
+    end
+    
+    if changed_field_id do
+      field_value = Map.get(form_data, changed_field_id)
+      Logger.info("Field changed: #{changed_field_id}, value: #{inspect(field_value)}")
+      # 记录可见性条件评估的结果
+      Logger.info("重新评估表单项条件可见性")
+    end
+    
+    # 重新验证表单并强制整个视图更新
+    {:noreply, 
+     socket
+     |> assign(:form_data, form_data)  # 确保form_data更新 - 用于条件可见性
+     |> assign(:form_state, updated_form_state)
+     |> assign(:form_updated_at, System.system_time(:millisecond)) # 添加时间戳强制视图刷新
+     |> maybe_validate_form(updated_form_state)}
+  end
+  
+  @impl true
+  def handle_event("validate", params, socket) do
+    # 处理其他验证情况
+    Logger.warning("Received validate event with unexpected params format: #{inspect(params)}")
+    {:noreply, socket}
   end
 
   @impl true
@@ -564,9 +603,26 @@ defmodule MyAppWeb.FormLive.Submit do
 
   # 辅助函数：在表单状态更新后进行验证
   defp maybe_validate_form(socket, form_data) do
+    require Logger
+    
     # 执行基本验证（必填项）
     errors = validate_form_data(form_data, socket.assigns.items_map)
+    
+    # 获取当前页面上的表单项
+    current_page_items = socket.assigns.page_items || []
+    
+    # 使用 MyApp.FormLogic.should_show_item? 评估每个字段的可见性
+    visible_items = Enum.filter(current_page_items, fn item ->
+      visible = MyApp.FormLogic.should_show_item?(item, form_data)
+      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性: #{visible}")
+      visible
+    end)
+    
+    Logger.info("可见表单项: #{length(visible_items)}/#{length(current_page_items)}")
+    
+    # 更新可见的表单项列表并返回socket
     assign(socket, :errors, errors)
+    |> assign(:visible_items, visible_items)
   end
 
   # ===========================================
@@ -686,10 +742,18 @@ defmodule MyAppWeb.FormLive.Submit do
     if is_nil(item.visibility_condition) do
       true
     else
-      # 解析条件逻辑
-      condition = Jason.decode!(item.visibility_condition)
-      # 评估条件
-      evaluate_condition(condition, form_state, items_map)
+      # 解析条件逻辑并安全处理JSON格式错误
+      try do
+        condition = Jason.decode!(item.visibility_condition)
+        # 评估条件
+        evaluate_condition(condition, form_state, items_map)
+      rescue
+        e ->
+          # 记录错误但不影响表单呈现
+          Logger.error("解析visibility_condition时出错: #{inspect(e)}, condition: #{inspect(item.visibility_condition)}")
+          # 默认显示该字段
+          true
+      end
     end
   end
 
@@ -706,64 +770,123 @@ defmodule MyAppWeb.FormLive.Submit do
 
   # 处理简单条件
   defp evaluate_condition(%{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => target}, form_state, items_map) do
-    # 获取源字段的值
-    source_value = Map.get(form_state, source_id)
-    # 获取源字段的类型
+    # 获取源字段的值 - 尝试使用字符串键和原子键
+    source_value = Map.get(form_state, source_id) || Map.get(form_state, "#{source_id}")
+    # 获取源字段的类型，安全处理nil
     source_type = get_in(items_map, [source_id, :type])
 
     # 根据操作符和字段类型评估条件
     evaluate_operator(operator, source_value, target, source_type)
   end
+  
+  # 处理有类型但没有operator的情况
+  defp evaluate_condition(%{"type" => type}, _, _) do
+    Logger.warning("条件缺少必要的操作符或来源: #{inspect(type)}")
+    true
+  end
 
   # 处理其他情况
-  defp evaluate_condition(_, _, _), do: true
+  defp evaluate_condition(condition, _, _) do
+    Logger.warning("无法识别的条件格式: #{inspect(condition)}")
+    true
+  end
 
   # 定义不同操作符的评估逻辑
-  defp evaluate_operator("equals", source, target, _), do: source == target
-  defp evaluate_operator("not_equals", source, target, _), do: source != target
+  defp evaluate_operator("equals", nil, _, _), do: false
+  defp evaluate_operator("equals", _, nil, _), do: false
+  defp evaluate_operator("equals", source, target, _) do
+    # 将两边转换为字符串进行比较，以处理类型不匹配的情况
+    string_source = if is_binary(source), do: source, else: to_string(source)
+    string_target = if is_binary(target), do: target, else: to_string(target)
+    string_source == string_target
+  end
+  
+  defp evaluate_operator("not_equals", nil, nil, _), do: false  # nil和nil不相等应该为false
+  defp evaluate_operator("not_equals", nil, _, _), do: true
+  defp evaluate_operator("not_equals", _, nil, _), do: true
+  defp evaluate_operator("not_equals", source, target, _) do
+    # 将两边转换为字符串进行比较
+    string_source = if is_binary(source), do: source, else: to_string(source)
+    string_target = if is_binary(target), do: target, else: to_string(target)
+    string_source != string_target
+  end
+  
   defp evaluate_operator("contains", nil, _, _), do: false
-  defp evaluate_operator("contains", source, target, _) when is_list(source), do: target in source
-  defp evaluate_operator("contains", source, target, _), do: String.contains?(source, target)
-  defp evaluate_operator("not_contains", source, target, type), do: !evaluate_operator("contains", source, target, type)
-  defp evaluate_operator("greater_than", source, target, _) when is_binary(source) and is_binary(target) do
-    case {Float.parse(source), Float.parse(target)} do
-      {{source_num, _}, {target_num, _}} -> source_num > target_num
+  defp evaluate_operator("contains", _, nil, _), do: false
+  defp evaluate_operator("contains", source, target, _) when is_list(source) do
+    # 列表中包含元素
+    string_target = if is_binary(target), do: target, else: to_string(target)
+    Enum.any?(source, fn item -> 
+      to_string(item) == string_target
+    end)
+  end
+  defp evaluate_operator("contains", source, target, _) when is_binary(source) and is_binary(target) do
+    # 字符串包含子串
+    String.contains?(source, target)
+  end
+  defp evaluate_operator("contains", source, target, _) do
+    # 转换为字符串然后比较
+    try do
+      string_source = to_string(source)
+      string_target = to_string(target)
+      String.contains?(string_source, string_target)
+    rescue
       _ -> false
     end
   end
-  defp evaluate_operator("greater_than", source, target, _) when is_number(source) and is_binary(target) do
-    case Float.parse(target) do
-      {target_num, _} -> source > target_num
+  
+  defp evaluate_operator("not_contains", source, target, type) do
+    !evaluate_operator("contains", source, target, type)
+  end
+  
+  defp evaluate_operator("greater_than", source, target, _) do
+    # 安全地尝试数字比较
+    try do
+      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
+      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
+      src_num > tgt_num
+    rescue
       _ -> false
     end
   end
-  defp evaluate_operator("greater_than", source, target, _) when is_binary(source) and is_number(target) do
-    case Float.parse(source) do
-      {source_num, _} -> source_num > target
+  
+  defp evaluate_operator("less_than", source, target, _) do
+    # 安全地尝试数字比较
+    try do
+      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
+      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
+      src_num < tgt_num
+    rescue
       _ -> false
     end
   end
-  defp evaluate_operator("greater_than", source, target, _) when is_number(source) and is_number(target), do: source > target
-  defp evaluate_operator("less_than", source, target, _) when is_binary(source) and is_binary(target) do
-    case {Float.parse(source), Float.parse(target)} do
-      {{source_num, _}, {target_num, _}} -> source_num < target_num
+  
+  defp evaluate_operator("greater_than_or_equal", source, target, _) do
+    # 安全地尝试数字比较
+    try do
+      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
+      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
+      src_num >= tgt_num
+    rescue
       _ -> false
     end
   end
-  defp evaluate_operator("less_than", source, target, _) when is_number(source) and is_binary(target) do
-    case Float.parse(target) do
-      {target_num, _} -> source < target_num
+  
+  defp evaluate_operator("less_than_or_equal", source, target, _) do
+    # 安全地尝试数字比较
+    try do
+      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
+      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
+      src_num <= tgt_num
+    rescue
       _ -> false
     end
   end
-  defp evaluate_operator("less_than", source, target, _) when is_binary(source) and is_number(target) do
-    case Float.parse(source) do
-      {source_num, _} -> source_num < target
-      _ -> false
-    end
+  
+  defp evaluate_operator(op, source, target, _) do
+    Logger.warning("未知操作符或无法处理的值类型: op=#{op}, source=#{inspect(source)}, target=#{inspect(target)}")
+    false
   end
-  defp evaluate_operator("less_than", source, target, _) when is_number(source) and is_number(target), do: source < target
-  defp evaluate_operator(_, _, _, _), do: false
 
   # 基础字段验证
   defp validate_form_data(form_data, items_map) do

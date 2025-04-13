@@ -737,7 +737,11 @@
       
 <!-- 新增表单项区域 -->
       <%= if @editing_item and is_nil(@editing_item_id) do %>
-        <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: #f9fafb;">
+        <div
+          style="border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: #f9fafb;"
+          id="top-item-editor-wrapper"  # 确保 ID 存在
+          phx-hook="ScrollIntoView"      # 添加 Hook
+        >
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">
             添加新表单项 - {display_selected_type(@item_type)}
           </h2>
@@ -893,7 +897,7 @@
           style="display: flex; flex-direction: column; gap: 0.75rem;"
           data-test-id="form-pages-list"
           id="form-pages-list"
-          phx-hook="FormPagesList"
+          
         >
           <%= if not @loading_complete || (@form.pages == %Ecto.Association.NotLoaded{} || Enum.empty?(@form.pages || [])) do %>
             <div style="text-align: center; padding: 1.5rem 0; color: #6b7280; background-color: #f9fafb; border-radius: 0.375rem;">
@@ -974,6 +978,65 @@
                 确认删除
               </button>
             </div>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- 编辑页面模态框 -->
+      <%= if @editing_page do %>
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div class="bg-white rounded-lg p-6 max-w-lg w-full shadow-xl">
+            <h3 class="text-lg font-medium mb-4">
+              编辑页面 - <%= if @current_page, do: @current_page.title, else: "新页面" %>
+            </h3>
+            <form phx-submit="save_page">
+              <input
+                type="hidden"
+                name="page[id]"
+                value={if @current_page, do: @current_page.id}
+              />
+              <div class="mb-4">
+                <label for="page-title-input" class="block text-sm font-medium text-gray-700 mb-1">
+                  页面标题 <span class="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="page-title-input"
+                  name="page[title]"
+                  value={if @current_page, do: @current_page.title}
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="输入页面标题"
+                />
+              </div>
+              <div class="mb-6">
+                <label for="page-description-input" class="block text-sm font-medium text-gray-700 mb-1">
+                  页面描述 (可选)
+                </label>
+                <textarea
+                  id="page-description-input"
+                  name="page[description]"
+                  rows="3"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="输入页面描述"
+                ><%= if @current_page, do: @current_page.description %></textarea>
+              </div>
+              <div class="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  phx-click="cancel_edit_page"
+                  class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  class="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <%= if @current_page, do: "保存更改", else: "添加页面" %>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       <% end %>
