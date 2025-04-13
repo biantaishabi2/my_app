@@ -283,7 +283,12 @@ defmodule MyAppWeb.FormLive.Edit do
       end
     else
       # 创建新页面
-      case Forms.create_form_page(form, page_params) do
+      # ---- 新增转换 ----
+      page_params_with_atom_keys =
+        Enum.into(page_params, %{}, fn {key, value} -> {String.to_existing_atom(key), value} end)
+      # ---- 结束转换 ----
+
+      case Forms.create_form_page(form, page_params_with_atom_keys) do
         {:ok, _new_page} ->
           # 重新加载表单以获取新页面数据
           updated_form = Forms.get_form(form.id)
@@ -296,7 +301,9 @@ defmodule MyAppWeb.FormLive.Edit do
            |> put_flash(:info, "页面已添加")}
 
         {:error, changeset} ->
-          {:noreply, put_flash(socket, :error, "页面添加失败: #{inspect(changeset.errors)}")}
+          # Log the error for debugging
+          IO.inspect(changeset, label: "[save_page] Create page failed")
+          {:noreply, put_flash(socket, :error, "页面添加失败: #{inspect(changeset.errors)}\n请检查日志了解详情。")}
       end
     end
   end

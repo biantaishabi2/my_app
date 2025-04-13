@@ -29,13 +29,36 @@ defmodule MyAppWeb.FormLive.Submit do
     # 加载表单模板
     form_template = FormTemplateRenderer.load_form_template(form)
 
+    # --- 新增：在 mount 时就将模板逻辑合并到 form_items ---
+    form_items_with_logic = if form_template && form_template.structure do
+      template_structure = form_template.structure || []
+      Enum.map(form_items, fn item ->
+        template_item = Enum.find(template_structure, fn struct_item ->
+          template_id = struct_item["id"] || struct_item[:id]
+          to_string(template_id) == to_string(item.id)
+        end)
+
+        if template_item && (Map.has_key?(template_item, "logic") || Map.has_key?(template_item, :logic)) do
+          logic = template_item["logic"] || template_item[:logic]
+          Logger.info("[Mount] Attaching logic to item #{item.id}: #{inspect(logic)}")
+          Map.put(item, :logic, logic) # Add logic to the item struct
+        else
+          item # Return item as is if no logic found
+        end
+      end)
+    else
+      Logger.info("[Mount] No form template or structure found, using raw form items.")
+      form_items # No template, use raw items
+    end
+    # --- 结束新增逻辑 ---
+
     Logger.info(
       "[FormLive.Submit] Existing files map for form #{form.id}: #{inspect(existing_files_map)}"
     )
 
     # 初始化上传配置 - 简化版本
     {socket, upload_names} =
-      form_items
+      form_items_with_logic
       |> Enum.filter(&(&1.type == :file_upload))
       |> Enum.reduce({socket, %{}}, fn item, {acc_socket, acc_names} ->
         # 使用标准化方式创建上传引用名称
@@ -68,11 +91,12 @@ defmodule MyAppWeb.FormLive.Submit do
 
     # 获取当前页面的表单项（第一页或默认所有项目）
     current_page = List.first(form.pages || [])
-    page_items = get_page_items(form, current_page)
+    # 使用带有逻辑的 items 来获取页面项
+    page_items = get_page_items(%{form | items: form_items_with_logic}, current_page) # Pass modified items
     current_page_idx = 0
 
-    # 构建表单项映射，便于后续验证和查询
-    items_map = build_items_map(form_items)
+    # 构建表单项映射，便于后续验证和查询 - 使用带有逻辑的 items
+    items_map = build_items_map(form_items_with_logic) # Build map from items with logic
 
     # 初始化基本 assigns
     socket =
@@ -83,21 +107,22 @@ defmodule MyAppWeb.FormLive.Submit do
         pages_status: initialize_pages_status(form.pages || []),
         form: form,
         form_template: form_template,
-        form_items: form_items,
-        page_items: page_items,
+        form_items: form_items_with_logic, # <--- Assign items WITH logic here
+        page_items: page_items, # Page items derived from items with logic
         form_data: %{},
         form_state: %{},
         upload_names: upload_names,
-        items_map: items_map,
+        items_map: items_map, # Map built from items with logic
         form_updated_at: System.system_time(:millisecond), # 添加时间戳用于强制视图更新
         changeset: MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, %{}),
         current_user: current_user,
         errors: %{},
         submitted: false,
-        existing_files_map: existing_files_map
+        existing_files_map: existing_files_map,
+        jump_state: %{active: false, target_id: nil} # 初始化跳转状态
       })
 
-    {:ok, socket, temporary_assigns: [form_items: []]}
+    {:ok, socket, temporary_assigns: [form_items: []]} # Keep temporary assign as is
   end
 
   @impl true
@@ -145,7 +170,7 @@ defmodule MyAppWeb.FormLive.Submit do
       |> assign(:districts, [])
     }
   end
-  
+
   @impl true
   def handle_event("handle_city_change", params, socket) do
     # 从_target中获取实际的字段ID
@@ -186,7 +211,7 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:form_state, updated_form_state)
      |> maybe_validate_form(updated_form_state)}
   end
-  
+
   @impl true
   def handle_event("handle_district_change", params, socket) do
     # 从_target中获取实际的字段ID
@@ -235,31 +260,30 @@ defmodule MyAppWeb.FormLive.Submit do
     # 这里不需要手动处理 @uploads, LiveView 会自动验证
     {:noreply, assign(socket, changeset: changeset)}
   end
-  
+
   @impl true
   def handle_event("validate", %{"form_data" => form_data} = params, socket) do
-    Logger.info("Handling validate event with form_data: #{inspect(params["_target"])}")
-    
-    # 处理表单字段更改，更新表单状态
-    updated_form_state = 
+    # 更新表单状态
+    updated_form_state =
       socket.assigns.form_state
       |> Map.merge(form_data)
-    
-    # 当用户与单选按钮交互时，应执行条件逻辑
+
+    # 当用户与表单交互时，检查是否有特殊逻辑
     changed_field_id = case params["_target"] do
       ["form_data", field_id] -> field_id
       _ -> nil
     end
-    
+
     if changed_field_id do
-      field_value = Map.get(form_data, changed_field_id)
+      field_value = Map.get(form_data, changed_field_id) # Note: form_data here is the partial update from the client
       Logger.info("字段变更: #{changed_field_id}, 值: #{inspect(field_value)}")
-      
-      # 记录特殊值情况
-      if "#{field_value}" == "我是🐷" do
+
+      # 记录特殊值情况 - 使用 updated_form_state 中的值进行检查
+      current_value = Map.get(updated_form_state, changed_field_id)
+      if "#{current_value}" == "我是🐷" do
         Logger.info("🚨 检测到特殊值 '我是🐷'，这可能会触发跳转逻辑")
       end
-      
+
       # 识别表单项是否有逻辑规则
       item = Map.get(socket.assigns.items_map || %{}, changed_field_id)
       if item && (Map.get(item, :logic) || Map.get(item, "logic")) do
@@ -267,16 +291,16 @@ defmodule MyAppWeb.FormLive.Submit do
         Logger.info("字段 #{changed_field_id} 有逻辑规则: #{inspect(logic)}")
       end
     end
-    
+
     # 重要：更新form_data，这是模板逻辑渲染评估所需的
-    # 使用maybe_validate_form来处理表单验证和数据更新
+    # 将 updated_form_state 传递给 maybe_validate_form
     updated_socket = socket
-                    |> assign(:form_state, updated_form_state)
-                    |> maybe_validate_form(form_data)  # 这里使用原始form_data  
-    
+                     # |> assign(:form_state, updated_form_state) # Assigning form_state might be redundant if maybe_validate_form assigns form_data
+                     |> maybe_validate_form(updated_form_state) # Pass the complete, updated state
+
     {:noreply, updated_socket}
   end
-  
+
   @impl true
   def handle_event("validate", params, socket) do
     # 处理其他验证情况
@@ -337,7 +361,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
     {:noreply, assign(socket, :existing_files_map, updated_files_map)}
   end
-  
+
   @impl true
   def handle_event("submit_form", %{"form_response" => response_params}, socket) do
     Logger.info("Handling submit_form event")
@@ -414,7 +438,7 @@ defmodule MyAppWeb.FormLive.Submit do
     # 实际上，这个空实现会导致使用JS hooks中的代码来处理
     {:noreply, socket}
   end
-  
+
   @impl true
   def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
     # 更新评分字段的值
@@ -429,17 +453,17 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:form_state, updated_form_state)
      |> assign(:errors, errors)}
   end
-  
+
   @impl true
   def handle_event("matrix_change", %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx} = params, socket) do
     form_state = socket.assigns.form_state || %{}
     item = Map.get(socket.assigns.items_map, field_id)
-    
+
     # 根据矩阵类型处理
     updated_form_state = if item && item.matrix_type == :multiple do
       # 多选矩阵 - 每个单元格是复选框
       cell_value = params["value"] == "true"
-      
+
       # 更新特定单元格的值
       path = [field_id, row_idx, col_idx]
       deep_put_in(form_state, path, cell_value)
@@ -448,9 +472,9 @@ defmodule MyAppWeb.FormLive.Submit do
       path = [field_id, row_idx]
       deep_put_in(form_state, path, col_idx)
     end
-    
+
     # 重新验证并更新状态
-    {:noreply, 
+    {:noreply,
      socket
      |> assign(:form_state, updated_form_state)
      |> maybe_validate_form(updated_form_state)}
@@ -612,57 +636,90 @@ defmodule MyAppWeb.FormLive.Submit do
 
 
   # 辅助函数：在表单状态更新后进行验证
-  defp maybe_validate_form(socket, form_data) do
+  defp maybe_validate_form(socket, current_form_data) do
     require Logger
-    
-    # 执行基本验证（必填项）
-    errors = validate_form_data(form_data, socket.assigns.items_map)
-    
-    # 记录表单数据，这很重要，因为模板逻辑依赖于它来决定显示/隐藏
-    Logger.info("📝 表单数据更新: #{inspect(form_data)}")
-    
-    # 记录更新的字段，查找是否有可能触发跳转逻辑的字段
-    form_items = socket.assigns.form_items || []
-    Enum.each(form_data, fn {field_id, value} ->
-      # 字符串化处理字段ID以确保一致比较
-      field_id_str = to_string(field_id)
-      
-      # 查找是否有包含跳转逻辑的表单项
-      item_with_logic = Enum.find(form_items, fn item -> 
-        # 确保使用字符串比较ID
-        to_string(item.id) == field_id_str && 
-        (Map.get(item, :logic) || Map.get(item, "logic"))
-      end)
-      
-      if item_with_logic do
-        logic = Map.get(item_with_logic, :logic) || Map.get(item_with_logic, "logic")
-        logic_type = Map.get(logic, "type") || Map.get(logic, :type)
-        
-        # 检查是否有"我是🐷"条件
+
+    # === 移除调试日志 ===
+    # relevant_item_id = "fe01d45d-fb33-4a47-b19c-fdd53b35d93e"
+    # item_in_assigns = Enum.find(socket.assigns.form_items || [], &(&1.id == relevant_item_id))
+    # Logger.debug("[MaybeValidate] Checking item #{relevant_item_id} in socket.assigns.form_items: #{inspect(item_in_assigns)}")
+
+    # 执行基本验证 - 使用完整的当前表单数据
+    errors = validate_form_data(current_form_data, socket.assigns.items_map)
+
+    # 记录表单数据更新
+    Logger.info("表单数据更新 (传入 maybe_validate_form): #{inspect(current_form_data)}")
+
+    # --- 开始计算跳转状态 - 直接从模板获取逻辑 ---
+    form_template = socket.assigns.form_template
+    template_structure = if form_template, do: form_template.structure || [], else: []
+
+    Logger.debug("[Jump Eval] Checking template structure (length: #{length(template_structure)}) for jump logic.")
+
+    # 评估跳转条件，确定是否激活跳转 - 遍历模板结构
+    active_jump = Enum.find_value(template_structure, %{active: false}, fn template_item ->
+      # 检查模板项是否有跳转逻辑
+      logic = template_item["logic"] || Map.get(template_item, :logic)
+      logic_type = if logic, do: logic["type"] || Map.get(logic, :type), else: nil
+
+      if logic && logic_type == "jump" do
+        # 找到了跳转逻辑
+        source_id = template_item["id"] || Map.get(template_item, :id)
+        Logger.info("[Jump Eval] >>> 发现模板项 #{source_id} 有跳转逻辑.")
+
         condition = Map.get(logic, "condition") || Map.get(logic, :condition) || %{}
-        condition_value = Map.get(condition, "value") || Map.get(condition, :value)
-        
-        if logic_type == "jump" && "#{condition_value}" == "我是🐷" do
-          target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
-          Logger.info("🚨 检测到关键跳转逻辑字段 #{field_id} 更新为: #{inspect(value)}")
-          Logger.info("🚨 跳转源: #{item_with_logic.id}, 跳转条件: #{inspect(condition)}, 跳转目标: #{target_id}")
-          
-          # 特殊情况 - 如果选择了"a"而非"我是🐷"
-          if value != nil && value != "我是🐷" && value == "a" do
-            Logger.info("🚨🚨 特殊场景：用户选择了'a'，不满足'我是🐷'条件，应执行跳转")
+        target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
+        operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+        value_to_match = Map.get(condition, "value") || Map.get(condition, :value)
+
+        Logger.info("[Jump Eval] 解析逻辑: 源=#{source_id}, 操作符=#{operator}, 匹配值=#{inspect(value_to_match)}, 目标=#{target_id}")
+
+        unless target_id do
+          Logger.warning("[Jump Eval] 源项 #{source_id} 缺少 target_id! 跳过此项.")
+          nil
+        else
+          # 从 current_form_data 获取源字段的当前值
+          source_value = Map.get(current_form_data, source_id) # 使用模板项ID作为 key
+          Logger.info("[Jump Eval] 获取当前值 for #{source_id}: #{inspect(source_value)}")
+
+          condition_met = case operator do
+            "equals" -> "#{source_value}" == "#{value_to_match}"
+            "not_equals" -> "#{source_value}" != "#{value_to_match}"
+            "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value_to_match}")
+            _ ->
+              Logger.warning("[Jump Eval] 未知操作符: #{operator}")
+              false
           end
-        end
-      end
-    end)
-    
-    # 不再在此处计算可见性，因为可见性现在完全由模板逻辑在渲染时决定
-    # 重要的是更新form_data并强制视图更新
-    socket = socket
-             |> assign(:form_data, form_data)
-             |> assign(:errors, errors)
-             |> assign(:form_updated_at, System.system_time(:millisecond))
-             
+          Logger.info("[Jump Eval] 条件评估结果 (condition_met): #{condition_met}")
+
+          # 标准跳转逻辑：条件满足时激活跳转
+          activate_jump = condition_met
+          Logger.info("[Jump Eval] 是否激活跳转? (activate_jump): #{activate_jump}")
+
+          if activate_jump do
+            Logger.info("[Jump Eval] 🚨🚨 确定激活跳转! 返回激活状态.")
+            %{active: true, source_id: source_id, target_id: target_id}
+          else
+            Logger.info("[Jump Eval] <<< 条件不满足，不激活此跳转规则，继续检查下一个.")
+            nil
+          end
+        end # End of unless target_id
+      else
+        # 不是跳转逻辑，继续检查下一个模板项
+        nil
+      end # End of if logic && logic_type == "jump"
+    end) # End of Enum.find_value block
+    # --- 结束计算跳转状态 ---
+
+    # 记录最终的跳转状态
+    Logger.info("最终计算的跳转状态 (active_jump): #{inspect(active_jump)}")
+
+    # 更新视图状态
     socket
+      |> assign(:form_data, current_form_data)
+      |> assign(:errors, errors)
+      |> assign(:jump_state, active_jump)
+      |> assign(:form_updated_at, System.system_time(:millisecond))
   end
 
   # ===========================================
@@ -777,150 +834,37 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
   # 判断字段是否可见 - 必填项验证专用
-  defp is_field_visible(form_state, _item, _items_map) do
+  defp is_field_visible(_form_state, _item, _items_map) do
     # 现在我们不依赖 visibility_condition，直接返回 true
     # 表单项的可见性完全由模板逻辑控制
     # 此函数仅用于 validate_form_data 以确保必填项检查
     true
   end
 
-  # 处理复合条件
-  defp evaluate_condition(%{"type" => "compound", "operator" => operator, "conditions" => conditions}, form_state, items_map) do
-    results = Enum.map(conditions, &evaluate_condition(&1, form_state, items_map))
-
-    case operator do
-      "and" -> Enum.all?(results)
-      "or" -> Enum.any?(results)
-      _ -> false
-    end
-  end
-
-  # 处理简单条件
-  defp evaluate_condition(%{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => target}, form_state, items_map) do
-    # 获取源字段的值 - 尝试使用字符串键和原子键
-    source_value = Map.get(form_state, source_id) || Map.get(form_state, "#{source_id}")
-    # 获取源字段的类型，安全处理nil
-    source_type = get_in(items_map, [source_id, :type])
-
-    # 根据操作符和字段类型评估条件
-    evaluate_operator(operator, source_value, target, source_type)
-  end
+  # 条件评估和操作符评估功能已移至其他模块
+  # 这里保留函数签名注释供参考
   
-  # 处理有类型但没有operator的情况
-  defp evaluate_condition(%{"type" => type}, _, _) do
-    Logger.warning("条件缺少必要的操作符或来源: #{inspect(type)}")
-    true
-  end
-
-  # 处理其他情况
-  defp evaluate_condition(condition, _, _) do
-    Logger.warning("无法识别的条件格式: #{inspect(condition)}")
-    true
-  end
-
-  # 定义不同操作符的评估逻辑
-  defp evaluate_operator("equals", nil, _, _), do: false
-  defp evaluate_operator("equals", _, nil, _), do: false
-  defp evaluate_operator("equals", source, target, _) do
-    # 将两边转换为字符串进行比较，以处理类型不匹配的情况
-    string_source = if is_binary(source), do: source, else: to_string(source)
-    string_target = if is_binary(target), do: target, else: to_string(target)
-    string_source == string_target
-  end
-  
-  defp evaluate_operator("not_equals", nil, nil, _), do: false  # nil和nil不相等应该为false
-  defp evaluate_operator("not_equals", nil, _, _), do: true
-  defp evaluate_operator("not_equals", _, nil, _), do: true
-  defp evaluate_operator("not_equals", source, target, _) do
-    # 将两边转换为字符串进行比较
-    string_source = if is_binary(source), do: source, else: to_string(source)
-    string_target = if is_binary(target), do: target, else: to_string(target)
-    string_source != string_target
-  end
-  
-  defp evaluate_operator("contains", nil, _, _), do: false
-  defp evaluate_operator("contains", _, nil, _), do: false
-  defp evaluate_operator("contains", source, target, _) when is_list(source) do
-    # 列表中包含元素
-    string_target = if is_binary(target), do: target, else: to_string(target)
-    Enum.any?(source, fn item -> 
-      to_string(item) == string_target
-    end)
-  end
-  defp evaluate_operator("contains", source, target, _) when is_binary(source) and is_binary(target) do
-    # 字符串包含子串
-    String.contains?(source, target)
-  end
-  defp evaluate_operator("contains", source, target, _) do
-    # 转换为字符串然后比较
-    try do
-      string_source = to_string(source)
-      string_target = to_string(target)
-      String.contains?(string_source, string_target)
-    rescue
-      _ -> false
-    end
-  end
-  
-  defp evaluate_operator("not_contains", source, target, type) do
-    !evaluate_operator("contains", source, target, type)
-  end
-  
-  defp evaluate_operator("greater_than", source, target, _) do
-    # 安全地尝试数字比较
-    try do
-      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
-      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
-      src_num > tgt_num
-    rescue
-      _ -> false
-    end
-  end
-  
-  defp evaluate_operator("less_than", source, target, _) do
-    # 安全地尝试数字比较
-    try do
-      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
-      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
-      src_num < tgt_num
-    rescue
-      _ -> false
-    end
-  end
-  
-  defp evaluate_operator("greater_than_or_equal", source, target, _) do
-    # 安全地尝试数字比较
-    try do
-      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
-      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
-      src_num >= tgt_num
-    rescue
-      _ -> false
-    end
-  end
-  
-  defp evaluate_operator("less_than_or_equal", source, target, _) do
-    # 安全地尝试数字比较
-    try do
-      {src_num, _} = if is_number(source), do: {source, ""}, else: Float.parse(to_string(source))
-      {tgt_num, _} = if is_number(target), do: {target, ""}, else: Float.parse(to_string(target))
-      src_num <= tgt_num
-    rescue
-      _ -> false
-    end
-  end
-  
-  defp evaluate_operator(op, source, target, _) do
-    Logger.warning("未知操作符或无法处理的值类型: op=#{op}, source=#{inspect(source)}, target=#{inspect(target)}")
-    false
-  end
+  # 以下评估条件和操作符的函数已被弃用或移至其他模块:
+  #
+  # evaluate_condition(%{"type" => "compound", ...}, form_state, items_map)
+  # evaluate_condition(%{"type" => "simple", ...}, form_state, items_map) 
+  # evaluate_operator("equals", source, target, type)
+  # evaluate_operator("not_equals", source, target, type)
+  # evaluate_operator("contains", source, target, type)
+  # evaluate_operator("not_contains", source, target, type)
+  # evaluate_operator("greater_than", source, target, type)
+  # evaluate_operator("less_than", source, target, type)
+  # evaluate_operator("greater_than_or_equal", source, target, type)
+  # evaluate_operator("less_than_or_equal", source, target, type)
+  #
+  # 如需重新启用这些函数，请从版本控制系统恢复完整实现。
 
   # 基础字段验证 - 简化版本
   defp validate_form_data(form_data, items_map) do
     # 验证必填项，不考虑可见性条件（表单渲染器将处理可见性）
     items_map
-    |> Enum.filter(fn {_, item} -> 
-      item.required 
+    |> Enum.filter(fn {_, item} ->
+      item.required
     end)
     |> Enum.reduce(%{}, fn {id, item}, errors ->
       if is_field_empty?(form_data, item) do
@@ -944,20 +888,20 @@ defmodule MyAppWeb.FormLive.Submit do
     {files_data, errors, updated_socket} =
       Enum.reduce(upload_names, {%{}, upload_errors, socket}, fn {item_id, upload_name}, {acc_data, acc_errors, acc_socket} ->
         try do
-          uploaded_files = 
+          uploaded_files =
             consume_uploaded_entries(acc_socket, upload_name, fn %{path: path}, entry ->
               # 生成文件ID
               file_id = Ecto.UUID.generate()
               filename = "#{file_id}#{Path.extname(entry.client_name)}"
-              
+
               # 确定目标路径 (确保目录存在)
               dest_dir = Path.join([:code.priv_dir(:my_app), "static", "uploads"])
               File.mkdir_p!(dest_dir)
               dest_path = Path.join(dest_dir, filename)
-              
+
               # 复制上传的临时文件到目标位置
               File.cp!(path, dest_path)
-              
+
               # 保存到数据库
               {:ok, file} = Upload.save_uploaded_file(form_id, item_id, %{
                 id: file_id,
@@ -967,7 +911,7 @@ defmodule MyAppWeb.FormLive.Submit do
                 content_type: entry.client_type,
                 size: entry.client_size
               })
-              
+
               # 返回处理结果
               %{
                 "id" => file.id,
@@ -977,19 +921,19 @@ defmodule MyAppWeb.FormLive.Submit do
                 "type" => entry.client_type
               }
             end)
-          
+
           # 合并已有文件和新上传的文件
           existing_files = Map.get(existing_files_map, item_id, [])
           all_files = existing_files ++ uploaded_files
-          
+
           # 只有在有文件时才添加到结果数据中
-          updated_data = 
+          updated_data =
             if Enum.empty?(all_files) do
               acc_data
             else
               Map.put(acc_data, item_id, all_files)
             end
-          
+
           {updated_data, acc_errors, acc_socket}
         catch
           kind, reason ->
@@ -997,7 +941,7 @@ defmodule MyAppWeb.FormLive.Submit do
             stacktrace = __STACKTRACE__
             formatted_error = Exception.format(kind, reason, stacktrace)
             Logger.error("Stack trace: #{formatted_error}")
-            
+
             # 添加到错误列表
             updated_errors = [%{item_id: item_id, error: "上传文件处理失败: #{inspect(reason)}"} | acc_errors]
             {acc_data, updated_errors, acc_socket}
@@ -1026,12 +970,12 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
   # 矩阵处理已移至模板渲染器
-  
+
   # 辅助函数 - 深度更新嵌套映射中的值
   defp deep_put_in(map, [key], value) do
     Map.put(map, key, value)
   end
-  
+
   defp deep_put_in(map, [key | rest], value) do
     existing = Map.get(map, key, %{})
     Map.put(map, key, deep_put_in(existing, rest, value))

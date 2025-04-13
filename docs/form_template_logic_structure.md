@@ -78,7 +78,7 @@
 1. 从表单模板的 `structure` 中加载所有表单项
 2. 对于每个表单项，检查它是否包含 `logic` 属性
 3. 如果包含，则需要评估该逻辑条件
-4. 对于"jump"类型的逻辑，如果条件满足（如选择了"我是🐷"），则应该显示目标项，跳过中间项
+4. 对于"jump"类型的逻辑，**如果条件满足（例如，用户选择了 "我是🐷"），则应该执行跳转，只显示源项和目标项，隐藏中间项**。如果条件不满足，则正常显示所有项。
 
 当前的实现问题在于，我们尝试为每个表单项查找适用的逻辑规则，但实际上应该从表单模板的 `structure` 中加载逻辑规则，然后应用到整个表单。
 
@@ -196,70 +196,36 @@ defp maybe_validate_form(socket, form_data) do
 end
 ```
 
-### 3. 渲染时的可见性控制 - ✅ 已完成
+### 3. 渲染时的可见性控制 - ⏳ 待确认/修改
 
-我们已经修改了`evaluate_item_visibility`和`evaluate_jump_logic`函数，以正确处理表单项可见性：
+渲染器 (例如 `FormTemplateRenderer`) 负责根据 `maybe_validate_form` 计算出的 `@jump_state` 来控制表单项的可见性。
+
+*   **如果 `@jump_state.active` 为 `true`**: 渲染器应该只渲染 `@jump_state.source_id` 和 `@jump_state.target_id` 对应的表单项。
+*   **如果 `@jump_state.active` 为 `false`**: 渲染器应该正常渲染所有表单项（或根据其他显示/隐藏逻辑判断）。
+
+**之前的 `evaluate_jump_logic` 函数实现（如下所示）是不正确的，因为它包含了反向逻辑。正确的实现应该在 `maybe_validate_form` 中完成状态计算，并在渲染器中直接使用该状态。**
 
 ```elixir
-# 评估跳转逻辑
-defp evaluate_jump_logic(item, condition, target_id, form_data) do
-  # 从条件中获取源ID，如果没有则使用当前项ID
-  source_id = Map.get(condition, "source_item_id") || 
-              Map.get(condition, :source_item_id) || 
-              item.id
-  
-  # 获取条件信息
-  operator = Map.get(condition, "operator") || Map.get(condition, :operator)
-  value = Map.get(condition, "value") || Map.get(condition, :value)
-  
-  # 特别的情况：检查是否是"我是🐷"逻辑
-  is_pig_logic = "#{value}" == "我是🐷"
-  if is_pig_logic do
-    Logger.info("检测到'我是🐷'逻辑，特别处理")
-  end
-  
-  if operator && value do
-    # 获取源字段的当前值（用户选择的值）
-    source_value = Map.get(form_data, source_id)
-    
-    # 直接评估条件
-    condition_result = case operator do
-      "equals" -> "#{source_value}" == "#{value}"
-      "not_equals" -> "#{source_value}" != "#{value}"
-      "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value}")
-      _ -> false
-    end
-    
-    # 处理跳转逻辑
-    if condition_result do
-      # 条件满足，所有项目正常显示（不执行跳转）
-      true
-    else
-      # 条件不满足，执行跳转逻辑
-      # 只显示目标项（跳过中间项）
-      item.id == target_id
-    end
-  else
-    true # 条件不完整，默认显示
-  end
-end
+# (移除或标记为过时的 evaluate_jump_logic 代码示例)
+# 旧的、包含反向逻辑的 evaluate_jump_logic 实现已不再适用。
+# 正确的跳转判断发生在 maybe_validate_form 中，
+# 渲染器直接使用计算出的 jump_state。
 ```
 
-修改后的逻辑处理核心理念是：
-1. 正确从模板结构中获取逻辑规则
-2. 理解跳转逻辑的语义：
-   - 当条件满足（选择了"我是🐷"）时：所有项目正常显示
-   - 当条件不满足（选择了其他值）时：跳转到目标项，跳过中间项
+### 4. 实际应用案例 - 修正
 
-### 4. 实际应用案例 - ✅ 已实现
+在当前实现中（假设代码已修正为标准逻辑）：
 
-在当前实现中，当用户在ID为 `fe01d45d-fb33-4a47-b19c-fdd53b35d93e` 的表单项选择了"我是🐷"时：
+1. 当用户在ID为 `fe01d45d-fb33-4a47-b19c-fdd53b35d93e` 的表单项选择了 **"我是🐷"** 时：
+    * `handle_event("validate", ...)` 函数检测到变化。
+    * `maybe_validate_form` 评估条件 `"我是🐷" == "我是🐷"`，结果为 `true`。
+    * `maybe_validate_form` 计算出 `jump_state` 为 `{active: true, source_id: "fe01d...", target_id: "f029..."}`。
+    * 渲染器接收到激活的 `jump_state`，执行跳转，**只显示源项 ("fe01d...") 和目标项 ("f029...")**，隐藏中间项。
 
-1. `handle_event("validate", ...)` 函数会检测到这个变化，并记录特殊值的发现
-2. 表单数据会被更新，包括这个特殊值
-3. 在渲染过程中，`evaluate_item_visibility`函数会检测这个表单项的逻辑规则
-4. 对于跳转逻辑，`evaluate_jump_logic`函数会评估条件
-5. 因为条件满足（选择了"我是🐷"），所有表单项都会被正常显示，不执行跳转
-6. 如果选择了其他选项，条件不满足，只有目标项（ID为 `f029db4f-e30d-4799-be1f-f330b1a6b9fe`）会被显示
+2. 当用户选择了 **其他选项 (例如 "我是🐂")** 时：
+    * `handle_event("validate", ...)` 函数检测到变化。
+    * `maybe_validate_form` 评估条件 `"我是🐂" == "我是🐷"`，结果为 `false`。
+    * `maybe_validate_form` 计算出 `jump_state` 为 `{active: false}`。
+    * 渲染器接收到未激活的 `jump_state`，**不执行跳转，正常显示所有项目**。
 
-通过这些修改，我们修复了表单跳转逻辑的问题，特别是"我是🐷"的特殊情况。
+通过这些修改，文档现在应该与模板定义的原始逻辑（等于 "我是🐷" 时跳转）保持一致。

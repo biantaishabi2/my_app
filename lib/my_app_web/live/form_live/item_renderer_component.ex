@@ -26,7 +26,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
     <% errors = @errors %>
 
     <div class={"form-item-display type-#{item.type} #{if is_preview, do: "p-4 bg-gray-50 rounded-lg border border-gray-200", else: ""}"}>
-      
+
       <div class="flex justify-between mb-3">
         <h3 class="font-medium text-gray-800">
           {item.label}
@@ -183,7 +183,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                         else: "preview_#{item.id}_#{option.id}"
                     }
                     value={option.value}
-                    checked={!is_preview && Map.get(form_data, item.id) == option.value}
+                    checked={!is_preview && Map.get(form_data, to_string(item.id)) == to_string(option.value)}
                     disabled={is_preview}
                     class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                   />
@@ -328,7 +328,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             <% end %>
           <% :region -> %>
             <%= if is_preview do %>
-              
+
               <div class="space-y-2 opacity-70 pointer-events-none">
                 <div class="flex gap-2">
                   <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white" disabled>
@@ -362,7 +362,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                 <div class="mt-1 text-xs text-gray-500">地区级别: {item.region_level || 3} (预览模式)</div>
               </div>
             <% else %>
-              
+
               <div
                 class="region-selector grid grid-cols-2 md:grid-cols-3 gap-2"
                 id={"region-selector-#{item.id}"}
@@ -408,7 +408,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                     <!-- 区县选项会由JS钩子加载 -->
                   </select>
                 <% end %>
-                
+
     <!-- 隐藏字段用于保存完整地址值 -->
                 <input
                   type="hidden"
@@ -628,7 +628,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             </div>
           <% :file_upload -> %>
             <%= if is_preview do %>
-              
+
               <div class="space-y-2 opacity-60 pointer-events-none">
                 <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
                   <svg
@@ -675,7 +675,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                 </div>
               </div>
             <% else %>
-              
+
               <div
                 class="border-2 border-dashed border-gray-300 rounded-md p-6"
                 id={"dropzone-#{item.id}"}
