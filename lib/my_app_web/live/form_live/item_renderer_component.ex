@@ -1,6 +1,7 @@
 defmodule MyAppWeb.FormLive.ItemRendererComponent do
   use MyAppWeb, :html
   # alias MyApp.Upload
+  require Logger # Make sure Logger is available
 
   @doc """
   Renders a single form item based on its type and the display mode.
@@ -25,7 +26,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
     <% form_data = @form_data %>
     <% errors = @errors %>
 
-    <div class={"form-item-display type-#{item.type} #{if is_preview, do: "p-4 bg-gray-50 rounded-lg border border-gray-200", else: ""}"}>
+    <div id={"item-renderer-#{item.id}"} class={"form-item-display type-#{item.type} #{if is_preview, do: "p-4 bg-gray-50 rounded-lg border border-gray-200", else: ""}"}>
 
       <div class="flex justify-between mb-3">
         <h3 class="font-medium text-gray-800">
@@ -173,6 +174,24 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
           <% :radio -> %>
             <div class="space-y-2">
               <%= for option <- item.options || [] do %>
+                <%
+                  # --- Add Detailed Logging ---
+                  Logger.debug(
+                    "[ItemRenderer :radio] Rendering Option for Item ID: #{inspect(item.id)}, Label: #{item.label}, Option Value: #{inspect(option.value)}, Current FormData: #{inspect(form_data)}"
+                  )
+
+                  current_value_for_item = Map.get(form_data, to_string(item.id))
+                  # Compare as strings
+                  is_checked_result =
+                    !is_preview &&
+                      !is_nil(current_value_for_item) && # Ensure value exists before comparing
+                      to_string(current_value_for_item) == to_string(option.value)
+
+                  Logger.debug(
+                    "[ItemRenderer :radio] Retrieved Value: #{inspect(current_value_for_item)}, Comparing with Option Value: #{inspect(to_string(option.value))}, Calculated Checked: #{inspect(is_checked_result)}"
+                  )
+                  # --- End Logging ---
+                %>
                 <div class="form-item-option flex items-center">
                   <input
                     type="radio"
@@ -183,7 +202,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                         else: "preview_#{item.id}_#{option.id}"
                     }
                     value={option.value}
-                    checked={!is_preview && Map.get(form_data, to_string(item.id)) == to_string(option.value)}
+                    checked={is_checked_result}
                     disabled={is_preview}
                     class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                   />

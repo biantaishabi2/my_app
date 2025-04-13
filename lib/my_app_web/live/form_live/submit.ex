@@ -298,6 +298,11 @@ defmodule MyAppWeb.FormLive.Submit do
                      # |> assign(:form_state, updated_form_state) # Assigning form_state might be redundant if maybe_validate_form assigns form_data
                      |> maybe_validate_form(updated_form_state) # Pass the complete, updated state
 
+    # --- LOGGING BEFORE ASSIGN ---
+    Logger.debug("[Submit validate] FINAL state before assign - form_state: #{inspect(updated_form_state)}")
+    Logger.debug("[Submit validate] FINAL state before assign - jump_state: #{inspect(socket.assigns.jump_state)}")
+    # --- END LOGGING ---
+
     {:noreply, updated_socket}
   end
 
@@ -714,12 +719,11 @@ defmodule MyAppWeb.FormLive.Submit do
     # 记录最终的跳转状态
     Logger.info("最终计算的跳转状态 (active_jump): #{inspect(active_jump)}")
 
-    # 更新视图状态
+    # 更新视图状态 - 直接使用form_state作为唯一数据源
     socket
-      |> assign(:form_data, current_form_data)
+      |> assign(:form_state, current_form_data)  # 直接更新form_state，不再需要单独的form_data
       |> assign(:errors, errors)
       |> assign(:jump_state, active_jump)
-      |> assign(:form_updated_at, System.system_time(:millisecond))
   end
 
   # ===========================================
@@ -843,11 +847,11 @@ defmodule MyAppWeb.FormLive.Submit do
 
   # 条件评估和操作符评估功能已移至其他模块
   # 这里保留函数签名注释供参考
-  
+
   # 以下评估条件和操作符的函数已被弃用或移至其他模块:
   #
   # evaluate_condition(%{"type" => "compound", ...}, form_state, items_map)
-  # evaluate_condition(%{"type" => "simple", ...}, form_state, items_map) 
+  # evaluate_condition(%{"type" => "simple", ...}, form_state, items_map)
   # evaluate_operator("equals", source, target, type)
   # evaluate_operator("not_equals", source, target, type)
   # evaluate_operator("contains", source, target, type)
