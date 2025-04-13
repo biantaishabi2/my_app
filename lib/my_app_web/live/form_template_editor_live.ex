@@ -60,12 +60,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("close_decoration_editor", _params, socket) do
     {:noreply, assign(socket, :editing_decoration_id, nil)}
   end
-  
+
   @impl true
   def handle_event("edit_decoration_element", %{"id" => id}, socket) do
     {:noreply, assign(socket, :editing_decoration_id, id)}
   end
-  
+
   @impl true
   def handle_event("save_decoration_element", %{"id" => id} = params, socket) do
     # 找到要编辑的装饰元素
@@ -657,71 +657,71 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         |> assign(:show_decoration_selector, true)
       }
     else
-      # 创建新的装饰元素
+    # 创建新的装饰元素
       base_element = case decoration_type do
-        "title" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "title",
-            "title" => "新标题",
-            "level" => 2,
-            "align" => "left"
-          }
+      "title" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "title",
+          "title" => "新标题",
+          "level" => 2,
+          "align" => "left"
+        }
 
-        "paragraph" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "paragraph",
-            "content" => "这是一个段落内容。在这里填写文字说明。"
-          }
+      "paragraph" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "paragraph",
+          "content" => "这是一个段落内容。在这里填写文字说明。"
+        }
 
-        "section" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "section",
-            "title" => "章节标题",
-            "divider_style" => "solid"
-          }
+      "section" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "section",
+          "title" => "章节标题",
+          "divider_style" => "solid"
+        }
 
-        "explanation" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "explanation",
-            "content" => "这里是重要说明内容。",
-            "note_type" => "info"
-          }
+      "explanation" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "explanation",
+          "content" => "这里是重要说明内容。",
+          "note_type" => "info"
+        }
 
-        "header_image" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "header_image",
-            "image_url" => "",
-            "height" => "300px"
-          }
+      "header_image" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "header_image",
+          "image_url" => "",
+          "height" => "300px"
+        }
 
-        "inline_image" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "inline_image",
-            "image_url" => "",
-            "caption" => "图片说明",
-            "width" => "80%",
-            "align" => "center"
-          }
+      "inline_image" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "inline_image",
+          "image_url" => "",
+          "caption" => "图片说明",
+          "width" => "80%",
+          "align" => "center"
+        }
 
-        "spacer" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "spacer",
-            "height" => "2rem"
-          }
+      "spacer" ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => "spacer",
+          "height" => "2rem"
+        }
 
-        _ ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => decoration_type
-          }
-      end
+      _ ->
+        %{
+          "id" => Ecto.UUID.generate(),
+          "type" => decoration_type
+        }
+    end
 
       # 添加位置信息，无论target_id是表单元素还是装饰元素，都正确记录
       target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
@@ -733,27 +733,27 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       new_element = Map.put(base_element, "position", position)
 
       # 保存新元素的位置信息
-      updated_decoration = socket.assigns.decoration ++ [new_element]
+    updated_decoration = socket.assigns.decoration ++ [new_element]
       # 注意：这里不再修改元素在装饰元素列表中的位置
       # 只保存正确的位置属性，表单模板渲染时会按照位置属性渲染
 
-      # 保存更新后的模板
-      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-        {:ok, updated_template} ->
-          {:noreply,
-            socket
-            |> assign(:template, updated_template)
-            |> assign(:decoration, updated_template.decoration)
+    # 保存更新后的模板
+    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+      {:ok, updated_template} ->
+        {:noreply,
+          socket
+          |> assign(:template, updated_template)
+          |> assign(:decoration, updated_template.decoration)
             |> assign(:show_decoration_selector, false)
-            |> put_flash(:info, "已添加装饰元素")
-          }
+          |> put_flash(:info, "已添加装饰元素")
+        }
 
-        {:error, _changeset} ->
-          {:noreply,
-            socket
-            |> put_flash(:error, "无法添加装饰元素")
+      {:error, _changeset} ->
+        {:noreply,
+          socket
+          |> put_flash(:error, "无法添加装饰元素")
             |> assign(:show_decoration_selector, false)
-          }
+        }
       end
     end
   end
@@ -768,7 +768,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # 确保装饰元素类型不为 nil
     if decoration_type == nil do
       {:noreply,
-        socket
+            socket
         |> put_flash(:error, "请选择装饰元素类型")
       }
     else
@@ -855,21 +855,21 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         socket.assigns.structure
       )
 
-      # 保存更新后的模板
-      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-        {:ok, updated_template} ->
-          {:noreply,
-            socket
-            |> assign(:template, updated_template)
+    # 保存更新后的模板
+    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+      {:ok, updated_template} ->
+        {:noreply,
+          socket
+          |> assign(:template, updated_template)
             |> assign(:decoration, updated_template.decoration)
             |> put_flash(:info, "已添加装饰元素")
-          }
+        }
 
-        {:error, _changeset} ->
-          {:noreply,
-            socket
+      {:error, _changeset} ->
+        {:noreply,
+          socket
             |> put_flash(:error, "无法添加装饰元素")
-          }
+        }
       end
     end
   end
@@ -917,7 +917,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # 默认情况下添加到末尾
     decoration ++ [new_element]
   end
-  
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -2511,7 +2511,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             您可以使用位置选择器或直接点击表单控件之间的"添加装饰元素"插入点来定位装饰元素。<br>
                             您需要在"结构设计"标签页编辑这些控件。
                           </span>
-                        </div>
+                          </div>
                       </div>
 
                       <%= if Enum.empty?(@structure) do %>
@@ -2788,18 +2788,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   # 添加一个辅助函数，用于渲染装饰元素编辑卡片
   defp render_decoration_editor_card(element, editing_decoration_id) do
-    elem_id = element["id"] || element[:id]
-    elem_type = element["type"] || element[:type]
-    elem_title = case elem_type do
-      "title" -> element["title"] || element[:title] || "未命名标题"
-      "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
-      "section" -> element["title"] || element[:title] || "章节分隔"
-      "explanation" -> element["content"] || element[:content] || "解释框"
-      "header_image" -> "题图"
-      "inline_image" -> element["caption"] || element[:caption] || "插图"
-      "spacer" -> "空间"
-      _ -> "未知元素"
-    end
+                            elem_id = element["id"] || element[:id]
+                            elem_type = element["type"] || element[:type]
+                            elem_title = case elem_type do
+                              "title" -> element["title"] || element[:title] || "未命名标题"
+                              "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
+                              "section" -> element["title"] || element[:title] || "章节分隔"
+                              "explanation" -> element["content"] || element[:content] || "解释框"
+                              "header_image" -> "题图"
+                              "inline_image" -> element["caption"] || element[:caption] || "插图"
+                              "spacer" -> "空间"
+                              _ -> "未知元素"
+                            end
 
     # 判断装饰元素位置类型
     position = element["position"] || element[:position]
@@ -2837,65 +2837,65 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       id={"decoration-#{@elem_id}"}
       data-id={@elem_id}
       class={"p-3 mb-3 border rounded shadow-sm decoration-card #{@position_class}"}
-    >
-      <div class="flex justify-between items-center">
-        <div class="flex items-center">
+                          >
+                            <div class="flex justify-between items-center">
+                              <div class="flex items-center">
           <span class="decoration-badge"><%= @position_text %></span>
-          <div>
-            <div class="flex items-center">
+                                <div>
+                                  <div class="flex items-center">
               <span class="font-medium text-gray-700"><%= @elem_title %></span>
-            </div>
-            <div class="text-xs text-gray-500 mt-1">
+                                  </div>
+                                  <div class="text-xs text-gray-500 mt-1">
               元素类型: <%= display_decoration_type(@elem_type) %>
-            </div>
-          </div>
-        </div>
+                                  </div>
+                                </div>
+                              </div>
 
-        <div class="flex gap-2">
-          <button
-            type="button"
-            phx-click="edit_decoration_element"
+                              <div class="flex gap-2">
+                                <button
+                                  type="button"
+                                  phx-click="edit_decoration_element"
             phx-value-id={@elem_id}
             class="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded bg-blue-50 hover:bg-blue-100"
-          >
-            编辑
-          </button>
-          <button
-            type="button"
-            phx-click="delete_decoration_element"
+                                >
+                                  编辑
+                                </button>
+                                <button
+                                  type="button"
+                                  phx-click="delete_decoration_element"
             phx-value-id={@elem_id}
             class="px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded bg-red-50 hover:bg-red-100"
-          >
-            删除
-          </button>
-        </div>
-      </div>
+                                >
+                                  删除
+                                </button>
+                              </div>
+                            </div>
 
-      <!-- 预览区域 -->
-      <div class="mt-3 border-t pt-3">
+                            <!-- 预览区域 -->
+                            <div class="mt-3 border-t pt-3">
         <%= render_decoration_preview(@element) %>
-      </div>
+                            </div>
 
-      <!-- 编辑面板 - 仅在选中时显示 -->
+                            <!-- 编辑面板 - 仅在选中时显示 -->
       <%= if @editing_decoration_id == @elem_id do %>
-        <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
-            <button
-              type="button"
-              phx-click="close_decoration_editor"
-              class="text-gray-500 hover:text-gray-800"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
+                              <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+                                <div class="flex justify-between items-center mb-3">
+                                  <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
+                                  <button
+                                    type="button"
+                                    phx-click="close_decoration_editor"
+                                    class="text-gray-500 hover:text-gray-800"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                  </button>
+                                </div>
 
           <%= render_decoration_editor(@element) %>
-        </div>
-      <% end %>
-    </div>
+                              </div>
+                            <% end %>
+                          </div>
     """
   end
 
@@ -2967,7 +2967,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               <% opt_value = option.value || Map.get(option, :value) %>
               <% opt_label = option.label || Map.get(option, :label) %>
               <option value={opt_value} selected={@current_value == opt_value}><%= opt_label %></option>
-            <% end %>
+                        <% end %>
           </select>
           """
 
@@ -3047,8 +3047,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= @title %></h2>
             <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= @title %></h3>
             <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= @title %></h4>
-          <% end %>
-        </div>
+                      <% end %>
+                    </div>
         """
 
       "paragraph" ->
@@ -3058,7 +3058,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         ~H"""
         <div class="text-gray-700">
           <%= Phoenix.HTML.raw(@content) %>
-        </div>
+                  </div>
         """
 
       "section" ->
@@ -3072,7 +3072,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           <%= if @title do %>
             <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= @title %></h3>
           <% end %>
-        </div>
+                </div>
         """
 
       "explanation" ->
@@ -3124,7 +3124,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           <% else %>
             <div style={"height: #{@height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
               <span class="text-gray-400">请设置图片URL</span>
-            </div>
+              </div>
           <% end %>
         </div>
         """
@@ -3143,13 +3143,13 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           <% else %>
             <div style={"width: #{@width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
               <span class="text-gray-400">请设置图片URL</span>
-            </div>
+      </div>
           <% end %>
           <%= if @caption != "" do %>
             <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= @caption %></div>
           <% end %>
-        </div>
-        """
+    </div>
+    """
 
       "spacer" ->
         height = element["height"] || element[:height] || "1rem"

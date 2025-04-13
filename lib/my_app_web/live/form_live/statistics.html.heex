@@ -140,7 +140,7 @@
                     </h3>
                     
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                      <%= for {item_id, stats} <- group.item_statistics do %>
+                      <%= for {_item_id, stats} <- group.item_statistics do %>
                         <div class="item-stats">
                           <div style="font-weight: 500; margin-bottom: 0.5rem;">
                             <%= stats.item_label %>
