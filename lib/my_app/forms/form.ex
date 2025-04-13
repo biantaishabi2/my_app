@@ -11,6 +11,8 @@ defmodule MyApp.Forms.Form do
     field :description, :string
     # Use Ecto.Enum for status later if preferred
     field :status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
+    # 添加回答者属性配置
+    field :respondent_attributes, {:array, :map}, default: []
 
     belongs_to :user, MyApp.Accounts.User, foreign_key: :user_id, type: :id
 
@@ -31,7 +33,7 @@ defmodule MyApp.Forms.Form do
   @doc false
   def changeset(form, attrs) do
     form
-    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id, :form_template_id])
+    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id, :form_template_id, :respondent_attributes])
     |> validate_required([:title, :status, :user_id])
     |> foreign_key_constraint(:default_page_id)
     |> foreign_key_constraint(:form_template_id)

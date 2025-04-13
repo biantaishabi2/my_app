@@ -5,6 +5,12 @@ defmodule MyApp.Forms do
   包括表单的创建、查询、更新、删除，以及表单项的管理和表单响应的处理。
   添加了条件逻辑功能，支持表单项的显示条件和必填条件。
   """
+  
+  # 表单属性默认值
+  @default_respondent_attributes [
+    %{id: "name", label: "姓名", type: "text", required: true, description: "请填写您的真实姓名"},
+    %{id: "email", label: "邮箱", type: "email", required: true, description: "请填写您的联系邮箱"}
+  ]
 
   import Ecto.Query, warn: false
   alias MyApp.Repo
@@ -27,6 +33,9 @@ defmodule MyApp.Forms do
 
   """
   def create_form(attrs \\ %{}) do
+    # 添加默认的回答者属性配置
+    attrs = add_default_respondent_attributes(attrs)
+    
     # 检查是否已经提供了form_template_id
     has_template_id =
       Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
@@ -74,6 +83,15 @@ defmodule MyApp.Forms do
     end
 
     result
+  end
+  
+  # 添加默认回答者属性配置
+  defp add_default_respondent_attributes(attrs) do
+    if Map.has_key?(attrs, :respondent_attributes) || Map.has_key?(attrs, "respondent_attributes") do
+      attrs # 已存在回答者属性配置，不做修改
+    else
+      Map.put(attrs, "respondent_attributes", @default_respondent_attributes)
+    end
   end
 
   @doc """
@@ -1255,5 +1273,138 @@ defmodule MyApp.Forms do
     query = from(f in Form, where: f.form_template_id == ^template_id)
     # 执行查询并确保只返回一个结果，如果找不到则抛出异常
     Repo.one!(query)
+  end
+  
+  @doc """
+  Updates respondent attributes for a form.
+
+  ## Examples
+
+      iex> update_respondent_attributes(form, attributes)
+      {:ok, %Form{}}
+
+  """
+  def update_respondent_attributes(%Form{} = form, attributes) when is_list(attributes) do
+    form
+    |> Form.changeset(%{respondent_attributes: attributes})
+    |> Repo.update()
+  end
+
+  @doc """
+  Gets a list of common respondent attribute templates.
+  
+  Returns a map of predefined respondent attribute templates.
+  """
+  def get_respondent_attribute_templates do
+    %{
+      "gender" => %{
+        id: "gender",
+        label: "性别",
+        type: "select",
+        required: false,
+        description: "请选择您的性别",
+        options: [
+          %{label: "男", value: "male"},
+          %{label: "女", value: "female"},
+          %{label: "其他", value: "other"},
+          %{label: "不愿透露", value: "prefer_not_to_say"}
+        ]
+      },
+      
+      "department" => %{
+        id: "department",
+        label: "部门",
+        type: "select",
+        required: false,
+        description: "请选择您所在的部门",
+        options: [
+          %{label: "研发", value: "rd"},
+          %{label: "市场", value: "marketing"},
+          %{label: "销售", value: "sales"},
+          %{label: "人力资源", value: "hr"},
+          %{label: "财务", value: "finance"},
+          %{label: "行政", value: "admin"},
+          %{label: "其他", value: "other"}
+        ]
+      },
+      
+      "age_group" => %{
+        id: "age_group",
+        label: "年龄段",
+        type: "select",
+        required: false,
+        description: "请选择您的年龄段",
+        options: [
+          %{label: "18岁以下", value: "under_18"},
+          %{label: "18-24岁", value: "18-24"},
+          %{label: "25-34岁", value: "25-34"},
+          %{label: "35-44岁", value: "35-44"},
+          %{label: "45-54岁", value: "45-54"},
+          %{label: "55-64岁", value: "55-64"},
+          %{label: "65岁以上", value: "65_and_over"}
+        ]
+      },
+      
+      "education" => %{
+        id: "education_level",
+        label: "最高学历",
+        type: "select",
+        required: false,
+        description: "请选择您的最高学历",
+        options: [
+          %{label: "高中/中专及以下", value: "high_school"},
+          %{label: "大专", value: "junior_college"},
+          %{label: "本科", value: "bachelor"},
+          %{label: "硕士", value: "master"},
+          %{label: "博士及以上", value: "phd"}
+        ]
+      },
+      
+      "job_type" => %{
+        id: "job_type",
+        label: "工作类型",
+        type: "select",
+        required: false,
+        description: "请选择您的工作类型",
+        options: [
+          %{label: "全职", value: "full_time"},
+          %{label: "兼职", value: "part_time"},
+          %{label: "合同工", value: "contractor"},
+          %{label: "实习生", value: "intern"},
+          %{label: "自由职业", value: "freelancer"}
+        ]
+      },
+      
+      "management_level" => %{
+        id: "management_level",
+        label: "管理级别",
+        type: "select",
+        required: false,
+        description: "请选择您的管理级别",
+        options: [
+          %{label: "普通员工", value: "employee"},
+          %{label: "团队负责人", value: "team_lead"},
+          %{label: "部门经理", value: "department_manager"},
+          %{label: "总监", value: "director"},
+          %{label: "高管", value: "executive"}
+        ]
+      },
+      
+      "phone" => %{
+        id: "phone",
+        label: "手机号码",
+        type: "phone",
+        required: false,
+        description: "请输入您的手机号码"
+      },
+      
+      "hire_date" => %{
+        id: "hire_date",
+        label: "入职时间",
+        type: "date",
+        required: false,
+        description: "请选择您的入职日期"
+      }
+    }
   end
 end

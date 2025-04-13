@@ -10,6 +10,13 @@ defmodule MyApp.Responses do
   alias MyApp.Responses.Answer
   alias MyApp.Forms
   alias NimbleCSV.RFC4180, as: CSV
+  
+  # 委托分组统计功能到GroupedStatistics模块
+  defdelegate export_statistics_by_attribute(form_id, attribute_id, options \\ %{}), 
+    to: MyApp.Responses.GroupedStatistics
+    
+  defdelegate get_grouped_statistics(form_id, attribute_id, options \\ %{}), 
+    to: MyApp.Responses.GroupedStatistics
 
   @doc """
   Returns the list of responses.
