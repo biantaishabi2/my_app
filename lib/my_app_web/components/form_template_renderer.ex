@@ -153,29 +153,155 @@ defmodule MyAppWeb.FormTemplateRenderer do
 
   # 使用装饰元素渲染完整表单
   defp render_template_with_decorations(form, template, form_data, errors) do
+    require Logger
+
     # 筛选表单项
     form_items = form.items || []
-
+    Logger.info("============= 表单项列表 =============")
+    Enum.each(form_items, fn item ->
+      Logger.info("项目ID: #{item.id}, 标签: #{item.label || "无标签"}")
+    end)
+    
     # 获取所有装饰元素
     decorations = template.decoration || []
 
+    # 从模板结构中加载逻辑规则
+    template_structure = if template, do: template.structure || [], else: []
+    template_id = if template, do: template.id, else: "nil"
+    
+    Logger.info("============= 模板信息 =============")
+    Logger.info("模板ID: #{template_id}")
+    Logger.info("模板结构类型: #{if is_list(template_structure), do: "List", else: inspect(template_structure.__struct__)}")
+    
+    # 直接打印整个模板结构以便查看
+    IO.puts("\n模板ID: #{template_id}, 结构长度: #{length(template_structure)}")
+    IO.inspect(template_structure, label: "完整的模板结构")
+    
+    # 检查模板结构中是否包含逻辑规则
+    IO.puts("\n============= 检查模板结构中的逻辑规则 =============")
+    Enum.each(template_structure, fn item ->
+      item_id = item["id"] || Map.get(item, :id)
+      item_type = item["type"] || Map.get(item, :type)
+      item_label = item["label"] || Map.get(item, :label)
+      
+      # 检查项是否有逻辑规则
+      has_logic = Map.has_key?(item, "logic") || Map.has_key?(item, :logic)
+      logic = if has_logic, do: (item["logic"] || Map.get(item, :logic)), else: nil
+      
+      IO.puts("项: ID=#{item_id}, 类型=#{item_type}, 标签=#{item_label}")
+      if has_logic do
+        logic_type = (logic["type"] || Map.get(logic, :type))
+        logic_target = (logic["target_id"] || Map.get(logic, :target_id))
+        logic_condition = (logic["condition"] || Map.get(logic, :condition))
+        IO.puts("  发现逻辑！类型: #{logic_type}, 目标ID: #{logic_target}, 条件: #{inspect(logic_condition)}")
+      end
+      
+      # 特别查找目标ID
+      target_item_id = "fe01d45d-fb33-4a47-b19c-fdd53b35d93e" # "我是🐷"项目ID
+      jump_target_id = "f029db4f-e30d-4799-be1f-f330b1a6b9fe" # 跳转目标ID
+      
+      if item_id == target_item_id do
+        IO.puts("*** 发现目标源项目: #{item_label} ***")
+        IO.inspect(item, label: "源项目完整数据")
+      end
+      
+      if item_id == jump_target_id do
+        IO.puts("*** 发现跳转目标项目: #{item_label} ***")
+        IO.inspect(item, label: "目标项目完整数据")
+      end
+    end)
+    
+    # 为表单项添加模板逻辑 - 使用与脚本相同的方法
+    form_items_with_logic = Enum.map(form_items, fn item ->
+      Logger.info("🔎 开始处理表单项: #{item.id} (#{item.label || ""})")
+      
+      # 使用直接字符串比较找到对应的表单项 - 与脚本中相同的方法
+      template_item = Enum.find(template_structure, fn struct_item -> 
+        template_id = struct_item["id"] || struct_item[:id]
+        to_string(template_id) == to_string(item.id)
+      end)
+      
+      # 如果在模板结构中找到了对应项
+      if template_item do
+        # 将完整的模板项记录到日志中，方便调试
+        IO.inspect(template_item, label: "模板项: #{item.id}")
+        Logger.info("✅ 在模板中找到表单项 #{item.id} (#{item.label || ""})")
+        
+        # 检查是否有逻辑规则 - 尝试所有可能的键格式
+        has_logic = Map.has_key?(template_item, "logic") || Map.has_key?(template_item, :logic)
+        
+        if has_logic do
+          # 确保从模板项中获取逻辑规则时考虑所有可能的键格式
+          logic = template_item["logic"] || template_item[:logic]
+          Logger.info("🎯 发现逻辑规则: #{inspect(logic)}")
+          
+          # 确保将逻辑规则拷贝到表单项上使用正确的格式
+          Map.put(item, :logic, logic)
+        else
+          Logger.info("❌ 该表单项没有逻辑规则")
+          item
+        end
+      else
+        Logger.info("❌ 在模板结构中未找到该表单项")
+        item
+      end
+    end)
+    
     # 构建表单项映射
-    items_map = Enum.reduce(form_items, %{}, fn item, acc ->
+    items_map = Enum.reduce(form_items_with_logic, %{}, fn item, acc ->
       Map.put(acc, item.id, item)
     end)
     
-    # 预处理表单项的可见性状态
-    form_items_with_visibility = Enum.map(form_items, fn item ->
-      # 检查常规可见性条件
-      visibility_condition_result = is_nil(item.visibility_condition) || 
-                                   MyApp.FormLogic.should_show_item?(item, form_data)
+    # 预处理表单项的可见性状态 - 从刚加载的模板逻辑
+    form_items_with_visibility = Enum.map(form_items_with_logic, fn item ->
+      # 获取表单项的逻辑（在前一步已加载）
+      template_logic = Map.get(item, :logic)
       
-      # 检查模板逻辑中的条件
-      template_logic = Map.get(item, :logic) || Map.get(item, "logic")
+      # 构建所有跳转逻辑的索引 - 从表单中获取对其他项目的跳转规则
+      jump_logic_map = Enum.reduce(form_items_with_logic, %{}, fn source_item, acc ->
+        source_logic = Map.get(source_item, :logic)
+        if source_logic do
+          logic_type = Map.get(source_logic, "type") || Map.get(source_logic, :type)
+          target_id = Map.get(source_logic, "target_id") || Map.get(source_logic, :target_id)
+          
+          # 只处理跳转类型的逻辑，且有目标ID
+          if logic_type == "jump" && target_id do
+            # 添加源项目ID到逻辑中，以便后续处理
+            updated_logic = Map.put(source_logic, "source_item_id", source_item.id)
+            # 按目标ID索引
+            Map.update(acc, target_id, [updated_logic], fn existing -> [updated_logic | existing] end)
+          else
+            acc
+          end
+        else
+          acc
+        end
+      end)
       
-      should_show = evaluate_item_visibility(item, template_logic, form_data, visibility_condition_result)
+      # 如果当前项是跳转目标，记录对应的跳转逻辑
+      target_logic = Map.get(jump_logic_map, item.id)
       
-      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性结果: #{should_show}")
+      # 获取最终应用的逻辑规则
+      final_logic = if is_nil(template_logic) && target_logic do
+        # 如果项目自身没有逻辑，但是它是跳转目标
+        # 如果有多个跳转到此项的逻辑，取第一个
+        List.first(target_logic)
+      else
+        # 优先使用项目自身的逻辑
+        template_logic
+      end
+      
+      # 记录找到的最终逻辑规则（如果有）
+      if final_logic do
+        Logger.info("表单项 #{item.id} (#{item.label || ""}) 使用的最终逻辑: #{inspect(final_logic)}")
+      else
+        Logger.info("表单项 #{item.id} (#{item.label || ""}) 没有找到适用的逻辑规则")
+      end
+      
+      # 评估表单项可见性
+      should_show = evaluate_item_visibility(item, final_logic, form_data, true)
+      
+      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 最终可见性: #{should_show}")
       
       # 将可见性状态添加到表单项
       Map.put(item, :should_show, should_show)
@@ -421,18 +547,54 @@ defmodule MyAppWeb.FormTemplateRenderer do
     total_pages = length(pages)
     current_page_number = current_page.order # 假设 current_page.order 代表页码 (从1开始)
     
-    # 预处理表单项的可见性状态
+    # 预处理表单项的可见性状态 - 只使用模板逻辑，与前面的代码保持一致
     page_items_with_visibility = Enum.map(page_items, fn item ->
-      # 检查常规可见性条件
-      visibility_condition_result = is_nil(item.visibility_condition) || 
-                                   MyApp.FormLogic.should_show_item?(item, form_data)
-      
-      # 检查模板逻辑中的条件
+      # 从表单项中提取逻辑
       template_logic = Map.get(item, :logic) || Map.get(item, "logic")
       
-      should_show = evaluate_item_visibility(item, template_logic, form_data, visibility_condition_result)
+      # 构建所有跳转逻辑的索引 - 从页面表单项中获取对其他项目的跳转规则
+      jump_logic_map = Enum.reduce(page_items, %{}, fn source_item, acc ->
+        source_logic = Map.get(source_item, :logic) || Map.get(source_item, "logic")
+        if source_logic do
+          logic_type = Map.get(source_logic, "type") || Map.get(source_logic, :type)
+          target_id = Map.get(source_logic, "target_id") || Map.get(source_logic, :target_id)
+          
+          # 只处理跳转类型的逻辑，且有目标ID
+          if logic_type == "jump" && target_id do
+            # 添加源项目ID到逻辑中，以便后续处理
+            updated_logic = Map.put(source_logic, "source_item_id", source_item.id)
+            # 按目标ID索引
+            Map.update(acc, target_id, [updated_logic], fn existing -> [updated_logic | existing] end)
+          else
+            acc
+          end
+        else
+          acc
+        end
+      end)
       
-      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性结果: #{should_show}")
+      # 如果当前项是跳转目标，使用对应的跳转逻辑
+      target_logic = Map.get(jump_logic_map, item.id)
+      
+      # 优先使用项目自身的逻辑，其次是以它为目标的跳转逻辑
+      final_logic = if is_nil(template_logic) && target_logic do
+        # 如果有多个跳转到此项的逻辑，取第一个
+        List.first(target_logic)
+      else
+        template_logic
+      end
+      
+      # 记录找到的模板逻辑（如果有）
+      if final_logic do
+        Logger.info("页面表单项 #{item.id} (#{item.label || ""}) 使用的逻辑: #{inspect(final_logic)}")
+      else
+        Logger.info("页面表单项 #{item.id} (#{item.label || ""}) 没有找到适用的逻辑规则")
+      end
+      
+      # 注意：不再使用visibility_condition，只使用模板逻辑
+      should_show = evaluate_item_visibility(item, final_logic, form_data, true)
+      
+      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 最终可见性: #{should_show}")
       
       # 将可见性状态添加到表单项
       Map.put(item, :should_show, should_show)
@@ -531,48 +693,226 @@ defmodule MyAppWeb.FormTemplateRenderer do
 
   # 其他辅助函数可以在这里添加...
   
-  # 评估表单项可见性
-  defp evaluate_item_visibility(item, template_logic, form_data, default_visibility) do
-    if template_logic && (Map.get(template_logic, "type") == "visibility" || Map.get(template_logic, "type") == "jump") do
-      # 从模板逻辑中提取条件
-      condition = Map.get(template_logic, "condition") || %{}
-      source_id = Map.get(template_logic, "source_id") || Map.get(template_logic, :source_id) || 
-                   Map.get(condition, "source_id") || Map.get(condition, :source_id)
-      operator = Map.get(condition, "operator") || Map.get(condition, :operator)
-      value = Map.get(condition, "value") || Map.get(condition, :value)
+  # 评估表单项可见性 - 使用与脚本相同的方法
+  defp evaluate_item_visibility(item, template_logic, form_data, _default_visibility) do
+    require Logger
+    
+    # 如果没有模板逻辑，默认显示项目
+    if template_logic == nil do
+      Logger.info("表单项 #{item.id} 没有模板逻辑，默认显示")
+      true
+    else
+      # 记录实际发现的模板逻辑并使用IO.inspect以显示完整内容
+      IO.inspect(template_logic, label: "表单项 #{item.id} 的模板逻辑")
+      Logger.info("发现模板逻辑: #{inspect(template_logic)}")
       
-      Logger.info("评估模板条件逻辑 - 项目: #{item.id}, 源: #{source_id}, 操作符: #{operator}, 值: #{inspect(value)}")
+      # 获取逻辑类型 - 尝试所有可能的键格式
+      logic_type = Map.get(template_logic, "type") || Map.get(template_logic, :type)
+      Logger.info("表单项 #{item.id} 的模板逻辑类型: #{logic_type}")
       
-      # 创建简单条件并评估
-      if source_id && operator && value do
-        # 如果是跳转逻辑，处理方式稍有不同
-        if Map.get(template_logic, "type") == "jump" do
-          # 获取源字段的值和目标ID
-          source_value = Map.get(form_data, source_id)
-          target_id = Map.get(template_logic, "target_id")
+      # 基于逻辑类型处理
+      case logic_type do
+        "jump" ->
+          # 从逻辑中获取条件、目标ID - 确保考虑所有键格式
+          condition = Map.get(template_logic, "condition") || Map.get(template_logic, :condition) || %{}
+          target_id = Map.get(template_logic, "target_id") || Map.get(template_logic, :target_id)
           
-          # 评估条件
-          simple_condition = %{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => value}
-          condition_result = MyApp.FormLogic.evaluate_condition(simple_condition, form_data)
+          # 确保条件信息完整
+          value = Map.get(condition, "value") || Map.get(condition, :value)
+          operator = Map.get(condition, "operator") || Map.get(condition, :operator)
           
-          # 如果条件满足，则只显示目标项；如果不满足，显示所有项
-          if condition_result do
-            # 跳转逻辑满足时，只有目标项显示
-            item.id == target_id
+          Logger.info("跳转逻辑详情: 条件值='#{value}', 操作符='#{operator}', 目标项='#{target_id}'")
+          
+          # 特别标记"我是🐷"逻辑
+          if "#{value}" == "我是🐷" do
+            Logger.info("🚨 检测到'我是🐷'跳转逻辑，源项=#{item.id}, 目标项=#{target_id}")
+          end
+          
+          # 处理跳转逻辑 - 使用已更新的函数
+          evaluate_jump_logic(item, condition, target_id, form_data)
+          
+        "show" ->
+          # 处理显示逻辑 - 当条件满足时显示项目
+          condition = Map.get(template_logic, "condition") || Map.get(template_logic, :condition) || %{}
+          target_id = Map.get(template_logic, "target_id") || Map.get(template_logic, :target_id)
+          
+          # 获取条件源ID，可能是当前项或指定的源
+          source_id = Map.get(condition, "source_item_id") || 
+                      Map.get(condition, :source_item_id) ||
+                      Map.get(template_logic, "source_id") || 
+                      Map.get(template_logic, :source_id) ||
+                      item.id
+                      
+          if item.id == target_id do
+            # 当前项是目标项，评估条件
+            evaluate_show_hide_logic(condition, form_data, true, source_id)
           else
-            # 跳转逻辑不满足时，显示所有项
+            # 非目标项始终显示
+            true 
+          end
+          
+        "hide" ->
+          # 处理隐藏逻辑 - 当条件满足时隐藏项目
+          condition = Map.get(template_logic, "condition") || Map.get(template_logic, :condition) || %{}
+          target_id = Map.get(template_logic, "target_id") || Map.get(template_logic, :target_id)
+          
+          # 获取条件源ID，可能是当前项或指定的源
+          source_id = Map.get(condition, "source_item_id") || 
+                      Map.get(condition, :source_item_id) ||
+                      Map.get(template_logic, "source_id") || 
+                      Map.get(template_logic, :source_id) ||
+                      item.id
+                      
+          if item.id == target_id do
+            # 当前项是目标项，评估条件
+            evaluate_show_hide_logic(condition, form_data, false, source_id)
+          else
+            # 非目标项始终显示
             true
           end
-        else
-          # 标准可见性逻辑
-          simple_condition = %{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => value}
-          MyApp.FormLogic.evaluate_condition(simple_condition, form_data)
-        end
+          
+        "visibility" ->
+          # 旧式可见性逻辑兼容处理
+          condition = Map.get(template_logic, "condition") || Map.get(template_logic, :condition) || %{}
+          source_id = Map.get(template_logic, "source_id") || Map.get(template_logic, :source_id) ||
+                      Map.get(condition, "source_id") || Map.get(condition, :source_id)
+          operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+          value = Map.get(condition, "value") || Map.get(condition, :value)
+          
+          # 创建简单条件并评估
+          if source_id && operator && value do
+            Logger.info("评估旧式可见性逻辑: 源ID=#{source_id}, 操作符=#{operator}, 值=#{inspect(value)}")
+            simple_condition = %{"type" => "simple", "source_item_id" => source_id, "operator" => operator, "value" => value}
+            result = MyApp.FormLogic.evaluate_condition(simple_condition, form_data)
+            Logger.info("旧式可见性逻辑评估结果: #{result}")
+            result
+          else
+            Logger.warning("旧式可见性逻辑条件不完整")
+            true # 如果条件不完整，默认显示
+          end
+          
+        _ ->
+          Logger.warn("未知的逻辑类型: #{logic_type}")
+          true # 默认显示
+      end
+    end
+  end
+  
+  # 评估跳转逻辑的辅助函数 - 使用与脚本相同的方法
+  defp evaluate_jump_logic(item, condition, target_id, form_data) do
+    require Logger
+    
+    # 从条件中获取源ID，如果没有则使用当前项ID
+    source_id = Map.get(condition, "source_item_id") || 
+                Map.get(condition, :source_item_id) || 
+                item.id
+    
+    # 获取条件信息
+    operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+    value = Map.get(condition, "value") || Map.get(condition, :value)
+    
+    # 详细记录跳转逻辑的评估
+    Logger.info("评估跳转逻辑: 项目ID=#{item.id}, 源ID=#{source_id}, 操作符=#{operator}, 值=#{inspect(value)}, 目标ID=#{target_id}")
+    
+    # 特别的情况：检查是否是"我是🐷"逻辑 - 使用与脚本相同的检测方式
+    is_pig_logic = "#{value}" == "我是🐷"
+    if is_pig_logic do
+      Logger.info("🚨 检测到'我是🐷'跳转逻辑")
+    end
+    
+    if operator && value do
+      # 获取源字段的当前值（用户选择的值）- 与脚本相同
+      source_value = Map.get(form_data, source_id)
+      Logger.info("源字段 #{source_id} 的当前值: #{inspect(source_value)}")
+      
+      # 特殊标记选择了"a"的情况 - 方便调试
+      if source_value == "a" do
+        Logger.info("🎯🎯 检测到用户选择了'a'，不符合'我是🐷'条件，应执行跳转")
+      end
+      
+      # 评估条件 - 使用与脚本相同的方法
+      condition_result = case operator do
+        "equals" -> "#{source_value}" == "#{value}"
+        "not_equals" -> "#{source_value}" != "#{value}"
+        "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value}")
+        _ -> false
+      end
+      
+      Logger.info("跳转条件评估结果: #{condition_result}")
+      
+      # 处理跳转逻辑：
+      # 1. 条件满足（例如选择了"我是🐷"）：所有项目正常显示
+      # 2. 条件不满足（例如选择了"a"）：只显示目标项，跳过中间项
+      
+      if condition_result do
+        # 条件满足（选择了"我是🐷"），不执行跳转，所有项目正常显示
+        Logger.info("🟢 条件满足（'#{source_value}' = '#{value}'），不执行跳转，表单项 #{item.id} 将被显示")
+        true
       else
-        true # 如果条件不完整，默认显示
+        # 条件不满足（选择了其他值如"a"），执行跳转
+        # 只有目标项会显示，其他项被跳过
+        should_show = item.id == target_id
+        
+        # 记录跳转决策
+        Logger.info("🔴 条件不满足（'#{source_value}' ≠ '#{value}'），执行跳转")
+        Logger.info("当前项: #{item.id}, 跳转目标: #{target_id}, 是否目标项? #{should_show}")
+        
+        # 返回可见性结果
+        should_show
       end
     else
-      default_visibility # 如果没有模板逻辑，使用传入的默认可见性
+      Logger.warning("跳转逻辑条件不完整: #{inspect(condition)}")
+      true # 条件不完整或异常情况，默认显示
+    end
+  end
+  
+  # 评估显示/隐藏逻辑的辅助函数
+  defp evaluate_show_hide_logic(condition, form_data, show_when_true, item_id \\ nil) do
+    require Logger
+    
+    # 获取条件信息
+    operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+    value = Map.get(condition, "value") || Map.get(condition, :value)
+    
+    # 尝试从条件中提取源字段ID
+    source_id = Map.get(condition, "source_id") || Map.get(condition, :source_id) ||
+                Map.get(condition, "source_item_id") || Map.get(condition, :source_item_id)
+    
+    # 如果没有source_id，检查left属性
+    left = Map.get(condition, "left") || Map.get(condition, :left) || %{}
+    source_id = source_id || (Map.get(left, "name") || Map.get(left, :name))
+    
+    # 如果source_id仍然没有，但我们知道当前项目ID，则使用它作为源
+    source_id = source_id || item_id
+    
+    # 记录显示/隐藏逻辑的评估
+    action_type = if show_when_true, do: "显示", else: "隐藏"
+    Logger.info("评估#{action_type}逻辑: 源ID=#{source_id}, 操作符=#{operator}, 值=#{inspect(value)}")
+    
+    if source_id && operator && value do
+      # 获取源字段的当前值
+      source_value = Map.get(form_data, source_id)
+      Logger.info("用户选择的值: #{inspect(source_value)}")
+      
+      # 直接评估条件，确保字符串比较
+      condition_result = case operator do
+        "equals" -> "#{source_value}" == "#{value}"
+        "not_equals" -> "#{source_value}" != "#{value}" 
+        "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value}")
+        _ -> false
+      end
+      
+      Logger.info("#{action_type}条件评估结果: #{condition_result}")
+      
+      # 根据show_when_true决定结果: 
+      # - 如果是show逻辑，条件为true时显示；
+      # - 如果是hide逻辑，条件为true时隐藏
+      result = if show_when_true, do: condition_result, else: !condition_result
+      Logger.info("最终可见性: #{result}")
+      result
+    else
+      Logger.warning("#{action_type}逻辑条件不完整: #{inspect(condition)}")
+      true # 条件不完整，默认显示
     end
   end
 end

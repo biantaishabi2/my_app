@@ -253,18 +253,28 @@ defmodule MyAppWeb.FormLive.Submit do
     
     if changed_field_id do
       field_value = Map.get(form_data, changed_field_id)
-      Logger.info("Field changed: #{changed_field_id}, value: #{inspect(field_value)}")
-      # 记录可见性条件评估的结果
-      Logger.info("重新评估表单项条件可见性")
+      Logger.info("字段变更: #{changed_field_id}, 值: #{inspect(field_value)}")
+      
+      # 记录特殊值情况
+      if "#{field_value}" == "我是🐷" do
+        Logger.info("🚨 检测到特殊值 '我是🐷'，这可能会触发跳转逻辑")
+      end
+      
+      # 识别表单项是否有逻辑规则
+      item = Map.get(socket.assigns.items_map || %{}, changed_field_id)
+      if item && (Map.get(item, :logic) || Map.get(item, "logic")) do
+        logic = Map.get(item, :logic) || Map.get(item, "logic")
+        Logger.info("字段 #{changed_field_id} 有逻辑规则: #{inspect(logic)}")
+      end
     end
     
-    # 重新验证表单并强制整个视图更新
-    {:noreply, 
-     socket
-     |> assign(:form_data, form_data)  # 确保form_data更新 - 用于条件可见性
-     |> assign(:form_state, updated_form_state)
-     |> assign(:form_updated_at, System.system_time(:millisecond)) # 添加时间戳强制视图刷新
-     |> maybe_validate_form(updated_form_state)}
+    # 重要：更新form_data，这是模板逻辑渲染评估所需的
+    # 使用maybe_validate_form来处理表单验证和数据更新
+    updated_socket = socket
+                    |> assign(:form_state, updated_form_state)
+                    |> maybe_validate_form(form_data)  # 这里使用原始form_data  
+    
+    {:noreply, updated_socket}
   end
   
   @impl true
@@ -608,21 +618,51 @@ defmodule MyAppWeb.FormLive.Submit do
     # 执行基本验证（必填项）
     errors = validate_form_data(form_data, socket.assigns.items_map)
     
-    # 获取当前页面上的表单项
-    current_page_items = socket.assigns.page_items || []
+    # 记录表单数据，这很重要，因为模板逻辑依赖于它来决定显示/隐藏
+    Logger.info("📝 表单数据更新: #{inspect(form_data)}")
     
-    # 使用 MyApp.FormLogic.should_show_item? 评估每个字段的可见性
-    visible_items = Enum.filter(current_page_items, fn item ->
-      visible = MyApp.FormLogic.should_show_item?(item, form_data)
-      Logger.info("表单项 #{item.id} (#{item.label || "无标签"}) 的可见性: #{visible}")
-      visible
+    # 记录更新的字段，查找是否有可能触发跳转逻辑的字段
+    form_items = socket.assigns.form_items || []
+    Enum.each(form_data, fn {field_id, value} ->
+      # 字符串化处理字段ID以确保一致比较
+      field_id_str = to_string(field_id)
+      
+      # 查找是否有包含跳转逻辑的表单项
+      item_with_logic = Enum.find(form_items, fn item -> 
+        # 确保使用字符串比较ID
+        to_string(item.id) == field_id_str && 
+        (Map.get(item, :logic) || Map.get(item, "logic"))
+      end)
+      
+      if item_with_logic do
+        logic = Map.get(item_with_logic, :logic) || Map.get(item_with_logic, "logic")
+        logic_type = Map.get(logic, "type") || Map.get(logic, :type)
+        
+        # 检查是否有"我是🐷"条件
+        condition = Map.get(logic, "condition") || Map.get(logic, :condition) || %{}
+        condition_value = Map.get(condition, "value") || Map.get(condition, :value)
+        
+        if logic_type == "jump" && "#{condition_value}" == "我是🐷" do
+          target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
+          Logger.info("🚨 检测到关键跳转逻辑字段 #{field_id} 更新为: #{inspect(value)}")
+          Logger.info("🚨 跳转源: #{item_with_logic.id}, 跳转条件: #{inspect(condition)}, 跳转目标: #{target_id}")
+          
+          # 特殊情况 - 如果选择了"a"而非"我是🐷"
+          if value != nil && value != "我是🐷" && value == "a" do
+            Logger.info("🚨🚨 特殊场景：用户选择了'a'，不满足'我是🐷'条件，应执行跳转")
+          end
+        end
+      end
     end)
     
-    Logger.info("可见表单项: #{length(visible_items)}/#{length(current_page_items)}")
-    
-    # 更新可见的表单项列表并返回socket
-    assign(socket, :errors, errors)
-    |> assign(:visible_items, visible_items)
+    # 不再在此处计算可见性，因为可见性现在完全由模板逻辑在渲染时决定
+    # 重要的是更新form_data并强制视图更新
+    socket = socket
+             |> assign(:form_data, form_data)
+             |> assign(:errors, errors)
+             |> assign(:form_updated_at, System.system_time(:millisecond))
+             
+    socket
   end
 
   # ===========================================
@@ -736,25 +776,12 @@ defmodule MyAppWeb.FormLive.Submit do
     end
   end
 
-  # 判断字段是否可见（基于条件逻辑）
-  defp is_field_visible(form_state, item, items_map) do
-    # 如果没有可见性条件，则始终可见
-    if is_nil(item.visibility_condition) do
-      true
-    else
-      # 解析条件逻辑并安全处理JSON格式错误
-      try do
-        condition = Jason.decode!(item.visibility_condition)
-        # 评估条件
-        evaluate_condition(condition, form_state, items_map)
-      rescue
-        e ->
-          # 记录错误但不影响表单呈现
-          Logger.error("解析visibility_condition时出错: #{inspect(e)}, condition: #{inspect(item.visibility_condition)}")
-          # 默认显示该字段
-          true
-      end
-    end
+  # 判断字段是否可见 - 必填项验证专用
+  defp is_field_visible(form_state, _item, _items_map) do
+    # 现在我们不依赖 visibility_condition，直接返回 true
+    # 表单项的可见性完全由模板逻辑控制
+    # 此函数仅用于 validate_form_data 以确保必填项检查
+    true
   end
 
   # 处理复合条件
@@ -888,12 +915,12 @@ defmodule MyAppWeb.FormLive.Submit do
     false
   end
 
-  # 基础字段验证
+  # 基础字段验证 - 简化版本
   defp validate_form_data(form_data, items_map) do
-    # 这里实现简单检查必填项
+    # 验证必填项，不考虑可见性条件（表单渲染器将处理可见性）
     items_map
     |> Enum.filter(fn {_, item} -> 
-      item.required && is_field_visible(form_data, item, items_map)
+      item.required 
     end)
     |> Enum.reduce(%{}, fn {id, item}, errors ->
       if is_field_empty?(form_data, item) do
