@@ -109,6 +109,7 @@ defmodule MyAppWeb.Router do
       live "/forms/:id/edit", FormLive.Edit, :edit
       live "/forms/:id/responses", FormLive.Responses, :index
       live "/forms/:form_id/responses/:id", FormLive.Responses, :show
+      live "/forms/:id/statistics", FormLive.Statistics, :index
       live "/forms/:id/show/edit", FormLive.Show, :edit
 
       # 表单模板演示页面 (旧)

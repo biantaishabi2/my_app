@@ -1,0 +1,161 @@
+<div class="respondent-attributes-config">
+  <h3 class="text-lg font-medium mb-4">回答者信息收集设置</h3>
+  
+  <div class="attributes-list mb-4">
+    <%= if Enum.empty?(@respondent_attributes) do %>
+      <div class="empty-message text-gray-500 italic mb-4">
+        未设置回答者属性，将使用默认属性（姓名和邮箱）
+      </div>
+    <% else %>
+      <%= for {attr, index} <- Enum.with_index(@respondent_attributes) do %>
+        <div class="attribute-item bg-white rounded-lg shadow mb-2 p-3 flex justify-between items-center">
+          <div class="attribute-info">
+            <span class="attribute-label font-medium"><%= attr.label %></span>
+            <span class="attribute-type text-sm text-gray-500 ml-2">
+              (<%= humanize_attribute_type(attr.type) %>)
+            </span>
+            <%= if attr.required do %>
+              <span class="attribute-required text-red-500 ml-1">*</span>
+            <% end %>
+          </div>
+          <div class="attribute-actions flex">
+            <button type="button" class="edit-btn text-blue-500 mr-2"
+                    phx-click="edit_attribute" phx-value-index={index} phx-target={@myself}>
+              编辑
+            </button>
+            <button type="button" class="remove-btn text-red-500"
+                    phx-click="remove_attribute" phx-value-index={index} phx-target={@myself}>
+              删除
+            </button>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+    
+    <button type="button" class="add-attribute-btn bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded"
+            phx-click="add_attribute" phx-target={@myself}>
+      添加回答者属性
+    </button>
+  </div>
+  
+  <div class="attribute-templates mb-6">
+    <h4 class="text-md font-medium mb-2">常用属性模板</h4>
+    <div class="template-buttons flex flex-wrap gap-2">
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="gender" phx-target={@myself}>
+        性别
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="department" phx-target={@myself}>
+        部门
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="age_group" phx-target={@myself}>
+        年龄段
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="education" phx-target={@myself}>
+        学历
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="job_type" phx-target={@myself}>
+        工作类型
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="management_level" phx-target={@myself}>
+        管理级别
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="phone" phx-target={@myself}>
+        手机号码
+      </button>
+      <button type="button" class="template-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded text-sm"
+              phx-click="add_template_attribute" phx-value-template="hire_date" phx-target={@myself}>
+        入职时间
+      </button>
+    </div>
+  </div>
+  
+  <%= if @editing_attribute do %>
+    <div class="attribute-form-modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="attribute-form bg-white rounded-lg shadow-lg p-6 w-full max-w-lg">
+        <h4 class="text-lg font-medium mb-4"><%= if @current_attribute_index, do: "编辑属性", else: "添加属性" %></h4>
+        
+        <form phx-submit={if @current_attribute_index, do: "update_attribute", else: "create_attribute"} phx-target={@myself}>
+          <input type="hidden" name="attribute_index" value={@current_attribute_index}>
+          
+          <div class="form-group mb-4">
+            <label for="attribute_id" class="block mb-1">标识符</label>
+            <input type="text" id="attribute_id" name="attribute[id]" value={@current_attribute.id} 
+                   class="w-full border rounded px-2 py-1" required />
+            <small class="text-gray-500">用于存储数据的唯一标识符，如 "gender", "department"</small>
+          </div>
+          
+          <div class="form-group mb-4">
+            <label for="attribute_label" class="block mb-1">显示名称</label>
+            <input type="text" id="attribute_label" name="attribute[label]" value={@current_attribute.label} 
+                   class="w-full border rounded px-2 py-1" required />
+          </div>
+          
+          <div class="form-group mb-4">
+            <label for="attribute_type" class="block mb-1">类型</label>
+            <select id="attribute_type" name="attribute[type]" class="w-full border rounded px-2 py-1"
+                    phx-change="attribute_type_changed" phx-target={@myself}>
+              <option value="text" selected={@current_attribute.type == "text"}>文本</option>
+              <option value="email" selected={@current_attribute.type == "email"}>邮箱</option>
+              <option value="phone" selected={@current_attribute.type == "phone"}>电话</option>
+              <option value="select" selected={@current_attribute.type == "select"}>下拉选择</option>
+              <option value="date" selected={@current_attribute.type == "date"}>日期</option>
+            </select>
+          </div>
+          
+          <div class="form-group mb-4">
+            <label for="attribute_description" class="block mb-1">描述说明</label>
+            <textarea id="attribute_description" name="attribute[description]" 
+                      class="w-full border rounded px-2 py-1"><%= @current_attribute.description %></textarea>
+          </div>
+          
+          <div class="form-group mb-4">
+            <label class="flex items-center">
+              <input type="checkbox" name="attribute[required]" 
+                     checked={@current_attribute.required} class="mr-2" />
+              必填字段
+            </label>
+          </div>
+          
+          <%= if @current_attribute.type == "select" do %>
+            <div class="options-section mb-4">
+              <h5 class="font-medium mb-2">选项列表</h5>
+              <%= for {opt, idx} <- Enum.with_index(@current_attribute.options || []) do %>
+                <div class="option-row flex items-center mb-2">
+                  <input type="text" name={"attribute[options][#{idx}][label]"} placeholder="选项标签" 
+                         value={opt.label} class="border rounded px-2 py-1 mr-2" />
+                  <input type="text" name={"attribute[options][#{idx}][value]"} placeholder="选项值" 
+                         value={opt.value} class="border rounded px-2 py-1 mr-2" />
+                  <button type="button" class="text-red-500"
+                          phx-click="remove_option" phx-value-index={idx} phx-target={@myself}>
+                    删除
+                  </button>
+                </div>
+              <% end %>
+              <button type="button" class="text-sm bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+                      phx-click="add_option" phx-target={@myself}>
+                添加选项
+              </button>
+            </div>
+          <% end %>
+          
+          <div class="form-actions flex justify-end">
+            <button type="button" class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded mr-2"
+                    phx-click="cancel_attribute_form" phx-target={@myself}>
+              取消
+            </button>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  <% end %>
+</div>

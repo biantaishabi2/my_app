@@ -34,6 +34,7 @@ defmodule MyAppWeb.FormLive.Edit do
         |> assign(:loading_complete, false)
         |> assign(:item_options, [])
         |> assign(:editing_form_info, false)
+        |> assign(:editing_respondent_attributes, false)
         |> assign(:search_term, nil)
         |> assign(:delete_item_id, nil)
         |> assign(:editing_page, false)
@@ -142,6 +143,19 @@ defmodule MyAppWeb.FormLive.Edit do
   def handle_info({:update_matrix_defaults, updated_item}, socket) do
     IO.puts("Updating matrix defaults")
     {:noreply, assign(socket, :current_item, updated_item)}
+  end
+  
+  @impl true
+  def handle_info({:respondent_attributes_updated, updated_form}, socket) do
+    {:noreply, 
+     socket
+     |> assign(:form, updated_form)
+     |> put_flash(:info, "回答者属性设置已更新")}
+  end
+  
+  @impl true
+  def handle_info({:respondent_attributes_error, message}, socket) do
+    {:noreply, put_flash(socket, :error, message)}
   end
 
   defp apply_action(socket, :edit, _params) do
@@ -287,6 +301,16 @@ defmodule MyAppWeb.FormLive.Edit do
   @impl true
   def handle_event("cancel_edit_form_info", _params, socket) do
     {:noreply, assign(socket, :editing_form_info, false)}
+  end
+  
+  @impl true
+  def handle_event("edit_respondent_attributes", _params, socket) do
+    {:noreply, assign(socket, :editing_respondent_attributes, true)}
+  end
+  
+  @impl true
+  def handle_event("cancel_edit_respondent_attributes", _params, socket) do
+    {:noreply, assign(socket, :editing_respondent_attributes, false)}
   end
 
   @impl true
