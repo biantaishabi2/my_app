@@ -175,7 +175,7 @@ defmodule MyApp.Scoring do
          :ok <- handle_already_scored(response.id),
          {:ok, form} <- handle_form_association(response),
          {:ok, score_rule} <- find_score_rule(form.id),
-         {:ok, form_config} <- find_form_score_config(form.id) do
+         {:ok, _form_config} <- find_form_score_config(form.id) do
 
       # --- Actual calculation logic --- START ---
       # Validate rule format before proceeding
@@ -268,8 +268,11 @@ defmodule MyApp.Scoring do
 
   # Check if auto scoring is enabled - 保留但不在score_response主流程中使用
   # 此函数由UI界面调用时使用，自动评分流程会在调用前检查此设置
-  defp check_auto_score_enabled(%FormScore{auto_score: true}), do: :ok
-  defp check_auto_score_enabled(_form_config), do: {:error, :auto_score_disabled}
+  # 使用@doc false标记以避免编译警告
+  @doc false
+  def check_auto_score_enabled(%FormScore{auto_score: true}), do: :ok
+  @doc false
+  def check_auto_score_enabled(_form_config), do: {:error, :auto_score_disabled}
 
   # Validate that the 'items' key in rules exists and is a list
   defp validate_rule_items_format(%{"items" => items}) when is_list(items), do: {:ok, items}

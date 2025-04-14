@@ -1,6 +1,8 @@
 defmodule MyAppWeb.FormLive.Responses do
   use MyAppWeb, :live_view
-  import Phoenix.LiveView.JS
+  # 使用alias而不是import，因为我们只在模板中使用JS模块
+  alias Phoenix.LiveView.JS
+  import Ecto.Query
 
   alias MyApp.Forms
   alias MyApp.Responses
