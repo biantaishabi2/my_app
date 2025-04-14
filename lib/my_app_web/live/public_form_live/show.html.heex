@@ -5,6 +5,49 @@
       <p class="text-gray-600 mb-6">{@form.description}</p>
     <% end %>
   </div>
+  
+  <!-- 表单分页导航 -->
+  <%= if @total_pages > 1 do %>
+    <div class="form-pagination-container px-6 pt-4 border-b border-gray-200 mb-6">
+      <!-- 分页导航 -->
+      <div class="form-pagination-header">
+        <h2 class="form-pagination-title">
+          {if @current_page, do: @current_page.title, else: "表单内容"}
+        </h2>
+        <div class="form-pagination-counter">
+          {@current_page_idx + 1} / {@total_pages}
+        </div>
+      </div>
+      
+      <!-- 页面进度指示器 -->
+      <div class="form-pagination-progress">
+        <div
+          class="form-pagination-progress-bar"
+          style={"width: #{(@current_page_idx + 1) / @total_pages * 100}%"}
+        >
+        </div>
+      </div>
+      
+      <!-- 页面切换指示器 -->
+      <div class="form-pagination-indicators">
+        <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
+          <button
+            type="button"
+            class={"form-pagination-indicator #{cond do
+                      idx == @current_page_idx -> "active"
+                      Map.get(@pages_status, idx) == :complete -> "complete"
+                      true -> "incomplete"
+                    end}"}
+            phx-click="jump_to_page"
+            phx-value-index={idx}
+            aria-label={"跳转到第#{idx + 1}页#{if page.title, do: ": #{page.title}", else: ""}"}
+          >
+            {idx + 1}
+          </button>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
 
   <div class="public-form-content">
     <%= if Enum.empty?(@form.items) do %>
@@ -12,86 +55,91 @@
         <p class="text-gray-500 italic">此表单还没有添加任何内容</p>
       </div>
     <% else %>
-      <div class="public-form-items">
-        <%= for item <- @form.items do %>
-          <div class="form-item mb-4">
-            <div class="form-item-header">
-              <h3 class="text-lg font-medium">
-                {item.label}
-                <%= if item.required do %>
-                  <span class="form-item-required text-red-500">*</span>
-                <% end %>
-              </h3>
-              <%= if item.description do %>
-                <p class="text-sm text-gray-500">{item.description}</p>
-              <% end %>
-            </div>
-
-            <div class="form-item-content">
-              <%= case item.type do %>
-                <% :text_input -> %>
-                  <input type="text" class="form-control w-full p-2 border rounded" disabled />
-                <% :textarea -> %>
-                  <textarea class="form-control w-full p-2 border rounded" rows="3" disabled></textarea>
-                <% :radio -> %>
-                  <div class="form-radio-group">
-                    <%= for option <- item.options do %>
-                      <div class="form-radio-option flex items-center mb-2">
-                        <input
-                          type="radio"
-                          id={"preview-#{option.id}"}
-                          name={"preview-#{item.id}"}
-                          value={option.value}
-                          disabled
-                        />
-                        <label for={"preview-#{option.id}"} class="ml-2">{option.label}</label>
-                      </div>
-                    <% end %>
-                  </div>
-                <% :checkbox -> %>
-                  <div class="form-checkbox-group">
-                    <%= for option <- item.options do %>
-                      <div class="form-checkbox-option flex items-center mb-2">
-                        <input
-                          type="checkbox"
-                          id={"preview-#{option.id}"}
-                          name={"preview-#{item.id}"}
-                          value={option.value}
-                          disabled
-                        />
-                        <label for={"preview-#{option.id}"} class="ml-2">{option.label}</label>
-                      </div>
-                    <% end %>
-                  </div>
-                <% :dropdown -> %>
-                  <select class="form-control w-full p-2 border rounded" disabled>
-                    <option value="">请选择...</option>
-                    <%= for option <- item.options do %>
-                      <option value={option.value}>{option.label}</option>
-                    <% end %>
-                  </select>
-                <% :rating -> %>
-                  <div class="form-rating flex items-center">
-                    <%= for _i <- 1..5 do %>
-                      <span class="rating-star text-2xl text-gray-300">★</span>
-                    <% end %>
-                  </div>
-                <% _ -> %>
-                  <div class="unsupported-field text-gray-500">
-                    <p>预览不支持此类型的表单项</p>
-                  </div>
-              <% end %>
-            </div>
-          </div>
+      <!-- 使用表单模板渲染器渲染表单及装饰元素 -->
+      <div class="form-items space-y-6">
+        <%= if length(@form.pages || []) > 0 do %>
+          <MyAppWeb.FormTemplateRenderer.render_page_with_decorations
+            form={@form}
+            form_template={@form_template}
+            current_page={@current_page}
+            page_items={@page_items}
+            form_data={@form_data}
+            errors={@errors}
+            jump_state={@jump_state}
+          />
+        <% else %>
+          <MyAppWeb.FormTemplateRenderer.render_form_with_decorations
+            form={@form}
+            form_template={@form_template}
+            form_data={@form_data}
+            errors={@errors}
+            jump_state={@jump_state}
+          />
         <% end %>
       </div>
     <% end %>
   </div>
+  
+  <!-- 分页导航按钮 -->
+  <%= if @total_pages > 1 do %>
+    <div class="mt-8 form-pagination-navigation">
+      <%= if @current_page_idx > 0 do %>
+        <button
+          type="button"
+          id="prev-page-button"
+          class="form-pagination-button form-pagination-prev"
+          phx-click="prev_page"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 mr-1"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          上一页
+        </button>
+      <% else %>
+        <div></div>
+        <!-- 占位元素 -->
+      <% end %>
+      
+      <div class="flex space-x-2">
+        <%= if @current_page_idx < @total_pages - 1 do %>
+          <button
+            type="button"
+            id="next-page-button"
+            class="form-pagination-button form-pagination-next"
+            phx-click="next_page"
+          >
+            下一页
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 ml-1"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </button>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
 
   <div class="public-form-actions mt-6">
     <.link
       navigate={~p"/public/forms/#{@form.id}/submit"}
-      class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded"
+      class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded"
     >
       填写此表单
     </.link>
