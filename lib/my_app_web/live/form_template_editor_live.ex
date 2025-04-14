@@ -652,7 +652,6 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     position_type = socket.assigns.position_type
     position_target_id = socket.assigns.position_target_id
 
-    IO.puts("添加装饰元素: 类型=#{decoration_type}, 位置=#{position_type}, 目标ID=#{position_target_id || "nil"}")
 
     # 确保装饰元素类型不为 nil
     if decoration_type == nil do
@@ -3496,11 +3495,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   # 这个函数现在只用于回退情况，确保返回 Map 列表以兼容 ItemRendererComponent
   defp format_options_for_component(options) when is_list(options) do
-    IO.puts("\n==== 格式化选项 (回退) ====")
-    IO.puts("选项列表: #{inspect(options)}")
 
     result = Enum.map(options, fn option ->
-      IO.puts("处理选项: #{inspect(option)}")
 
       formatted = cond do
         # 处理Map类型的选项 (来自template structure)
@@ -3539,12 +3535,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           nil
       end
 
-      IO.puts("格式化后: #{inspect(formatted)}")
       formatted
     end)
     |> Enum.filter(&(&1 != nil)) # 过滤掉处理失败的选项
 
-    IO.puts("格式化结果: #{inspect(result)}")
     result
   end
   defp format_options_for_component(nil), do: [] # 确保 nil 返回空列表

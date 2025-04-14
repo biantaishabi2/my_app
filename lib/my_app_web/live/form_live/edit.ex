@@ -139,7 +139,6 @@ defmodule MyAppWeb.FormLive.Edit do
   @impl true
   # 处理异步表单项添加后的事件，确保界面正确更新
   def handle_info({:update_matrix_defaults, updated_item}, socket) do
-    IO.puts("Updating matrix defaults")
     {:noreply, assign(socket, :current_item, updated_item)}
   end
 
@@ -238,11 +237,6 @@ defmodule MyAppWeb.FormLive.Edit do
         |> assign(:editing_page, true)
         |> assign(:current_page, page)
 
-      # ---- 新增日志 ----
-      IO.inspect(new_socket.assigns.editing_page, label: "[edit_page] editing_page assigned")
-      IO.inspect(new_socket.assigns.current_page.id, label: "[edit_page] current_page.id assigned")
-      # ---- 结束新增日志 ----
-
       {:noreply, new_socket} # 返回修改后的 socket
     else
       {:noreply, put_flash(socket, :error, "页面不存在")}
@@ -299,8 +293,6 @@ defmodule MyAppWeb.FormLive.Edit do
            |> put_flash(:info, "页面已添加")}
 
         {:error, changeset} ->
-          # Log the error for debugging
-          IO.inspect(changeset, label: "[save_page] Create page failed")
           {:noreply, put_flash(socket, :error, "页面添加失败: #{inspect(changeset.errors)}\n请检查日志了解详情。")}
       end
     end
@@ -337,14 +329,11 @@ defmodule MyAppWeb.FormLive.Edit do
     description =
       form_params["description"] || socket.assigns[:temp_description] || form.description
 
-    IO.puts("使用用户输入的值：title=#{title}, description=#{description}")
 
     form_params = %{
       "title" => title,
       "description" => description
     }
-
-    IO.puts("保存表单信息: #{inspect(form_params)}")
 
     case Forms.update_form(form, form_params) do
       {:ok, updated_form} ->
@@ -352,7 +341,6 @@ defmodule MyAppWeb.FormLive.Edit do
         {:noreply, reload_form_and_update_socket(socket, updated_form.id, "表单信息已更新")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        IO.puts("表单更新失败: #{inspect(changeset)}")
 
         {:noreply,
          socket
@@ -438,7 +426,6 @@ defmodule MyAppWeb.FormLive.Edit do
           new_item
       end
 
-    IO.puts("添加新表单项，使用顶部编辑区域")
 
     # 准备选项数据
     initial_options =
@@ -501,7 +488,6 @@ defmodule MyAppWeb.FormLive.Edit do
           opts -> opts
         end
 
-      IO.puts("开始编辑表单项 ID: #{id}, 类型: #{item.type}")
 
       # 改为设置editing_item_id而不是editing_item=true
       {:noreply,
@@ -519,7 +505,6 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("cancel_edit_item", _params, socket) do
-    IO.puts("取消编辑表单项")
 
     {:noreply,
      socket
@@ -917,7 +902,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 处理表单整体的变化
     target = params["_target"]
 
-    IO.puts("表单变更: target=#{inspect(target)}, 值=#{inspect(form_params)}")
 
     socket =
       cond do
@@ -925,21 +909,17 @@ defmodule MyAppWeb.FormLive.Edit do
         is_list(target) && (target == ["form", "title"] || List.last(target) == "title") ->
           # 存储表单标题，并写入日志
           title = form_params["title"]
-          IO.puts("保存临时标题: #{title}")
           socket |> assign(:temp_title, title)
 
         is_list(target) &&
             (target == ["form", "description"] || List.last(target) == "description") ->
           # 存储表单描述，并写入日志
           description = form_params["description"]
-          IO.puts("保存临时描述: #{description}")
           socket |> assign(:temp_description, description)
 
         # 处理表单项的标签字段
         is_list(target) && (target == ["form", "item", "label"] || List.last(target) == "label") ->
           label_value = get_in(form_params, ["item", "label"]) || ""
-          IO.puts("保存表单项标签: #{label_value}")
-
           # 同时更新临时标签和当前项的标签
           current_item = socket.assigns.current_item
 
@@ -963,20 +943,17 @@ defmodule MyAppWeb.FormLive.Edit do
     element_id = params["id"] || ""
 
     # 添加直接调试信息
-    IO.puts("表单元素变更: id=#{element_id}, value=#{value}")
 
     socket =
       cond do
         element_id == "form-title" || String.contains?(element_id, "title") ->
           # 存储表单标题，并写入日志
-          IO.puts("保存临时标题: #{value}")
 
           socket
           |> assign(:temp_title, value)
 
         element_id == "form-description" || String.contains?(element_id, "description") ->
           # 存储表单描述，并写入日志
-          IO.puts("保存临时描述: #{value}")
 
           socket
           |> assign(:temp_description, value)
@@ -984,7 +961,6 @@ defmodule MyAppWeb.FormLive.Edit do
         element_id == "edit-item-label" || element_id == "new-item-label" ||
           String.contains?(element_id, "item-label") || String.contains?(element_id, "label") ->
           # 存储表单项标签，并写入日志
-          IO.puts("保存临时标签: #{value}")
           # 同时更新临时标签和当前项的标签
           current_item = socket.assigns.current_item
 
@@ -1150,8 +1126,8 @@ defmodule MyAppWeb.FormLive.Edit do
 
         Task.start(fn ->
           case Upload.delete_file(old_image_id) do
-            {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
-            {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
+            {:ok, _} -> :ok
+            {:error, reason} -> :error
           end
         end)
       end
@@ -1197,8 +1173,6 @@ defmodule MyAppWeb.FormLive.Edit do
       option = Enum.at(options, option_index)
       option_ref = "option-image-#{option_index}"
 
-      IO.puts("处理选项: #{inspect(option)}")
-
       # 创建并配置该选项的上传引用
       socket =
         Phoenix.LiveView.allow_upload(socket, option_ref,
@@ -1225,23 +1199,14 @@ defmodule MyAppWeb.FormLive.Edit do
     options = socket.assigns.item_options
     current_item = socket.assigns.current_item
 
-    IO.puts("==== 应用选项图片开始 ====")
-    IO.puts("处理选项索引: #{inspect(option_index)}")
-    IO.puts("当前选项列表: #{inspect(options)}")
 
     # 确保索引有效
     if option_index >= 0 and option_index < length(options) do
       option = Enum.at(options, option_index)
       option_ref = "option-image-#{option_index}"
 
-      IO.puts("处理选项: #{inspect(option)}")
-      IO.puts("使用上传引用: #{option_ref}")
-      IO.puts("当前socket.assigns.uploads: #{inspect(Map.keys(socket.assigns.uploads))}")
-
       # 检查是否有图片可上传
       if upload = socket.assigns.uploads[option_ref] do
-        IO.puts("找到上传引用: #{inspect(upload)}")
-        IO.puts("上传条目: #{inspect(upload.entries)}")
 
         if upload.entries != [] do
           form_id = socket.assigns.form.id
@@ -1251,7 +1216,6 @@ defmodule MyAppWeb.FormLive.Edit do
               do: current_item.id,
               else: "temp_#{Ecto.UUID.generate()}"
 
-          IO.puts("处理表单ID: #{form_id}, 表单项ID: #{form_item_id}")
 
           # 处理图片上传
           upload_results =
@@ -1262,9 +1226,6 @@ defmodule MyAppWeb.FormLive.Edit do
               filename = "#{Ecto.UUID.generate()}#{ext}"
               dest_path = Path.join([:code.priv_dir(:my_app), "static", "uploads", filename])
 
-              IO.puts("处理文件: #{entry.client_name} -> #{filename}")
-              IO.puts("目标路径: #{dest_path}")
-
               # 确保目标目录存在
               File.mkdir_p!(Path.dirname(dest_path))
 
@@ -1274,18 +1235,14 @@ defmodule MyAppWeb.FormLive.Edit do
               # 如果选项有旧图片，尝试删除
               if option.image_id do
                 old_image_id = option.image_id
-                IO.puts("发现旧图片ID: #{old_image_id}, 准备删除")
 
                 Task.start(fn ->
                   case Upload.delete_file(old_image_id) do
-                    {:ok, _} -> IO.puts("旧选项图片已删除: #{old_image_id}")
-                    {:error, reason} -> IO.puts("旧选项图片删除失败: #{inspect(reason)}")
+                    {:ok, _} -> :ok
+                    {:error, reason} -> :error
                   end
                 end)
               end
-
-              # 创建新的文件记录
-              IO.puts("准备保存文件记录到数据库")
 
               case Upload.save_uploaded_file(form_id, form_item_id, %{
                      original_filename: entry.client_name,
@@ -1295,7 +1252,6 @@ defmodule MyAppWeb.FormLive.Edit do
                      size: entry.client_size
                    }) do
                 {:ok, file} ->
-                  IO.puts("文件保存成功! ID: #{file.id}")
                   {:ok, %{id: file.id, filename: filename}}
 
                 {:error, changeset} ->
@@ -1304,19 +1260,15 @@ defmodule MyAppWeb.FormLive.Edit do
                     |> Enum.map(fn {field, {msg, _}} -> "#{field}: #{msg}" end)
                     |> Enum.join(", ")
 
-                  IO.puts("图片文件记录创建失败: #{error_message}")
                   {:error, "图片保存失败: #{error_message}"}
               end
             end)
 
-          IO.puts("上传结果: #{inspect(upload_results)}")
 
           # 根据上传结果更新选项
           case upload_results do
             # 直接匹配 Map 列表
             [%{id: image_id, filename: filename}] ->
-              IO.puts("成功获取图片信息: ID=#{image_id}, 文件名=#{filename}")
-
               # 更新选项的图片信息
               updated_option =
                 Map.merge(option, %{
@@ -1324,24 +1276,17 @@ defmodule MyAppWeb.FormLive.Edit do
                   image_filename: filename
                 })
 
-              IO.puts("更新后的选项: #{inspect(updated_option)}")
 
               # 更新选项列表
               updated_options = List.replace_at(options, option_index, updated_option)
 
-              IO.puts("更新后的选项列表: #{inspect(updated_options)}")
-
               # 同时更新 current_item 中的选项
               updated_current_item =
                 if current_item do
-                  IO.puts("更新current_item中的选项")
                   %{current_item | options: updated_options}
                 else
-                  IO.puts("无current_item可更新")
                   current_item
                 end
-
-              IO.puts("选项 #{option_index} 图片上传成功并应用到选项预览")
 
               # 关闭图片上传模态框并更新状态
               {:noreply,
@@ -1353,28 +1298,24 @@ defmodule MyAppWeb.FormLive.Edit do
                |> put_flash(:info, "图片上传成功！")}
 
             _ ->
-              IO.puts("图片上传结果处理失败")
 
               {:noreply,
                socket
                |> put_flash(:error, "图片上传或保存失败")}
           end
         else
-          IO.puts("没有找到上传条目")
 
           {:noreply,
            socket
            |> put_flash(:error, "请先选择要上传的图片")}
         end
       else
-        IO.puts("在socket.assigns.uploads中未找到引用: #{option_ref}")
 
         {:noreply,
          socket
          |> put_flash(:error, "上传组件未准备好")}
       end
     else
-      IO.puts("选项索引无效: #{option_index}")
       # 索引无效
       {:noreply,
        socket
@@ -1395,10 +1336,6 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("save_item", %{"item" => item_params} = params, socket) do
-    # --- Debugging: Inspect state at start of save_item ---
-    IO.puts(
-      "[Debug save_item start] Received item_options: #{inspect(socket.assigns.item_options)}"
-    )
 
     current_item_at_start = socket.assigns.current_item
 
@@ -1407,11 +1344,7 @@ defmodule MyAppWeb.FormLive.Edit do
         do: Map.get(current_item_at_start, :options),
         else: "current_item is nil"
 
-    IO.puts(
-      "[Debug save_item start] Received current_item.options: #{inspect(current_item_options_at_start)}"
-    )
 
-    # --- End Debugging ---
 
     form = socket.assigns.form
     current_item = socket.assigns.current_item
@@ -1419,10 +1352,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 使用当前socket中的选项
     item_options = socket.assigns.item_options
 
-    # 调试参数
-    IO.puts("==== 表单项保存调试信息 ====")
-    IO.puts("传入参数结构: #{inspect(params)}")
-    IO.puts("Socket中的选项 (:item_options): #{inspect(item_options)}")
 
     # 处理 item 参数 (类型转换, required 标准化)
     clean_item_params = process_item_params(item_params)
@@ -1435,7 +1364,6 @@ defmodule MyAppWeb.FormLive.Edit do
       existing_item = Forms.get_form_item(item_id_to_update)
 
       if existing_item do
-        IO.puts("更新现有表单项 ID: #{item_id_to_update}")
 
         # 如果是矩阵类型，确保行列存在
         clean_item_params =
@@ -1451,9 +1379,7 @@ defmodule MyAppWeb.FormLive.Edit do
           end
 
         case Forms.update_form_item(existing_item, clean_item_params) do
-          {:ok, updated_item} ->
-            IO.puts("表单项更新成功: id=#{updated_item.id}, label=#{updated_item.label}")
-
+          {:ok, updated_item} -> :ok
             # 直接使用当前选项状态，不需要再处理图片上传
             # 因为每个选项的图片已经在apply_upload_to_option中处理过了
             process_options(updated_item, item_options)
@@ -1471,8 +1397,7 @@ defmodule MyAppWeb.FormLive.Edit do
              # 清除当前选项索引
              |> assign(:current_option_index, nil)}
 
-          {:error, changeset} ->
-            IO.puts("表单项更新失败: #{inspect(changeset.errors)}")
+          {:error, changeset} -> :error
             error_msg = inspect(changeset.errors)
             {:noreply, put_flash(socket, :error, "表单项更新失败: #{error_msg}")}
         end
@@ -1484,10 +1409,7 @@ defmodule MyAppWeb.FormLive.Edit do
       clean_params = process_item_params(item_params)
 
       case Forms.add_form_item(form, clean_params) do
-        {:ok, new_item} ->
-          IO.puts(
-            "成功添加新表单项: id=#{new_item.id}, label=#{new_item.label}, type=#{inspect(new_item.type)}"
-          )
+        {:ok, new_item} -> :ok
 
           # 直接使用当前选项状态，不需要再处理图片上传
           # 因为每个选项的图片已经在apply_upload_to_option中处理过了
@@ -1507,7 +1429,6 @@ defmodule MyAppWeb.FormLive.Edit do
            |> assign(:current_option_index, nil)}
 
         {:error, changeset} ->
-          IO.puts("添加表单项失败! 错误: #{inspect(changeset.errors)}")
           error_msg = inspect(changeset.errors)
 
           {:noreply,
@@ -1703,14 +1624,12 @@ defmodule MyAppWeb.FormLive.Edit do
   defp convert_type_to_atom(params) do
     case params["type"] do
       "text_input" ->
-        IO.puts("转换类型 text_input 为 atom")
         Map.put(params, "type", :text_input)
 
       "textarea" ->
         Map.put(params, "type", :textarea)
 
       "radio" ->
-        IO.puts("转换类型 radio 为 atom")
         Map.put(params, "type", :radio)
 
       "checkbox" ->
@@ -1723,48 +1642,36 @@ defmodule MyAppWeb.FormLive.Edit do
         Map.put(params, "type", :rating)
 
       "number" ->
-        IO.puts("转换类型 number 为 atom")
         Map.put(params, "type", :number)
 
       "email" ->
-        IO.puts("转换类型 email 为 atom")
         Map.put(params, "type", :email)
 
       "phone" ->
-        IO.puts("转换类型 phone 为 atom")
         Map.put(params, "type", :phone)
 
       "date" ->
-        IO.puts("转换类型 date 为 atom")
         Map.put(params, "type", :date)
 
       "time" ->
-        IO.puts("转换类型 time 为 atom")
         Map.put(params, "type", :time)
 
       "region" ->
-        IO.puts("转换类型 region 为 atom")
         Map.put(params, "type", :region)
 
       "matrix" ->
-        IO.puts("转换类型 matrix 为 atom")
         Map.put(params, "type", :matrix)
 
       type when is_binary(type) ->
-        IO.puts("转换其他字符串类型 #{type} 为 atom")
         Map.put(params, "type", String.to_existing_atom(type))
 
       _ ->
-        IO.puts("无法转换类型: #{inspect(params["type"])}")
         params
     end
   end
 
   # 处理required字段的值
   defp normalize_required_field(params) do
-    IO.puts(
-      "转换后的类型: #{inspect(params["type"])}, 类型: #{if is_atom(params["type"]), do: "atom", else: "非atom"}"
-    )
 
     case params["required"] do
       "true" -> Map.put(params, "required", true)
@@ -1780,25 +1687,17 @@ defmodule MyAppWeb.FormLive.Edit do
 
   # 处理选项 (公有函数，可被其他模块导入)
   def process_options(item, options_list) do
-    # 处理表单项选项
-    IO.puts("\n==== 处理表单项选项 ====")
-    IO.puts("表单项: #{inspect(item)}")
-    # 打印传入的选项列表
-    IO.puts("传入选项列表: #{inspect(options_list)}")
 
     # 先获取当前数据库中的选项以备参考（主要用于更新场景，判断是否需要删除旧选项）
     current_options =
       case MyApp.Repo.preload(item, :options).options do
         nil ->
-          IO.puts("选项关联未加载或为nil，使用空列表")
           []
 
         options when is_list(options) ->
-          IO.puts("选项已加载，当前数据库有 #{length(options)} 个选项")
           options
       end
 
-    IO.puts("当前数据库选项数量: #{length(current_options)}")
 
     # 直接使用传入的 options_list (可能已经包含处理过的图片信息)
     # 提取需要的字段来构建用于保存的参数 Map 列表
@@ -1818,8 +1717,6 @@ defmodule MyAppWeb.FormLive.Edit do
         opt["label"] != "" || opt["value"] != "" || !is_nil(opt["image_id"])
       end)
 
-    IO.puts("最终准备保存的选项数量: #{length(options_to_save)}")
-    IO.puts("最终选项内容: #{inspect(options_to_save)}")
 
     # 使用 Multi 来确保原子性：先删除旧选项，再添加新选项
     multi = Ecto.Multi.new()
@@ -1827,7 +1724,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 1. 删除旧选项
     multi =
       Enum.reduce(current_options, multi, fn option, multi_acc ->
-        IO.puts("准备删除旧选项: #{option.id}")
         Ecto.Multi.delete(multi_acc, "delete_option_#{option.id}", option)
       end)
 
@@ -1835,7 +1731,6 @@ defmodule MyAppWeb.FormLive.Edit do
     multi =
       Enum.with_index(options_to_save, 1)
       |> Enum.reduce(multi, fn {option_params, index}, multi_acc ->
-        IO.puts("准备添加新选项: #{inspect(option_params)}，顺序: #{index}")
         # 添加 order 字段
         params_with_order = Map.put(option_params, "order", index)
 
@@ -1852,16 +1747,11 @@ defmodule MyAppWeb.FormLive.Edit do
     # 执行事务
     case MyApp.Repo.transaction(multi) do
       {:ok, _result_map} ->
-        IO.puts("选项事务成功")
         # 重新加载并返回更新后的项目，确保选项已关联
         updated_item = Forms.get_form_item_with_options(item.id)
-        IO.puts("更新后的表单项: #{inspect(updated_item.id)}")
-        IO.puts("选项数量: #{length(updated_item.options || [])}")
         updated_item
 
       {:error, failed_operation, failed_value, _changes_so_far} ->
-        IO.puts("选项事务失败在操作: #{inspect(failed_operation)}")
-        IO.puts("失败原因: #{inspect(failed_value)}")
         # 返回原始 item，或者可以考虑返回错误信息
         # 或者 {:error, ...}
         item
@@ -1873,7 +1763,6 @@ defmodule MyAppWeb.FormLive.Edit do
     # 强制重新加载，确保所有字段都已更新
     updated_form = Forms.get_form(form_id)
 
-    IO.puts("更新后的表单: title=#{updated_form.title}, description=#{updated_form.description}")
 
     # 收集所有页面的表单项
     all_form_items =
@@ -1882,7 +1771,6 @@ defmodule MyAppWeb.FormLive.Edit do
         page.items || []
       end)
 
-    IO.puts("重新加载表单项: 从页面收集到#{length(all_form_items)}个项目")
 
     socket
     |> assign(:form, updated_form)

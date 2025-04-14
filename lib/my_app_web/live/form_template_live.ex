@@ -33,8 +33,6 @@ defmodule MyAppWeb.FormTemplateLive do
 
     second_field_id = if second_item, do: second_item.id, else: nil
 
-    # 为调试目的输出字段IDs
-    IO.puts("Mount: 第一个字段ID=#{first_field_id}, 第二个字段ID=#{second_field_id}")
 
     # 添加正确的字段ID到表单数据
     form_data = %{
@@ -67,9 +65,6 @@ defmodule MyAppWeb.FormTemplateLive do
       end)
       |> Map.new()
 
-    # 输出完整的params以便调试
-    IO.puts("原始参数: #{inspect(params)}")
-    IO.puts("处理后表单数据: #{inspect(form_data)}")
 
     # 获取字段ID
     first_field_id = socket.assigns.first_field_id
@@ -92,9 +87,6 @@ defmodule MyAppWeb.FormTemplateLive do
     # 为调试目的打印数据
     first_value = Map.get(form_data, first_field_id, "")
     second_value = Map.get(form_data, second_field_id, "")
-    IO.puts("字段ID: first=#{first_field_id}, second=#{second_field_id}")
-    IO.puts("值更新: first=#{first_value}, second=#{second_value}")
-    IO.puts("显示表单项数量: #{length(rendered_items)}")
 
     # 存储更新后的表单数据
     {:noreply,
@@ -237,7 +229,7 @@ defmodule MyAppWeb.FormTemplateLive do
               </div>
             </div>
           </div>
-          
+
     <!-- 右侧：渲染的表单 -->
           <div class="form-card">
             <h2 class="text-xl font-semibold mb-4 form-item-label">渲染后的表单</h2>
@@ -308,18 +300,15 @@ defmodule MyAppWeb.FormTemplateLive do
         case Jason.decode(content) do
           {:ok, json_data} ->
             # 成功解析JSON
-            IO.puts("成功加载模板JSON: #{json_data["name"]}")
             json_data
 
           {:error, reason} ->
             # JSON解析错误
-            IO.puts("模板JSON解析错误: #{inspect(reason)}")
             %{"structure" => %{"items" => []}}
         end
 
       {:error, reason} ->
         # 文件读取错误
-        IO.puts("模板文件读取错误: #{inspect(reason)}")
         %{"structure" => %{"items" => []}}
     end
   end
