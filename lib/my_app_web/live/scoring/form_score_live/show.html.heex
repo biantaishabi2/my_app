@@ -49,32 +49,57 @@
     <% end %>
 
     <div class="p-6">
-      <.form
-        for={@changeset}
-        id="form-score-form"
-        phx-change="validate"
-        phx-submit="save"
-      >
+      <form phx-change="validate" phx-submit="save" id="form-score-form">
         <div class="space-y-6">
           <div class="sm:flex sm:flex-row">
             <div class="sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-              <.input field={@changeset[:max_score]} type="number" label="最高分值" required min="1" />
+              <div class="form-group">
+                <label for="form_score_total_score" class="block text-sm font-medium text-gray-700">最高分值</label>
+                <input type="number" name="form_score[total_score]" id="form_score_total_score" 
+                  value={@form_score.total_score} 
+                  required min="1"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
               <p class="mt-1 text-sm text-gray-500">设置此表单的最高可能获得的分数</p>
             </div>
             <div class="sm:w-1/2 sm:pl-4">
-              <.input field={@changeset[:passing_score]} type="number" label="通过分数" required min="0" />
+              <div class="form-group">
+                <label for="form_score_passing_score" class="block text-sm font-medium text-gray-700">通过分数</label>
+                <input type="number" name="form_score[passing_score]" id="form_score_passing_score" 
+                  value={@form_score.passing_score} 
+                  required min="0"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+              </div>
               <p class="mt-1 text-sm text-gray-500">设置及格分数线，低于此分数将被标记为不及格</p>
             </div>
           </div>
 
           <div class="sm:flex sm:flex-row items-start">
             <div class="sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
-              <.input field={@changeset[:auto_score]} type="checkbox" label="自动评分" />
+              <div class="form-group">
+                <div class="flex items-center">
+                  <input type="checkbox" name="form_score[auto_score]" id="form_score_auto_score" 
+                    checked={@form_score.auto_score}
+                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                  />
+                  <label for="form_score_auto_score" class="ml-2 block text-sm font-medium text-gray-700">自动评分</label>
+                </div>
+              </div>
               <p class="mt-1 text-sm text-gray-500">启用后，系统将根据评分规则自动为新提交的回答打分</p>
             </div>
             <div class="sm:w-1/2 sm:pl-4">
-              <.input field={@changeset[:show_score]} type="checkbox" label="显示分数给用户" />
-              <p class="mt-1 text-sm text-gray-500">启用后，用户提交表单后会看到自己获得的分数</p>
+              <div class="form-group">
+                <label for="form_score_score_visibility" class="block text-sm font-medium text-gray-700">分数可见性</label>
+                <select name="form_score[score_visibility]" id="form_score_score_visibility"
+                  class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  <option value="private" selected={@form_score.score_visibility == :private}>仅表单创建者可见</option>
+                  <option value="public" selected={@form_score.score_visibility == :public}>所有人可见</option>
+                </select>
+              </div>
+              <p class="mt-1 text-sm text-gray-500">设置评分结果的可见范围</p>
             </div>
           </div>
 
@@ -87,7 +112,7 @@
             </button>
           </div>
         </div>
-      </.form>
+      </form>
     </div>
   </div>
 </div>

@@ -1,6 +1,6 @@
 defmodule MyAppWeb.Scoring.FormScoreLive.Show do
   use MyAppWeb, :live_view
-
+  
   alias MyApp.Scoring
   alias MyApp.Scoring.FormScore
 
@@ -18,26 +18,26 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
       score_visibility: :public
     }
 
-    changeset = FormScore.changeset(form_score, %{})
+    form_changeset = FormScore.changeset(form_score, %{})
 
     {:ok,
      socket
      |> assign(:form, form)
      |> assign(:form_id, form_id)
      |> assign(:form_score, form_score)
-     |> assign(:changeset, changeset)
+     |> assign(:form_changeset, form_changeset)
      |> assign(:page_title, "评分配置 - #{form.title}")
      |> assign(:has_rules, has_active_rules?(form_id))}
   end
 
   @impl true
   def handle_event("validate", %{"form_score" => form_score_params}, socket) do
-    changeset =
+    form_changeset =
       socket.assigns.form_score
       |> FormScore.changeset(form_score_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    {:noreply, assign(socket, :form_changeset, form_changeset)}
   end
 
   @impl true
@@ -47,11 +47,11 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
         {:noreply,
          socket
          |> assign(:form_score, form_score)
-         |> assign(:changeset, FormScore.changeset(form_score, %{}))
+         |> assign(:form_changeset, FormScore.changeset(form_score, %{}))
          |> put_flash(:info, "评分配置已保存")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, :changeset, changeset)}
+      {:error, %Ecto.Changeset{} = form_changeset} ->
+        {:noreply, assign(socket, :form_changeset, form_changeset)}
 
       {:error, :unauthorized} ->
         {:noreply, put_flash(socket, :error, "您没有权限修改此表单的评分配置")}
