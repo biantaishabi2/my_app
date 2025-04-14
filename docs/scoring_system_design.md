@@ -328,34 +328,33 @@ def score_response(response_id, rule_id, grader_id \\ nil) do
        {:ok, rule} <- get_score_rule(rule_id),
        {:ok, form} <- get_form(response.form_id) do
     
+    # 权限检查：检查 grader_id (如果提供) 或当前用户是否有权限评分
+    # ... (省略权限检查逻辑)
+    
     # 应用评分规则
     score_result = apply_scoring_rules(response, rule, form)
     
-    # 检查是否已存在评分
+    # 创建或更新评分记录
+    changeset_attrs = %{
+      response_id: response_id,
+      score_rule_id: rule_id,
+      grader_id: grader_id,
+      total_score: score_result.total_score,
+      passed: score_result.passed,
+      score_breakdown: score_result.breakdown
+    }
+    
     case get_response_score(response_id) do
       nil ->
         # 创建新评分
         %ResponseScore{}
-        |> ResponseScore.changeset(%{
-          response_id: response_id,
-          score_rule_id: rule_id,
-          grader_id: grader_id,
-          total_score: score_result.total_score,
-          passed: score_result.passed,
-          score_breakdown: score_result.breakdown
-        })
+        |> ResponseScore.changeset(changeset_attrs)
         |> Repo.insert()
         
       existing_score ->
         # 更新现有评分
         existing_score
-        |> ResponseScore.changeset(%{
-          score_rule_id: rule_id,
-          grader_id: grader_id,
-          total_score: score_result.total_score,
-          passed: score_result.passed,
-          score_breakdown: score_result.breakdown
-        })
+        |> ResponseScore.changeset(changeset_attrs)
         |> Repo.update()
     end
   else
@@ -364,12 +363,33 @@ def score_response(response_id, rule_id, grader_id \\ nil) do
 end
 
 @doc """
+创建手动评分记录。此函数用于记录不需要自动计算的评分结果。
+
+## 参数
+  - attrs: 评分属性，包含 `response_id`, `grader_id`, `total_score`, `feedback` 等。
+
+## 示例
+    iex> create_manual_score(%{response_id: resp_id, grader_id: user_id, total_score: 80, feedback: "Good"})
+    {:ok, %ResponseScore{}}
+"""
+def create_manual_score(attrs) do
+  %ResponseScore{}
+  |> ResponseScore.changeset(attrs)
+  # 手动评分需要手动设置 passed 状态，或根据 form_score 配置计算
+  # |> maybe_calculate_passed_status(attrs[:response_id])
+  |> Repo.insert()
+end
+
+@doc """
 批量评分表单响应。
 
 ## 参数
   - form_id: 表单ID
   - rule_id: 评分规则ID
-  - options: 可选的评分选项
+  - options: 可选的评分选项，例如：
+    - `start_date`: `Date.t()` - 只评分此日期之后的响应
+    - `end_date`: `Date.t()` - 只评分此日期之前的响应
+    - `overwrite`: `boolean()` - 是否覆盖已有的评分 (默认 false)
 
 ## 示例
 
@@ -384,13 +404,8 @@ def batch_score_responses(form_id, rule_id, options \\ %{}) do
     # 获取筛选的响应
     responses = Responses.list_responses_for_form(form_id)
     
-    # 应用筛选条件
-    responses =
-      if options[:start_date] || options[:end_date] do
-        filter_responses_by_date(responses, options)
-      else
-        responses
-      end
+    # 应用筛选条件 (包括 options 中的其他条件如 overwrite)
+    responses = filter_responses(responses, options)
     
     # 评分每个响应
     results =
@@ -439,7 +454,9 @@ end
 
 ## 参数
   - form_id: 表单ID
-  - options: 可选的筛选选项
+  - options: 可选的筛选选项，例如：
+    - `start_date`: `Date.t()` - 只统计此日期之后的评分
+    - `end_date`: `Date.t()` - 只统计此日期之前的评分
 
 ## 示例
 
@@ -506,6 +523,66 @@ def get_form_score_statistics(form_id, options \\ %{}) do
       highest_score: 0,
       lowest_score: 0,
       distribution: []
+    }}
+  end
+end
+
+@doc """
+获取单个题目的评分统计数据。
+
+## 参数
+  - form_id: 表单ID
+  - item_id: 表单项ID
+  - options: 可选的筛选选项 (同上)
+
+## 返回
+  {:ok, %{total_answers: integer(), avg_score: float(), max_possible_score: integer(), avg_percentage: float(), distribution: map()}}
+
+## 示例
+    iex> get_item_score_statistics(form_id, item_id)
+    {:ok, %{avg_score: 7.5, total_answers: 50, ...}}
+"""
+def get_item_score_statistics(form_id, item_id, options \\ %{}) do
+  # 获取表单项信息以确定最大可能分数
+  form_item = Forms.get_form_item(item_id)
+  max_possible_score = get_item_max_score(form_item) # 需要辅助函数
+  
+  # 构建查询，从 score_breakdown 中提取特定项的分数
+  query = 
+    from s in ResponseScore,
+      join: r in assoc(s, :response),
+      where: r.form_id == ^form_id and not is_nil(s.score_breakdown)
+      # ... (添加日期筛选等 options)
+  
+  scores_data = Repo.all(query)
+  
+  item_scores = 
+    Enum.map(scores_data, fn score_record ->
+      Map.get(score_record.score_breakdown || %{}, Atom.to_string(item_id), 0)
+    end)
+    |> Enum.filter(&(&1 != 0)) # 或者处理 nil/0 的情况
+
+  total_answers = length(item_scores)
+  
+  if total_answers > 0 do
+    avg_score = Enum.sum(item_scores) / total_answers
+    avg_percentage = if max_possible_score > 0, do: avg_score / max_possible_score, else: 0
+    # distribution = calculate_item_score_distribution(item_scores) # 需要辅助函数
+    
+    {:ok, %{
+      total_answers: total_answers,
+      avg_score: avg_score,
+      max_possible_score: max_possible_score,
+      avg_percentage: avg_percentage
+      # distribution: distribution
+    }}
+  else
+     {:ok, %{
+      total_answers: 0,
+      avg_score: 0,
+      max_possible_score: max_possible_score,
+      avg_percentage: 0
+      # distribution: []
     }}
   end
 end

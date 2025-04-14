@@ -147,4 +147,20 @@ defmodule MyApp.Accounts.User do
       add_error(changeset, :current_password, "is not valid")
     end
   end
+
+  # Add a general changeset function
+  @doc """
+  Builds a changeset for a user.
+  Used for basic updates or creation where specific validation isn't needed.
+  """
+  def changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email]) # Add other castable fields as needed
+    |> validate_required([:email])
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
+    |> validate_length(:email, max: 160)
+    # Add unique constraint check if needed for general updates
+    # |> unsafe_validate_unique(:email, MyApp.Repo)
+    # |> unique_constraint(:email)
+  end
 end
