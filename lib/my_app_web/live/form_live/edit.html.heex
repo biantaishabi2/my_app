@@ -1186,7 +1186,7 @@
               <%= if @form.pages && is_list(@form.pages) do %>
                 <%= for page <- @form.pages do %>
                   <div
-                    style={"border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden; display: #{if @current_page && @current_page.id == page.id, do: 'block', else: 'none'};"}
+                    style={"border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden; display: #{if @current_page && @current_page.id == page.id, do: "block", else: "none"};"}
                     data-test-id={"page-#{page.id}-items"}
                     class="page-container"
                     data-page-id={page.id}
