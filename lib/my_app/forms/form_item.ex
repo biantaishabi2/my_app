@@ -30,7 +30,8 @@ defmodule MyApp.Forms.FormItem do
         :region,
         :matrix,
         :image_choice,
-        :file_upload
+        :file_upload,
+        :fill_in_blank
         # Add other types as needed
       ]
 
@@ -78,6 +79,14 @@ defmodule MyApp.Forms.FormItem do
     field :multiple_files, :boolean, default: false
     # 默认最多上传1个文件
     field :max_files, :integer, default: 1
+
+    # 填空题控件属性
+    field :blank_text, :string
+    field :blank_count, :integer, default: 1
+    field :blank_min_length, :integer
+    field :blank_max_length, :integer
+    field :blank_placeholders, {:array, :string}, default: []
+    field :blank_sizes, {:array, :integer}, default: []
 
     # 控件分类属性
     field :category, Ecto.Enum, values: [:basic, :personal, :advanced], default: :basic
@@ -135,6 +144,12 @@ defmodule MyApp.Forms.FormItem do
       :max_file_size,
       :multiple_files,
       :max_files,
+      :blank_text,
+      :blank_count,
+      :blank_min_length,
+      :blank_max_length,
+      :blank_placeholders,
+      :blank_sizes,
       :category,
       :visibility_condition,
       :required_condition
@@ -149,6 +164,7 @@ defmodule MyApp.Forms.FormItem do
     |> validate_matrix_field_attributes()
     |> validate_image_choice_field_attributes()
     |> validate_file_upload_field_attributes()
+    |> validate_fill_in_blank_field_attributes()
     |> assign_default_category()
 
     # Add custom validations for type, rules etc.
@@ -173,7 +189,7 @@ defmodule MyApp.Forms.FormItem do
           put_change(changeset, :category, :personal)
 
         # 高级控件类型
-        type in [:rating, :matrix, :image_choice, :file_upload] ->
+        type in [:rating, :matrix, :image_choice, :file_upload, :fill_in_blank] ->
           put_change(changeset, :category, :advanced)
 
         # 默认为基础类型
@@ -385,6 +401,64 @@ defmodule MyApp.Forms.FormItem do
           end
         else
           changeset
+        end
+
+      changeset
+    else
+      changeset
+    end
+  end
+
+  # 验证填空题控件的属性
+  defp validate_fill_in_blank_field_attributes(changeset) do
+    if get_field(changeset, :type) == :fill_in_blank do
+      blank_text = get_field(changeset, :blank_text)
+      blank_count = get_field(changeset, :blank_count)
+      blank_min_length = get_field(changeset, :blank_min_length)
+      blank_max_length = get_field(changeset, :blank_max_length)
+
+      # 验证填空题文本
+      changeset =
+        if is_nil(blank_text) || String.trim(blank_text) == "" do
+          add_error(changeset, :blank_text, "填空题文本不能为空")
+        else
+          # 检查[blank]标记数量
+          blank_markers = Regex.scan(~r/\{\{(\d+)\}\}/, blank_text)
+
+          if blank_markers == [] do
+            add_error(changeset, :blank_text, "填空题文本必须包含至少一个{{n}}格式的填空标记")
+          else
+            # 确认blank_count与实际的填空标记数量一致
+            actual_blank_count = length(blank_markers)
+
+            if !is_nil(blank_count) && blank_count != actual_blank_count do
+              add_error(
+                changeset,
+                :blank_count,
+                "填空数量(#{blank_count})与文本中的填空标记数量(#{actual_blank_count})不符"
+              )
+            else
+              # 如果blank_count未设置，则自动设置为实际的标记数量
+              if is_nil(blank_count) do
+                put_change(changeset, :blank_count, actual_blank_count)
+              else
+                changeset
+              end
+            end
+          end
+        end
+
+      # 验证最小长度和最大长度
+      changeset =
+        cond do
+          is_nil(blank_min_length) or is_nil(blank_max_length) ->
+            changeset
+
+          blank_min_length > blank_max_length ->
+            add_error(changeset, :blank_min_length, "最小长度不能大于最大长度")
+
+          true ->
+            changeset
         end
 
       changeset

@@ -82,9 +82,9 @@ defmodule MyAppWeb.FormTemplateRenderer do
     <div id="form-renderer-#{@form.id}" class="form-container">
       <%= if @form_template do %>
         <%!-- === Pass jump_state down === --%>
-        <%= render_with_template(@form, @form_template, @form_data, @mode, @errors, @jump_state) %>
+        {render_with_template(@form, @form_template, @form_data, @mode, @errors, @jump_state)}
       <% else %>
-        <%= render_without_template(@form, @form_data, @mode, @errors) %>
+        {render_without_template(@form, @form_data, @mode, @errors)}
       <% end %>
     </div>
     """
@@ -111,16 +111,25 @@ defmodule MyAppWeb.FormTemplateRenderer do
   attr :errors, :map, default: %{}
   # === Add jump_state attribute for page rendering ===
   attr :jump_state, :map, default: %{active: false, target_id: nil}
-  attr :form_render_key, :any # Keep this if added previously
+  # Keep this if added previously
+  attr :form_render_key, :any
 
   def render_page_with_decorations(assigns) do
     ~H"""
     <div id="form-renderer-page-#{@current_page.id}" class="form-page">
       <%= if @form_template do %>
         <%!-- === Pass jump_state down === --%>
-        <%= render_page_with_template(@form, @form_template, @current_page, @page_items, @form_data, @errors, @jump_state) %>
+        {render_page_with_template(
+          @form,
+          @form_template,
+          @current_page,
+          @page_items,
+          @form_data,
+          @errors,
+          @jump_state
+        )}
       <% else %>
-        <%= render_page_without_template(@current_page, @page_items, @form_data, @errors) %>
+        {render_page_without_template(@current_page, @page_items, @form_data, @errors)}
       <% end %>
     </div>
     """
@@ -130,7 +139,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
   defp render_with_template(form, template, form_data, mode, errors, jump_state) do
     case mode do
       :display ->
-        if template && template.decoration && is_list(template.decoration) && !Enum.empty?(template.decoration) do
+        if template && template.decoration && is_list(template.decoration) &&
+             !Enum.empty?(template.decoration) do
           # 有装饰元素时，使用优化的渲染方法
           # === Pass jump_state down ===
           render_template_with_decorations(form, template, form_data, errors, jump_state)
@@ -149,11 +159,17 @@ defmodule MyAppWeb.FormTemplateRenderer do
           form_data: form_data,
           errors: errors
         }
+
         ~H"""
         <div class="form-template-preview">
           <div class="form-items">
             <%= for item <- @form.items do %>
-              <ItemRendererComponent.render_item item={item} mode={:edit_preview} form_data={@form_data} errors={@errors} />
+              <ItemRendererComponent.render_item
+                item={item}
+                mode={:edit_preview}
+                form_data={@form_data}
+                errors={@errors}
+              />
             <% end %>
           </div>
         </div>
@@ -182,7 +198,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
       decorations: decorations,
       items_map: items_map,
       form_data: form_data,
-      form_state: form_data,  # 保持form_state与form_data一致，以支持CSS隐藏方案
+      # 保持form_state与form_data一致，以支持CSS隐藏方案
+      form_state: form_data,
       errors: errors,
       jump_state: jump_state
     }
@@ -197,8 +214,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <p>根据您的选择，已跳过中间问题直接显示目标问题。</p>
         </div>
       <% end %>
-
-      <!-- 1. 首先渲染位置为"start"的装饰元素 -->
+      
+    <!-- 1. 首先渲染位置为"start"的装饰元素 -->
       <%= for decoration <- Enum.filter(@decorations, fn d ->
           position = Map.get(d, "position") || Map.get(d, :position) || %{}
           position_type = Map.get(position, "type") || Map.get(position, :type)
@@ -206,22 +223,23 @@ defmodule MyAppWeb.FormTemplateRenderer do
         end) do %>
         <.render_decoration element={decoration} />
       <% end %>
-
-      <!-- 2. 遍历表单项，将"before"和"after"的装饰元素插入适当位置 -->
+      
+    <!-- 2. 遍历表单项，将"before"和"after"的装饰元素插入适当位置 -->
       <%= for item <- @form_items do %>
         <%!-- Determine visibility based on jump_state FIRST --%>
-        <%{
-          show_item = if @jump_state && @jump_state.active do
-            # Jump active: only show source and target
-            to_string(item.id) == to_string(@jump_state.source_id) || to_string(item.id) == to_string(@jump_state.target_id)
-          else
-            # Jump not active: show item by default
-            true
-          end
-        }%>
+        <% {
+          show_item =
+            if @jump_state && @jump_state.active do
+              # Jump active: only show source and target
+              to_string(item.id) == to_string(@jump_state.source_id) ||
+                to_string(item.id) == to_string(@jump_state.target_id)
+            else
+              # Jump not active: show item by default
+              true
+            end
+        } %>
         <%!-- === 使用CSS隐藏而非条件渲染 === --%>
         <div phx-key={item.id} style={if !show_item, do: "display: none;", else: ""}>
-          <%# 渲染表单项 %>
           <!-- 渲染"before"装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}
@@ -232,11 +250,23 @@ defmodule MyAppWeb.FormTemplateRenderer do
             <.render_decoration element={decoration} />
           <% end %>
 
-          <div data-item-id={item.id} class={if @jump_state.active && to_string(item.id) == to_string(@jump_state.target_id), do: "p-4 border-l-4 border-green-500 bg-green-50", else: ""}>
-            <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_state} errors={@errors} />
+          <div
+            data-item-id={item.id}
+            class={
+              if @jump_state.active && to_string(item.id) == to_string(@jump_state.target_id),
+                do: "p-4 border-l-4 border-green-500 bg-green-50",
+                else: ""
+            }
+          >
+            <ItemRendererComponent.render_item
+              item={item}
+              mode={:display}
+              form_data={@form_state}
+              errors={@errors}
+            />
           </div>
-
-          <!-- 渲染"after"装饰元素 -->
+          
+    <!-- 渲染"after"装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}
               position_type = Map.get(position, "type") || Map.get(position, :type)
@@ -247,8 +277,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <% end %>
         </div>
       <% end %>
-
-      <!-- 3. 渲染位置为"end"的装饰元素 -->
+      
+    <!-- 3. 渲染位置为"end"的装饰元素 -->
       <%= for decoration <- Enum.filter(@decorations, fn d ->
           position = Map.get(d, "position") || Map.get(d, :position) || %{}
           position_type = Map.get(position, "type") || Map.get(position, :type)
@@ -256,8 +286,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
         end) do %>
         <.render_decoration element={decoration} />
       <% end %>
-
-      <!-- 4. 渲染没有指定位置的装饰元素 -->
+      
+    <!-- 4. 渲染没有指定位置的装饰元素 -->
       <%= for decoration <- Enum.filter(@decorations, fn d ->
           position = Map.get(d, "position") || Map.get(d, :position) || %{}
           position_type = Map.get(position, "type") || Map.get(position, :type)
@@ -275,6 +305,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
   # 例如：DecorationComponents.title, DecorationComponents.paragraph 等
   # 并且这些组件接受一个 :element 的 assign，其中包含元素的所有属性。
   attr :element, :map, required: true
+
   defp render_decoration(assigns) do
     # 从 assigns map 中获取 element
     element = assigns.element
@@ -296,6 +327,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
           align: align,
           style: style
         }
+
         # 将参数传递给 title_element 组件
         ~H"""
         <DecorationComponents.title_element
@@ -306,48 +338,52 @@ defmodule MyAppWeb.FormTemplateRenderer do
           style={@style}
         />
         """
+
       "paragraph" ->
         content = Map.get(element, "content", Map.get(element, :content, ""))
         style = Map.get(element, "style", Map.get(element, :style))
+
         assigns = %{
           elem_id: elem_id,
           content: content,
           style: style
         }
+
         # 将参数传递给 content_paragraph 组件
         ~H"""
-        <DecorationComponents.content_paragraph
-          id={@elem_id}
-          content={@content}
-          style={@style}
-        />
+        <DecorationComponents.content_paragraph id={@elem_id} content={@content} style={@style} />
         """
+
       "section" ->
         title = Map.get(element, "title", Map.get(element, :title))
-        divider_style = Map.get(element, "divider_style", Map.get(element, :divider_style, "solid"))
+
+        divider_style =
+          Map.get(element, "divider_style", Map.get(element, :divider_style, "solid"))
+
         assigns = %{
           elem_id: elem_id,
           title: title,
           divider_style: divider_style
         }
+
         # 将参数传递给 section_divider 组件
         ~H"""
-        <DecorationComponents.section_divider
-          id={@elem_id}
-          title={@title}
-          divider_style={@divider_style}
-        />
+        <DecorationComponents.section_divider id={@elem_id} title={@title} divider_style={@divider_style} />
         """
+
       "explanation" ->
         content = Map.get(element, "content", Map.get(element, :content, ""))
-        icon = Map.get(element, "icon", Map.get(element, :icon, "info")) # 假设编辑器保存了icon, 否则用默认值
+        # 假设编辑器保存了icon, 否则用默认值
+        icon = Map.get(element, "icon", Map.get(element, :icon, "info"))
         note_type = Map.get(element, "note_type", Map.get(element, :note_type, "info"))
+
         assigns = %{
           elem_id: elem_id,
           content: content,
           icon: icon,
           note_type: note_type
         }
+
         # 将参数传递给 explanation_box 组件
         ~H"""
         <DecorationComponents.explanation_box
@@ -357,16 +393,19 @@ defmodule MyAppWeb.FormTemplateRenderer do
           type={@note_type}
         />
         """
+
       "header_image" ->
         image_url = Map.get(element, "image_url", Map.get(element, :image_url, ""))
         height = Map.get(element, "height", Map.get(element, :height, "300px"))
         alt = Map.get(element, "alt", Map.get(element, :alt, ""))
+
         assigns = %{
           elem_id: elem_id,
           image_url: image_url,
           height: height,
           alt: alt
         }
+
         # 直接传递独立参数给 header_image 组件
         ~H"""
         <DecorationComponents.header_image
@@ -376,11 +415,13 @@ defmodule MyAppWeb.FormTemplateRenderer do
           alt={@alt}
         />
         """
+
       "inline_image" ->
         image_url = Map.get(element, "image_url", Map.get(element, :image_url, ""))
         caption = Map.get(element, "caption", Map.get(element, :caption))
         width = Map.get(element, "width", Map.get(element, :width, "100%"))
         align = Map.get(element, "align", Map.get(element, :align, "center"))
+
         assigns = %{
           elem_id: elem_id,
           image_url: image_url,
@@ -388,6 +429,7 @@ defmodule MyAppWeb.FormTemplateRenderer do
           width: width,
           align: align
         }
+
         # 直接传递独立参数给 inline_image 组件
         ~H"""
         <DecorationComponents.inline_image
@@ -398,14 +440,16 @@ defmodule MyAppWeb.FormTemplateRenderer do
           align={@align}
         />
         """
+
       # spacer 暂时不处理，归入未知类型
       # "spacer" -> ...
       _ ->
         # 对于未知类型或 spacer，渲染一个占位符或错误信息
         # 确保 assigns 包含 type 供 ~H 使用
         assigns = %{type: type}
+
         ~H"""
-        <div class="text-red-500">未知或暂未处理的装饰元素类型: <%= @type %></div>
+        <div class="text-red-500">未知或暂未处理的装饰元素类型: {@type}</div>
         """
     end
   end
@@ -418,17 +462,31 @@ defmodule MyAppWeb.FormTemplateRenderer do
       mode: mode,
       errors: errors
     }
+
     ~H"""
     <div class="form-items">
       <%= for item <- @form.items do %>
-        <ItemRendererComponent.render_item item={item} mode={@mode} form_data={@form_data} errors={@errors} />
+        <ItemRendererComponent.render_item
+          item={item}
+          mode={@mode}
+          form_data={@form_data}
+          errors={@errors}
+        />
       <% end %>
     </div>
     """
   end
 
   # 渲染带有模板的页面
-  defp render_page_with_template(form, template, current_page, page_items, form_data, errors, jump_state) do
+  defp render_page_with_template(
+         form,
+         template,
+         current_page,
+         page_items,
+         form_data,
+         errors,
+         jump_state
+       ) do
     decorations = template.decoration || []
     pages = form.pages || []
     total_pages = length(pages)
@@ -441,7 +499,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
       current_page: current_page,
       page_items: page_items,
       form_data: form_data,
-      form_state: form_data,  # 保持form_state与form_data一致，以支持CSS隐藏方案
+      # 保持form_state与form_data一致，以支持CSS隐藏方案
+      form_state: form_data,
       errors: errors,
       decorations: decorations,
       current_page_number: current_page_number,
@@ -459,8 +518,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <p>根据您的选择，已跳过中间问题直接显示目标问题。</p>
         </div>
       <% end %>
-
-      <!-- 1. 仅在第一页渲染 "start" 装饰元素 -->
+      
+    <!-- 1. 仅在第一页渲染 "start" 装饰元素 -->
       <%= if @current_page_number == 1 do %>
         <%= for decoration <- Enum.filter(@decorations, fn d ->
             position = Map.get(d, "position") || Map.get(d, :position) || %{}
@@ -470,22 +529,23 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <.render_decoration element={decoration} />
         <% end %>
       <% end %>
-
-      <!-- 2. 遍历当前页的表单项，渲染 before/after 装饰元素 -->
+      
+    <!-- 2. 遍历当前页的表单项，渲染 before/after 装饰元素 -->
       <%= for item <- @page_items do %>
         <%!-- Determine visibility based on jump_state FIRST --%>
-        <%{
-          show_item = if @jump_state && @jump_state.active do
-            # Jump active: only show source and target
-            to_string(item.id) == to_string(@jump_state.source_id) || to_string(item.id) == to_string(@jump_state.target_id)
-          else
-            # Jump not active: show item by default
-            true
-          end
-        }%>
+        <% {
+          show_item =
+            if @jump_state && @jump_state.active do
+              # Jump active: only show source and target
+              to_string(item.id) == to_string(@jump_state.source_id) ||
+                to_string(item.id) == to_string(@jump_state.target_id)
+            else
+              # Jump not active: show item by default
+              true
+            end
+        } %>
         <%!-- === 使用CSS隐藏而非条件渲染 === --%>
         <div phx-key={item.id} style={if !show_item, do: "display: none;", else: ""}>
-          <%# 渲染表单项 %>
           <!-- 渲染 "before" 装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}
@@ -496,11 +556,23 @@ defmodule MyAppWeb.FormTemplateRenderer do
             <.render_decoration element={decoration} />
           <% end %>
 
-          <div data-item-id={item.id} class={if @jump_state.active && to_string(item.id) == to_string(@jump_state.target_id), do: "p-4 border-l-4 border-green-500 bg-green-50", else: ""}>
-            <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_state} errors={@errors} />
+          <div
+            data-item-id={item.id}
+            class={
+              if @jump_state.active && to_string(item.id) == to_string(@jump_state.target_id),
+                do: "p-4 border-l-4 border-green-500 bg-green-50",
+                else: ""
+            }
+          >
+            <ItemRendererComponent.render_item
+              item={item}
+              mode={:display}
+              form_data={@form_state}
+              errors={@errors}
+            />
           </div>
-
-          <!-- 渲染 "after" 装饰元素 -->
+          
+    <!-- 渲染 "after" 装饰元素 -->
           <%= for decoration <- Enum.filter(@decorations, fn d ->
               position = Map.get(d, "position") || Map.get(d, :position) || %{}
               position_type = Map.get(position, "type") || Map.get(position, :type)
@@ -511,8 +583,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <% end %>
         </div>
       <% end %>
-
-      <!-- 3. 仅在最后一页渲染 "end" 装饰元素 -->
+      
+    <!-- 3. 仅在最后一页渲染 "end" 装饰元素 -->
       <%= if @current_page_number == @total_pages do %>
         <%= for decoration <- Enum.filter(@decorations, fn d ->
             position = Map.get(d, "position") || Map.get(d, :position) || %{}
@@ -522,8 +594,8 @@ defmodule MyAppWeb.FormTemplateRenderer do
           <.render_decoration element={decoration} />
         <% end %>
       <% end %>
-
-      <!-- 4. 不渲染无位置或未知位置的装饰元素 -->
+      
+    <!-- 4. 不渲染无位置或未知位置的装饰元素 -->
 
     </div>
     """
@@ -542,7 +614,12 @@ defmodule MyAppWeb.FormTemplateRenderer do
     ~H"""
     <div class="form-page-items">
       <%= for item <- @page_items do %>
-        <ItemRendererComponent.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
+        <ItemRendererComponent.render_item
+          item={item}
+          mode={:display}
+          form_data={@form_data}
+          errors={@errors}
+        />
       <% end %>
     </div>
     """

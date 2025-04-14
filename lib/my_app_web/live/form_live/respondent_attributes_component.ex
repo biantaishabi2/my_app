@@ -132,7 +132,8 @@ defmodule MyAppWeb.FormLive.RespondentAttributesComponent do
 
     # 创建新选项
     next_idx = length(options)
-    option_letter = <<65 + next_idx::utf8>> # A=65, B=66, ...
+    # A=65, B=66, ...
+    option_letter = <<65 + next_idx::utf8>>
 
     new_option = %{
       label: "选项#{option_letter}",
@@ -163,7 +164,12 @@ defmodule MyAppWeb.FormLive.RespondentAttributesComponent do
   end
 
   @impl true
-  def handle_event("update_attribute", %{"attribute" => attribute_params, "attribute_index" => index}, socket) when index != "" do
+  def handle_event(
+        "update_attribute",
+        %{"attribute" => attribute_params, "attribute_index" => index},
+        socket
+      )
+      when index != "" do
     index = String.to_integer(index)
     attributes = socket.assigns.respondent_attributes
 
@@ -252,13 +258,16 @@ defmodule MyAppWeb.FormLive.RespondentAttributesComponent do
     options_params
     |> Enum.map(fn {idx_str, option} ->
       # Keep the index (convert to integer) and the option map
-      {String.to_integer(idx_str), %{
-        label: option["label"] || "",
-        value: option["value"] || ""
-      }}
+      {String.to_integer(idx_str),
+       %{
+         label: option["label"] || "",
+         value: option["value"] || ""
+       }}
     end)
-    |> Enum.sort_by(fn {idx, _option} -> idx end) # Sort by the integer index
-    |> Enum.map(fn {_idx, option} -> option end) # Extract just the option map
+    # Sort by the integer index
+    |> Enum.sort_by(fn {idx, _option} -> idx end)
+    # Extract just the option map
+    |> Enum.map(fn {_idx, option} -> option end)
   end
 
   # 保存属性到表单
@@ -269,6 +278,7 @@ defmodule MyAppWeb.FormLive.RespondentAttributesComponent do
     case Forms.update_respondent_attributes(form, attributes) do
       {:ok, updated_form} ->
         send(self(), {:respondent_attributes_updated, updated_form})
+
       {:error, _changeset} ->
         send(self(), {:respondent_attributes_error, "无法保存回答者属性"})
     end

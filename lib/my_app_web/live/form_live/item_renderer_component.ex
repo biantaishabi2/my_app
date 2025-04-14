@@ -1,7 +1,8 @@
 defmodule MyAppWeb.FormLive.ItemRendererComponent do
   use MyAppWeb, :html
   # alias MyApp.Upload
-  require Logger # Make sure Logger is available
+  # Make sure Logger is available
+  require Logger
 
   @doc """
   Renders a single form item based on its type and the display mode.
@@ -26,8 +27,10 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
     <% form_data = @form_data %>
     <% errors = @errors %>
 
-    <div id={"item-renderer-#{item.id}"} class={"form-item-display type-#{item.type} #{if is_preview, do: "p-4 bg-gray-50 rounded-lg border border-gray-200", else: ""}"}>
-
+    <div
+      id={"item-renderer-#{item.id}"}
+      class={"form-item-display type-#{item.type} #{if is_preview, do: "p-4 bg-gray-50 rounded-lg border border-gray-200", else: ""}"}
+    >
       <div class="flex justify-between mb-3">
         <h3 class="font-medium text-gray-800">
           {item.label}
@@ -72,7 +75,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
               <% :file_upload -> %>
                 文件上传
               <% other -> %>
-                {other}
+                <%= inspect(other) %>
             <% end %>
           </span>
         <% end %>
@@ -174,24 +177,24 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
           <% :radio -> %>
             <div class="space-y-2">
               <%= for option <- item.options || [] do %>
-                <%
-                  # --- Add Detailed Logging ---
-                  Logger.debug(
-                    "[ItemRenderer :radio] Rendering Option for Item ID: #{inspect(item.id)}, Label: #{item.label}, Option Value: #{inspect(option.value)}, Current FormData: #{inspect(form_data)}"
-                  )
+                <% # --- Add Detailed Logging ---
+                Logger.debug(
+                  "[ItemRenderer :radio] Rendering Option for Item ID: #{inspect(item.id)}, Label: #{item.label}, Option Value: #{inspect(option.value)}, Current FormData: #{inspect(form_data)}"
+                )
 
-                  current_value_for_item = Map.get(form_data, to_string(item.id))
-                  # Compare as strings
-                  is_checked_result =
-                    !is_preview &&
-                      !is_nil(current_value_for_item) && # Ensure value exists before comparing
-                      to_string(current_value_for_item) == to_string(option.value)
+                current_value_for_item = Map.get(form_data, to_string(item.id))
+                # Compare as strings
+                # Ensure value exists before comparing
+                is_checked_result =
+                  !is_preview &&
+                    !is_nil(current_value_for_item) &&
+                    to_string(current_value_for_item) == to_string(option.value)
 
-                  Logger.debug(
-                    "[ItemRenderer :radio] Retrieved Value: #{inspect(current_value_for_item)}, Comparing with Option Value: #{inspect(to_string(option.value))}, Calculated Checked: #{inspect(is_checked_result)}"
-                  )
-                  # --- End Logging ---
-                %>
+                Logger.debug(
+                  "[ItemRenderer :radio] Retrieved Value: #{inspect(current_value_for_item)}, Comparing with Option Value: #{inspect(to_string(option.value))}, Calculated Checked: #{inspect(is_checked_result)}"
+                )
+
+                # --- End Logging --- %>
                 <div class="form-item-option flex items-center">
                   <input
                     type="radio"
@@ -347,7 +350,6 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             <% end %>
           <% :region -> %>
             <%= if is_preview do %>
-
               <div class="space-y-2 opacity-70 pointer-events-none">
                 <div class="flex gap-2">
                   <select class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white" disabled>
@@ -381,7 +383,6 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                 <div class="mt-1 text-xs text-gray-500">地区级别: {item.region_level || 3} (预览模式)</div>
               </div>
             <% else %>
-
               <div
                 class="region-selector grid grid-cols-2 md:grid-cols-3 gap-2"
                 id={"region-selector-#{item.id}"}
@@ -645,9 +646,115 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                 </div>
               <% end %>
             </div>
+          <% :fill_in_blank -> %>
+            <div class="fill-in-blank-container">
+              <%= if item.blank_text do %>
+                <div class="fill-in-blank-text">
+                  <% # 提取填空位置和文本
+                  parts = String.split(item.blank_text, ~r/\{\{(\d+)\}\}/, include_captures: true)
+                  _blank_count = item.blank_count || 1
+
+                  # 解析每个部分，要么是普通文本，要么是填空标记
+                  processed_parts =
+                    Enum.map(parts, fn part ->
+                      case Regex.run(~r/\{\{(\d+)\}\}/, part) do
+                        [_, index] ->
+                          %{type: :blank, index: String.to_integer(index)}
+
+                        nil ->
+                          %{type: :text, content: part}
+                      end
+                    end) %>
+
+                  <%= for {part, _idx} <- Enum.with_index(processed_parts) do %>
+                    <%= case part.type do %>
+                      <% :text -> %>
+                        <span class="text-part">{part.content}</span>
+                      <% :blank -> %>
+                        <% blank_index = part.index - 1
+                        blank_id = "#{item.id}_blank_#{blank_index}"
+
+                        # 获取当前值（只在实际表单中）
+                        blank_value =
+                          if !is_preview && is_map(form_data) && Map.has_key?(form_data, item.id) do
+                            values =
+                              case Jason.decode(Map.get(form_data, item.id, "[]")) do
+                                {:ok, list} when is_list(list) -> list
+                                _ -> []
+                              end
+
+                            Enum.at(values, blank_index, "")
+                          else
+                            ""
+                          end
+
+                        # 获取配置
+                        placeholder = Enum.at(item.blank_placeholders || [], blank_index, "填写此处")
+                        width = Enum.at(item.blank_sizes || [], blank_index, 10)
+
+                        # 错误状态
+                        has_error =
+                          !is_preview && Map.has_key?(errors, "#{item.id}_blank_#{blank_index}") %>
+
+                        <%= if !is_preview do %>
+                          <input
+                            type="text"
+                            id={blank_id}
+                            placeholder={placeholder}
+                            value={blank_value}
+                            style={"width: #{width}em;"}
+                            class={"inline-block px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if has_error, do: "border-red-500", else: "border-gray-300"}"}
+                            phx-debounce="blur"
+                            phx-change="update_blank"
+                            phx-value-field={item.id}
+                            phx-value-blank={blank_index}
+                            minlength={item.blank_min_length}
+                            maxlength={item.blank_max_length}
+                          />
+                        <% else %>
+                          <span
+                            class="inline-block px-2 py-1 border-b-2 border-indigo-300 bg-gray-50 text-gray-400 text-center"
+                            style={"width: #{width}em;"}
+                          >
+                            [填空#{part.index}]
+                          </span>
+                        <% end %>
+                    <% end %>
+                  <% end %>
+
+    <!-- 隐藏字段存储所有填空值的JSON -->
+                  <%= if !is_preview do %>
+                    <input
+                      type="hidden"
+                      id={item.id}
+                      name={"form_data[#{item.id}]"}
+                      value={Map.get(form_data, item.id) || "[]"}
+                    />
+                  <% end %>
+                </div>
+              <% else %>
+                <p class="text-sm text-gray-500 italic">未设置填空题文本</p>
+              <% end %>
+
+              <%= if is_preview do %>
+                <div class="mt-2 text-xs text-gray-500">
+                  <%= if item.blank_min_length || item.blank_max_length do %>
+                    填空限制:
+                    <%= if item.blank_min_length do %>
+                      最少 <%= inspect(item.blank_min_length) %> 个字符
+                    <% end %>
+                    <%= if item.blank_min_length && item.blank_max_length do %>
+                      ,
+                    <% end %>
+                    <%= if item.blank_max_length do %>
+                      最多 <%= inspect(item.blank_max_length) %> 个字符
+                    <% end %>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
           <% :file_upload -> %>
             <%= if is_preview do %>
-
               <div class="space-y-2 opacity-60 pointer-events-none">
                 <div class="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
                   <svg
@@ -694,7 +801,6 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                 </div>
               </div>
             <% else %>
-
               <div
                 class="border-2 border-dashed border-gray-300 rounded-md p-6"
                 id={"dropzone-#{item.id}"}
@@ -769,7 +875,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
             <% end %>
           <% other -> %>
             <div class="text-center py-2 text-gray-400 bg-gray-100 rounded text-sm">
-              不支持的控件类型: {other}
+              不支持的控件类型: <%= inspect(other) %>
             </div>
         <% end %>
       </div>

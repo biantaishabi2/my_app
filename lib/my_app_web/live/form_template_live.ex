@@ -33,7 +33,6 @@ defmodule MyAppWeb.FormTemplateLive do
 
     second_field_id = if second_item, do: second_item.id, else: nil
 
-
     # 添加正确的字段ID到表单数据
     form_data = %{
       "first_field_id" => first_field_id,
@@ -64,7 +63,6 @@ defmodule MyAppWeb.FormTemplateLive do
         not String.starts_with?(key, "_")
       end)
       |> Map.new()
-
 
     # 获取字段ID
     first_field_id = socket.assigns.first_field_id
@@ -229,7 +227,7 @@ defmodule MyAppWeb.FormTemplateLive do
               </div>
             </div>
           </div>
-
+          
     <!-- 右侧：渲染的表单 -->
           <div class="form-card">
             <h2 class="text-xl font-semibold mb-4 form-item-label">渲染后的表单</h2>

@@ -5,7 +5,7 @@ defmodule MyApp.Forms do
   包括表单的创建、查询、更新、删除，以及表单项的管理和表单响应的处理。
   添加了条件逻辑功能，支持表单项的显示条件和必填条件。
   """
-  
+
   # 表单属性默认值
   @default_respondent_attributes [
     %{id: "name", label: "姓名", type: "text", required: true, description: "请填写您的真实姓名"},
@@ -35,7 +35,7 @@ defmodule MyApp.Forms do
   def create_form(attrs \\ %{}) do
     # 添加默认的回答者属性配置
     attrs = add_default_respondent_attributes(attrs)
-    
+
     # 检查是否已经提供了form_template_id
     has_template_id =
       Map.has_key?(attrs, :form_template_id) || Map.has_key?(attrs, "form_template_id")
@@ -84,11 +84,12 @@ defmodule MyApp.Forms do
 
     result
   end
-  
+
   # 添加默认回答者属性配置
   defp add_default_respondent_attributes(attrs) do
     if Map.has_key?(attrs, :respondent_attributes) || Map.has_key?(attrs, "respondent_attributes") do
-      attrs # 已存在回答者属性配置，不做修改
+      # 已存在回答者属性配置，不做修改
+      attrs
     else
       Map.put(attrs, "respondent_attributes", @default_respondent_attributes)
     end
@@ -804,12 +805,11 @@ defmodule MyApp.Forms do
       pages: {
         from(p in FormPage, order_by: p.order),
         [
-          items:
-            {
-              from(i in FormItem, order_by: i.order),
-              # 预加载 options 及其关联的 image
-              [options: [:image]]
-            }
+          items: {
+            from(i in FormItem, order_by: i.order),
+            # 预加载 options 及其关联的 image
+            [options: [:image]]
+          }
         ]
       },
       default_page: [],
@@ -1274,7 +1274,7 @@ defmodule MyApp.Forms do
     # 执行查询并确保只返回一个结果，如果找不到则抛出异常
     Repo.one!(query)
   end
-  
+
   @doc """
   Updates respondent attributes for a form.
 
@@ -1292,7 +1292,7 @@ defmodule MyApp.Forms do
 
   @doc """
   Gets a list of common respondent attribute templates.
-  
+
   Returns a map of predefined respondent attribute templates.
   """
   def get_respondent_attribute_templates do
@@ -1310,7 +1310,6 @@ defmodule MyApp.Forms do
           %{label: "不愿透露", value: "prefer_not_to_say"}
         ]
       },
-      
       "department" => %{
         id: "department",
         label: "部门",
@@ -1327,7 +1326,6 @@ defmodule MyApp.Forms do
           %{label: "其他", value: "other"}
         ]
       },
-      
       "age_group" => %{
         id: "age_group",
         label: "年龄段",
@@ -1344,7 +1342,6 @@ defmodule MyApp.Forms do
           %{label: "65岁以上", value: "65_and_over"}
         ]
       },
-      
       "education" => %{
         id: "education_level",
         label: "最高学历",
@@ -1359,7 +1356,6 @@ defmodule MyApp.Forms do
           %{label: "博士及以上", value: "phd"}
         ]
       },
-      
       "job_type" => %{
         id: "job_type",
         label: "工作类型",
@@ -1374,7 +1370,6 @@ defmodule MyApp.Forms do
           %{label: "自由职业", value: "freelancer"}
         ]
       },
-      
       "management_level" => %{
         id: "management_level",
         label: "管理级别",
@@ -1389,7 +1384,6 @@ defmodule MyApp.Forms do
           %{label: "高管", value: "executive"}
         ]
       },
-      
       "phone" => %{
         id: "phone",
         label: "手机号码",
@@ -1397,7 +1391,6 @@ defmodule MyApp.Forms do
         required: false,
         description: "请输入您的手机号码"
       },
-      
       "hire_date" => %{
         id: "hire_date",
         label: "入职时间",

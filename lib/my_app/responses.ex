@@ -10,12 +10,12 @@ defmodule MyApp.Responses do
   alias MyApp.Responses.Answer
   alias MyApp.Forms
   alias NimbleCSV.RFC4180, as: CSV
-  
+
   # 委托分组统计功能到GroupedStatistics模块
-  defdelegate export_statistics_by_attribute(form_id, attribute_id, options \\ %{}), 
+  defdelegate export_statistics_by_attribute(form_id, attribute_id, options \\ %{}),
     to: MyApp.Responses.GroupedStatistics
-    
-  defdelegate get_grouped_statistics(form_id, attribute_id, options \\ %{}), 
+
+  defdelegate get_grouped_statistics(form_id, attribute_id, options \\ %{}),
     to: MyApp.Responses.GroupedStatistics
 
   @doc """
@@ -109,6 +109,7 @@ defmodule MyApp.Responses do
     # Insert the response and then insert answers
     # 确保同时设置submitted_at、inserted_at和updated_at
     now = DateTime.utc_now()
+
     %Response{}
     |> Response.changeset(%{
       form_id: form_id,
@@ -144,7 +145,7 @@ defmodule MyApp.Responses do
       else
         # 确保设置时间戳
         now = DateTime.utc_now()
-        
+
         # Insert answer
         {:ok, answer} =
           %Answer{}
@@ -228,7 +229,7 @@ defmodule MyApp.Responses do
   defp validate_answers(changeset, form, answers_map) do
     # Get form items from pages to ensure we have access to them
     form_items = form.pages |> Enum.flat_map(& &1.items)
-    
+
     changeset
     |> validate_required_items(form_items, answers_map)
     |> validate_radio_values(form_items, answers_map)
@@ -260,11 +261,20 @@ defmodule MyApp.Responses do
 
   defp is_answer_empty?(answer, type) do
     cond do
-      type == :radio -> is_nil(answer["value"]) || answer["value"] == ""
-      type == :checkbox -> is_nil(answer["value"]) || answer["value"] == [] || answer["value"] == ""
-      type == :text_input -> is_nil(answer["value"]) || String.trim(answer["value"]) == ""
-      type == :rating -> is_nil(answer["value"]) || answer["value"] == ""
-      true -> false
+      type == :radio ->
+        is_nil(answer["value"]) || answer["value"] == ""
+
+      type == :checkbox ->
+        is_nil(answer["value"]) || answer["value"] == [] || answer["value"] == ""
+
+      type == :text_input ->
+        is_nil(answer["value"]) || String.trim(answer["value"]) == ""
+
+      type == :rating ->
+        is_nil(answer["value"]) || answer["value"] == ""
+
+      true ->
+        false
     end
   end
 
@@ -336,7 +346,9 @@ defmodule MyApp.Responses do
         else
           max_rating = item.max_rating || 5
           answer_value = answer["value"]
-          !is_integer(answer_value) && !is_binary(answer_value) || answer_value < 1 || answer_value > max_rating
+
+          (!is_integer(answer_value) && !is_binary(answer_value)) || answer_value < 1 ||
+            answer_value > max_rating
         end
       end)
 
@@ -373,40 +385,43 @@ defmodule MyApp.Responses do
   def export_responses(form_id, options \\ %{}) do
     # 首先验证日期格式 (如果提供了日期)
     date_validation_result = validate_date_options(options)
-    
+
     case date_validation_result do
       # 如果日期验证失败，直接返回错误
-      {:error, reason} -> 
+      {:error, reason} ->
         {:error, reason}
-        
+
       # 日期验证通过或未提供日期，继续处理
       :ok ->
         # 验证表单存在
         case Forms.get_form_with_items(form_id) do
-          nil -> 
+          nil ->
             {:error, :not_found}
+
           form ->
             # 验证格式
             case options[:format] do
-              "csv" -> 
+              "csv" ->
                 # 获取响应并过滤
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 生成CSV
                 generate_responses_csv(form, responses, options)
-              nil -> 
+
+              nil ->
                 # 默认CSV格式
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 生成CSV
                 generate_responses_csv(form, responses, options)
-              _format -> 
+
+              _format ->
                 {:error, :invalid_format}
             end
         end
     end
   end
-  
+
   # 验证日期选项
   defp validate_date_options(options) do
     # 字符串 "invalid-date" 是一个特殊情况，用于测试
@@ -415,7 +430,8 @@ defmodule MyApp.Responses do
     else
       try do
         # 验证开始日期 (如果提供)
-        if options[:start_date] && !is_nil(options[:start_date]) && options[:start_date] != "invalid-date" do
+        if options[:start_date] && !is_nil(options[:start_date]) &&
+             options[:start_date] != "invalid-date" do
           # 如果已经是Date类型，跳过验证
           unless is_struct(options[:start_date], Date) do
             case Date.from_iso8601(options[:start_date]) do
@@ -424,9 +440,10 @@ defmodule MyApp.Responses do
             end
           end
         end
-        
+
         # 验证结束日期 (如果提供)
-        if options[:end_date] && !is_nil(options[:end_date]) && options[:end_date] != "invalid-date" do
+        if options[:end_date] && !is_nil(options[:end_date]) &&
+             options[:end_date] != "invalid-date" do
           # 如果已经是Date类型，跳过验证
           unless is_struct(options[:end_date], Date) do
             case Date.from_iso8601(options[:end_date]) do
@@ -435,7 +452,7 @@ defmodule MyApp.Responses do
             end
           end
         end
-        
+
         :ok
       catch
         :invalid_date_format -> {:error, :invalid_date_format}
@@ -470,17 +487,21 @@ defmodule MyApp.Responses do
 
     # Get responses with answers preloaded
     Repo.all(query)
-    |> Repo.preload(answers: from(a in Answer, order_by: a.id), form: [pages: [items: :options], items: :options])
+    |> Repo.preload(
+      answers: from(a in Answer, order_by: a.id),
+      form: [pages: [items: :options], items: :options]
+    )
   end
 
   # Convert Date to NaiveDateTime
   defp date_to_naive_datetime(date, time_option \\ :start_of_day) do
     case time_option do
-      :start_of_day -> 
+      :start_of_day ->
         %{date | year: date.year, month: date.month, day: date.day}
         |> NaiveDateTime.new(~T[00:00:00])
         |> elem(1)
-      :end_of_day -> 
+
+      :end_of_day ->
         %{date | year: date.year, month: date.month, day: date.day}
         |> NaiveDateTime.new(~T[23:59:59])
         |> elem(1)
@@ -491,40 +512,47 @@ defmodule MyApp.Responses do
   defp generate_responses_csv(form, responses, options) do
     # Get form items from pages to ensure we have access to them
     form_items = form.pages |> Enum.flat_map(& &1.items) |> Enum.sort_by(& &1.order)
-    
+
     # Create header row
-    headers = ["回答ID", "提交时间"] ++ 
-      if options[:include_respondent_info] != false, do: ["回答者信息"], else: [] ++
-      Enum.map(form_items, & &1.label)
-    
+    headers =
+      ["回答ID", "提交时间"] ++
+        if options[:include_respondent_info] != false,
+          do: ["回答者信息"],
+          else:
+            [] ++
+              Enum.map(form_items, & &1.label)
+
     # Create data rows
-    rows = Enum.map(responses, fn response ->
-      # Basic response info
-      base_info = [
-        response.id,
-        DateTime.to_string(response.submitted_at)
-      ]
-      
-      # Add respondent info if requested
-      base_info = if options[:include_respondent_info] != false do
-        respondent_info = response.respondent_info || %{}
-        base_info ++ [Jason.encode!(respondent_info)]
-      else
-        base_info
-      end
-      
-      # Add answers for each form item
-      answers_info = Enum.map(form_items, fn item ->
-        answer = Enum.find(response.answers, fn a -> a.form_item_id == item.id end)
-        format_answer_value(answer, item)
+    rows =
+      Enum.map(responses, fn response ->
+        # Basic response info
+        base_info = [
+          response.id,
+          DateTime.to_string(response.submitted_at)
+        ]
+
+        # Add respondent info if requested
+        base_info =
+          if options[:include_respondent_info] != false do
+            respondent_info = response.respondent_info || %{}
+            base_info ++ [Jason.encode!(respondent_info)]
+          else
+            base_info
+          end
+
+        # Add answers for each form item
+        answers_info =
+          Enum.map(form_items, fn item ->
+            answer = Enum.find(response.answers, fn a -> a.form_item_id == item.id end)
+            format_answer_value(answer, item)
+          end)
+
+        base_info ++ answers_info
       end)
-      
-      base_info ++ answers_info
-    end)
-    
+
     # Combine header and rows
     csv_data = [headers] ++ rows
-    
+
     # Generate CSV and convert to string
     csv_string = CSV.dump_to_iodata(csv_data) |> IO.iodata_to_binary()
     {:ok, csv_string}
@@ -532,35 +560,36 @@ defmodule MyApp.Responses do
 
   # Format answer values for CSV export
   defp format_answer_value(nil, _item), do: ""
+
   defp format_answer_value(answer, item) do
     value = answer.value["value"]
-    
+
     case item.type do
       :radio ->
         # Get option title for the selected option
         option = Enum.find(item.options, fn opt -> opt.id == value end)
         if option, do: option.label, else: ""
-        
+
       :checkbox ->
         # Convert list of option IDs to titles
         if is_list(value) do
-          option_titles = 
+          option_titles =
             Enum.map(value, fn opt_id ->
               option = Enum.find(item.options, fn opt -> opt.id == opt_id end)
               if option, do: option.label, else: ""
             end)
-          
+
           Enum.join(option_titles, ", ")
         else
           ""
         end
-        
+
       :rating ->
         "#{value}"
-        
+
       :text_input ->
         "#{value}"
-        
+
       _ ->
         if value, do: "#{value}", else: ""
     end
@@ -585,34 +614,37 @@ defmodule MyApp.Responses do
   def export_statistics(form_id, options \\ %{}) do
     # 首先验证日期格式 (如果提供了日期)
     date_validation_result = validate_date_options(options)
-    
+
     case date_validation_result do
       # 如果日期验证失败，直接返回错误
-      {:error, reason} -> 
+      {:error, reason} ->
         {:error, reason}
-        
+
       # 日期验证通过或未提供日期，继续处理
       :ok ->
         # 验证表单存在
         case Forms.get_form_with_items(form_id) do
-          nil -> 
+          nil ->
             {:error, :not_found}
+
           form ->
             # 验证格式
             case options[:format] do
-              "csv" -> 
+              "csv" ->
                 # 获取响应并过滤
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 生成统计CSV
                 generate_statistics_csv(form, responses)
-              nil -> 
+
+              nil ->
                 # 默认CSV格式
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 生成统计CSV
                 generate_statistics_csv(form, responses)
-              _format -> 
+
+              _format ->
                 {:error, :invalid_format}
             end
         end
@@ -623,26 +655,31 @@ defmodule MyApp.Responses do
   defp generate_statistics_csv(form, responses) do
     # Get form items from pages to ensure we have access to them
     form_items = form.pages |> Enum.flat_map(& &1.items) |> Enum.sort_by(& &1.order)
-    
+
     # Initialize the CSV data
-    csv_data = [["表单标题:", form.title], []] 
-    
+    csv_data = [["表单标题:", form.title], []]
+
     # Process each type of form item
-    csv_data = Enum.reduce(form_items, csv_data, fn item, acc ->
-      case item.type do
-        :radio -> 
-          acc ++ generate_choice_statistics(item, responses, "单选题")
-        :checkbox -> 
-          acc ++ generate_choice_statistics(item, responses, "多选题")
-        :rating -> 
-          acc ++ generate_rating_statistics(item, responses)
-        :text_input -> 
-          acc ++ generate_text_statistics(item, responses)
-        _ -> 
-          acc
-      end
-    end)
-    
+    csv_data =
+      Enum.reduce(form_items, csv_data, fn item, acc ->
+        case item.type do
+          :radio ->
+            acc ++ generate_choice_statistics(item, responses, "单选题")
+
+          :checkbox ->
+            acc ++ generate_choice_statistics(item, responses, "多选题")
+
+          :rating ->
+            acc ++ generate_rating_statistics(item, responses)
+
+          :text_input ->
+            acc ++ generate_text_statistics(item, responses)
+
+          _ ->
+            acc
+        end
+      end)
+
     # Generate CSV and convert to string
     csv_string = CSV.dump_to_iodata(csv_data) |> IO.iodata_to_binary()
     {:ok, csv_string}
@@ -652,13 +689,13 @@ defmodule MyApp.Responses do
   defp generate_choice_statistics(item, responses, item_type) do
     # Get options
     options = Enum.sort_by(item.options, & &1.order)
-    
+
     # Count responses for each option
     option_counts = count_option_selections(item, responses, options)
-    
+
     # Calculate total responses and percentages
     total_responses = Enum.sum(Map.values(option_counts))
-    
+
     if total_responses > 0 do
       # Generate CSV rows
       [
@@ -666,12 +703,12 @@ defmodule MyApp.Responses do
         ["#{item_type}:", item.label],
         ["选项", "回答数量", "百分比"]
       ] ++
-      Enum.map(options, fn option ->
-        count = Map.get(option_counts, option.id, 0)
-        percentage = if total_responses > 0, do: count / total_responses * 100, else: 0
-        [option.label, "#{count}", "#{Float.round(percentage, 1)}%"]
-      end) ++
-      [["总计", "#{total_responses}", "100%"]]
+        Enum.map(options, fn option ->
+          count = Map.get(option_counts, option.id, 0)
+          percentage = if total_responses > 0, do: count / total_responses * 100, else: 0
+          [option.label, "#{count}", "#{Float.round(percentage, 1)}%"]
+        end) ++
+        [["总计", "#{total_responses}", "100%"]]
     else
       [
         [""],
@@ -685,15 +722,15 @@ defmodule MyApp.Responses do
   defp count_option_selections(item, responses, options) do
     # Initialize counts for each option
     initial_counts = Enum.reduce(options, %{}, fn opt, acc -> Map.put(acc, opt.id, 0) end)
-    
+
     # Count selections for each option
     Enum.reduce(responses, initial_counts, fn response, acc ->
       # Find the answer for this item
       answer = Enum.find(response.answers, fn a -> a.form_item_id == item.id end)
-      
+
       if answer do
         value = answer.value["value"]
-        
+
         case item.type do
           :radio ->
             # For radio, increment the selected option
@@ -702,7 +739,7 @@ defmodule MyApp.Responses do
             else
               acc
             end
-            
+
           :checkbox ->
             # For checkbox, increment each selected option
             if is_list(value) do
@@ -716,8 +753,9 @@ defmodule MyApp.Responses do
             else
               acc
             end
-            
-          _ -> acc
+
+          _ ->
+            acc
         end
       else
         acc
@@ -728,32 +766,33 @@ defmodule MyApp.Responses do
   # Generate statistics for rating questions
   defp generate_rating_statistics(item, responses) do
     # Get all rating values
-    ratings = 
+    ratings =
       responses
       |> Enum.map(fn response ->
         answer = Enum.find(response.answers, fn a -> a.form_item_id == item.id end)
         if answer, do: answer.value["value"], else: nil
       end)
       |> Enum.reject(&is_nil/1)
-      |> Enum.map(&(if is_binary(&1), do: String.to_integer(&1), else: &1))
-    
+      |> Enum.map(&if is_binary(&1), do: String.to_integer(&1), else: &1)
+
     # Calculate statistics
     count = length(ratings)
-    
+
     if count > 0 do
       sum = Enum.sum(ratings)
       avg = sum / count
       min = Enum.min(ratings, fn -> 0 end)
       max = Enum.max(ratings, fn -> 0 end)
-      
+
       # Count distribution
       max_rating = item.max_rating || 5
       distribution = Enum.reduce(1..max_rating, %{}, fn i, acc -> Map.put(acc, i, 0) end)
-      
-      distribution = Enum.reduce(ratings, distribution, fn rating, acc ->
-        Map.update!(acc, rating, &(&1 + 1))
-      end)
-      
+
+      distribution =
+        Enum.reduce(ratings, distribution, fn rating, acc ->
+          Map.update!(acc, rating, &(&1 + 1))
+        end)
+
       # Generate CSV rows
       [
         [""],
@@ -766,11 +805,11 @@ defmodule MyApp.Responses do
         [""],
         ["评分", "回答数量", "百分比"]
       ] ++
-      Enum.map(1..max_rating, fn rating ->
-        rating_count = Map.get(distribution, rating, 0)
-        percentage = if count > 0, do: rating_count / count * 100, else: 0
-        ["#{rating}", "#{rating_count}", "#{Float.round(percentage, 1)}%"]
-      end)
+        Enum.map(1..max_rating, fn rating ->
+          rating_count = Map.get(distribution, rating, 0)
+          percentage = if count > 0, do: rating_count / count * 100, else: 0
+          ["#{rating}", "#{rating_count}", "#{Float.round(percentage, 1)}%"]
+        end)
     else
       [
         [""],
@@ -783,7 +822,7 @@ defmodule MyApp.Responses do
   # Generate statistics for text questions
   defp generate_text_statistics(item, responses) do
     # Count non-empty text answers
-    text_answers = 
+    text_answers =
       responses
       |> Enum.map(fn response ->
         answer = Enum.find(response.answers, fn a -> a.form_item_id == item.id end)
@@ -791,10 +830,10 @@ defmodule MyApp.Responses do
       end)
       |> Enum.reject(&is_nil/1)
       |> Enum.reject(&(&1 == ""))
-    
+
     count = length(text_answers)
     total = length(responses)
-    
+
     # Generate CSV rows
     [
       [""],

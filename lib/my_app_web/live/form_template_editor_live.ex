@@ -2,7 +2,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   use MyAppWeb, :live_view
   require Logger
   alias MyApp.FormTemplates
-  alias MyApp.Forms # 添加缺失的别名
+  # 添加缺失的别名
+  alias MyApp.Forms
   alias MyApp.Forms.FormItem
   alias MyAppWeb.NotificationComponent
 
@@ -15,48 +16,71 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     socket = assign(socket, :notification_type, nil)
     socket = assign(socket, :notification_timer, nil)
     # 加载表单模板 (id 是 template_id)
-    template = FormTemplates.get_template!(id) # 改回使用 FormTemplates
+    # 改回使用 FormTemplates
+    template = FormTemplates.get_template!(id)
 
     # 使用新函数，根据 template.id 查找对应的 Form 记录
     form = Forms.get_form_by_template_id!(template.id)
 
     # 现在使用正确的 form.id 加载表单及其所有预加载数据
     form_with_data = Forms.get_form_with_full_preload(form.id)
-    form_items = form_with_data.items || [] # 提取表单项列表
+    # 提取表单项列表
+    form_items = form_with_data.items || []
 
     # 获取或初始化装饰元素列表
-    decoration = Map.get(template, :decoration, []) # Use Map.get for safe access
+    # Use Map.get for safe access
+    decoration = Map.get(template, :decoration, [])
 
     # 确保 decoration 是一个列表
     decoration = if is_list(decoration), do: decoration, else: []
 
-    socket = socket
+    socket =
+      socket
       |> assign(:template, template)
       |> assign(:structure, template.structure || [])
-      |> assign(:decoration, decoration) # 页面装饰元素列表
-      |> assign(:form_items, form_items) # 使用从 form_with_data 加载的 items
+      # 页面装饰元素列表
+      |> assign(:decoration, decoration)
+      # 使用从 form_with_data 加载的 items
+      |> assign(:form_items, form_items)
       |> assign(:editing_item_id, nil)
       |> assign(:item_type, "text_input")
-      |> assign(:decoration_category, :content) # 默认选中内容装饰分类
-      |> assign(:decoration_type, "title") # 默认选择标题装饰元素类型
-      |> assign(:position_type, "end") # 默认位置类型：表单最后面
-      |> assign(:position_target_id, nil) # 默认位置目标ID
-      |> assign(:editing_decoration_id, nil) # 当前正在编辑的装饰元素ID
-      |> assign(:current_decoration, nil) # 当前编辑的装饰元素
-      |> assign(:decoration_search_term, nil) # 装饰元素搜索关键词
-      |> assign(:delete_decoration_id, nil) # 要删除的装饰元素ID
+      # 默认选中内容装饰分类
+      |> assign(:decoration_category, :content)
+      # 默认选择标题装饰元素类型
+      |> assign(:decoration_type, "title")
+      # 默认位置类型：表单最后面
+      |> assign(:position_type, "end")
+      # 默认位置目标ID
+      |> assign(:position_target_id, nil)
+      # 当前正在编辑的装饰元素ID
+      |> assign(:editing_decoration_id, nil)
+      # 当前编辑的装饰元素
+      |> assign(:current_decoration, nil)
+      # 装饰元素搜索关键词
+      |> assign(:decoration_search_term, nil)
+      # 要删除的装饰元素ID
+      |> assign(:delete_decoration_id, nil)
       |> assign(:search_term, nil)
       |> assign(:tab_title, "结构设计")
-      |> assign(:active_tab, "structure") # 添加：默认激活结构设计标签页
-      |> assign(:active_category, :basic)   # 添加：默认激活基础控件类别
-      |> assign(:delete_item_id, nil) # 添加：初始化 delete_item_id
-      |> assign(:editing_logic_item_id, nil) # 添加：初始化逻辑编辑项ID
-      |> assign(:logic_type, nil)            # 添加：初始化逻辑类型
-      |> assign(:logic_target_id, nil)       # 添加：初始化逻辑目标ID
-      |> assign(:logic_condition, nil)       # 添加：初始化逻辑条件
+      # 添加：默认激活结构设计标签页
+      |> assign(:active_tab, "structure")
+      # 添加：默认激活基础控件类别
+      |> assign(:active_category, :basic)
+      # 添加：初始化 delete_item_id
+      |> assign(:delete_item_id, nil)
+      # 添加：初始化逻辑编辑项ID
+      |> assign(:editing_logic_item_id, nil)
+      # 添加：初始化逻辑类型
+      |> assign(:logic_type, nil)
+      # 添加：初始化逻辑目标ID
+      |> assign(:logic_target_id, nil)
+      # 添加：初始化逻辑条件
+      |> assign(:logic_condition, nil)
 
     # 打印加载的表单项及其选项 (来自 form_with_data)
-    IO.inspect(socket.assigns.form_items, label: "Loaded Form Items via get_form_with_full_preload")
+    IO.inspect(socket.assigns.form_items,
+      label: "Loaded Form Items via get_form_with_full_preload"
+    )
 
     {:ok, socket}
   end
@@ -83,89 +107,91 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       element_type = current_element["type"] || current_element[:type]
 
       # 根据元素类型处理参数
-      updated_element = case element_type do
-        "title" ->
-          title = params["title"] || ""
-          level = params["level"] || "2"
-          # 将 level 转换为整数
-          {level_int, _} = Integer.parse(level)
-          align = params["align"] || "left"
+      updated_element =
+        case element_type do
+          "title" ->
+            title = params["title"] || ""
+            level = params["level"] || "2"
+            # 将 level 转换为整数
+            {level_int, _} = Integer.parse(level)
+            align = params["align"] || "left"
 
-          current_element
-          |> Map.put("title", title)
-          |> Map.put("level", level_int)
-          |> Map.put("align", align)
+            current_element
+            |> Map.put("title", title)
+            |> Map.put("level", level_int)
+            |> Map.put("align", align)
 
-        "paragraph" ->
-          content = params["content"] || ""
+          "paragraph" ->
+            content = params["content"] || ""
 
-          current_element
-          |> Map.put("content", content)
+            current_element
+            |> Map.put("content", content)
 
-        "section" ->
-          title = params["title"] || ""
-          divider_style = params["divider_style"] || "solid"
+          "section" ->
+            title = params["title"] || ""
+            divider_style = params["divider_style"] || "solid"
 
-          current_element
-          |> Map.put("title", title)
-          |> Map.put("divider_style", divider_style)
+            current_element
+            |> Map.put("title", title)
+            |> Map.put("divider_style", divider_style)
 
-        "explanation" ->
-          content = params["content"] || ""
-          note_type = params["note_type"] || "info"
+          "explanation" ->
+            content = params["content"] || ""
+            note_type = params["note_type"] || "info"
 
-          current_element
-          |> Map.put("content", content)
-          |> Map.put("note_type", note_type)
+            current_element
+            |> Map.put("content", content)
+            |> Map.put("note_type", note_type)
 
-        "header_image" ->
-          image_url = params["image_url"] || ""
-          height = params["height"] || "300px"
+          "header_image" ->
+            image_url = params["image_url"] || ""
+            height = params["height"] || "300px"
 
-          current_element
-          |> Map.put("image_url", image_url)
-          |> Map.put("height", height)
+            current_element
+            |> Map.put("image_url", image_url)
+            |> Map.put("height", height)
 
-        "inline_image" ->
-          image_url = params["image_url"] || ""
-          caption = params["caption"] || ""
-          width = params["width"] || "100%"
-          align = params["align"] || "center"
+          "inline_image" ->
+            image_url = params["image_url"] || ""
+            caption = params["caption"] || ""
+            width = params["width"] || "100%"
+            align = params["align"] || "center"
 
-          current_element
-          |> Map.put("image_url", image_url)
-          |> Map.put("caption", caption)
-          |> Map.put("width", width)
-          |> Map.put("align", align)
+            current_element
+            |> Map.put("image_url", image_url)
+            |> Map.put("caption", caption)
+            |> Map.put("width", width)
+            |> Map.put("align", align)
 
-        "spacer" ->
-          height = params["height"] || "1rem"
+          "spacer" ->
+            height = params["height"] || "1rem"
 
-          current_element
-          |> Map.put("height", height)
+            current_element
+            |> Map.put("height", height)
 
-        _ -> current_element
-      end
+          _ ->
+            current_element
+        end
 
       # 更新列表中的元素
       updated_decoration = List.replace_at(decoration, element_index, updated_element)
 
       # 保存更新后的模板
-      case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
+      case FormTemplates.update_template(socket.assigns.template, %{
+             decoration: updated_decoration
+           }) do
         {:ok, updated_template} ->
           {:noreply,
-            socket
-            |> assign(:template, updated_template)
-            |> assign(:decoration, updated_template.decoration)
-            |> assign(:editing_decoration_id, nil)
-            |> put_flash(:info, "装饰元素已更新")
-          }
+           socket
+           |> assign(:template, updated_template)
+           |> assign(:decoration, updated_template.decoration)
+           |> assign(:editing_decoration_id, nil)
+           |> put_flash(:info, "装饰元素已更新")}
 
         {:error, _changeset} ->
           {:noreply,
-            socket
-            |> put_flash(:error, "无法更新装饰元素")
-          }
+           socket
+           |> put_flash(:error, "无法更新装饰元素")}
       end
     else
       {:noreply, socket}
@@ -175,25 +201,24 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   @impl true
   def handle_event("delete_decoration_element", %{"id" => id}, socket) do
     # 找到要删除的装饰元素
-    updated_decoration = Enum.reject(socket.assigns.decoration, fn elem ->
-      (elem["id"] || elem[:id]) == id
-    end)
+    updated_decoration =
+      Enum.reject(socket.assigns.decoration, fn elem ->
+        (elem["id"] || elem[:id]) == id
+      end)
 
     # 保存更新后的模板
     case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:decoration, updated_template.decoration)
-          |> put_flash(:info, "装饰元素已删除")
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:decoration, updated_template.decoration)
+         |> put_flash(:info, "装饰元素已删除")}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> put_flash(:error, "无法删除装饰元素")
-        }
+         socket
+         |> put_flash(:error, "无法删除装饰元素")}
     end
   end
 
@@ -209,17 +234,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     case FormTemplates.update_template(template, %{structure: reordered_structure}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:structure, updated_template.structure)
-          |> put_flash(:info, "模板结构顺序已更新")
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:structure, updated_template.structure)
+         |> put_flash(:info, "模板结构顺序已更新")}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> put_flash(:error, "无法更新模板结构顺序")
-        }
+         socket
+         |> put_flash(:error, "无法更新模板结构顺序")}
     end
   end
 
@@ -232,17 +255,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     case FormTemplates.update_template(template, %{structure: current_structure}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:structure, updated_template.structure)
-          |> NotificationComponent.notify("模板结构已保存成功", :info)
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:structure, updated_template.structure)
+         |> NotificationComponent.notify("模板结构已保存成功", :info)}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> NotificationComponent.notify("无法保存模板结构", :error)
-        }
+         socket
+         |> NotificationComponent.notify("无法保存模板结构", :error)}
     end
   end
 
@@ -256,21 +277,22 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     }
 
     {:noreply,
-      socket
-      |> assign(:active_tab, tab)
-      |> assign(:tab_title, Map.get(tab_titles, tab, "模板编辑"))
-    }
+     socket
+     |> assign(:active_tab, tab)
+     |> assign(:tab_title, Map.get(tab_titles, tab, "模板编辑"))}
   end
 
   @impl true
   def handle_event("next_tab", _params, socket) do
     # 移动到下一个标签页
-    next_tab = case socket.assigns.active_tab do
-      "structure" -> "conditions"
-      "conditions" -> "decoration"
-      "decoration" -> "structure" # 循环回到第一个标签
-      _ -> "structure"
-    end
+    next_tab =
+      case socket.assigns.active_tab do
+        "structure" -> "conditions"
+        "conditions" -> "decoration"
+        # 循环回到第一个标签
+        "decoration" -> "structure"
+        _ -> "structure"
+      end
 
     # 执行标签变更
     handle_event("change_tab", %{"tab" => next_tab}, socket)
@@ -279,12 +301,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   @impl true
   def handle_event("prev_tab", _params, socket) do
     # 移动到上一个标签页
-    prev_tab = case socket.assigns.active_tab do
-      "structure" -> "decoration" # 循环到最后一个标签
-      "conditions" -> "structure"
-      "decoration" -> "conditions"
-      _ -> "structure"
-    end
+    prev_tab =
+      case socket.assigns.active_tab do
+        # 循环到最后一个标签
+        "structure" -> "decoration"
+        "conditions" -> "structure"
+        "decoration" -> "conditions"
+        _ -> "structure"
+      end
 
     # 执行标签变更
     handle_event("change_tab", %{"tab" => prev_tab}, socket)
@@ -298,30 +322,45 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     category_atom = String.to_existing_atom(category)
 
     {:noreply,
-      socket
-      |> assign(:active_category, category_atom)
-      |> assign(:search_term, nil) # 切换类别时清空搜索
-    }
+     socket
+     |> assign(:active_category, category_atom)
+     # 切换类别时清空搜索
+     |> assign(:search_term, nil)}
   end
 
   @impl true
   def handle_event("search_item_types", %{"search" => search_term}, socket) do
-    filtered_types = if search_term == "" do
-      nil # 空搜索恢复正常类别显示
-    else
-      ["text_input", "textarea", "radio", "checkbox", "dropdown", "rating",
-      "number", "email", "phone", "date", "time", "region", "matrix",
-      "image_choice", "file_upload"]
-      |> Enum.filter(fn type ->
-        String.contains?(type, search_term) ||
-        String.contains?(display_selected_type(type), search_term)
-      end)
-    end
+    filtered_types =
+      if search_term == "" do
+        # 空搜索恢复正常类别显示
+        nil
+      else
+        [
+          "text_input",
+          "textarea",
+          "radio",
+          "checkbox",
+          "dropdown",
+          "rating",
+          "number",
+          "email",
+          "phone",
+          "date",
+          "time",
+          "region",
+          "matrix",
+          "image_choice",
+          "file_upload"
+        ]
+        |> Enum.filter(fn type ->
+          String.contains?(type, search_term) ||
+            String.contains?(display_selected_type(type), search_term)
+        end)
+      end
 
     {:noreply,
-      socket
-      |> assign(:search_term, filtered_types)
-    }
+     socket
+     |> assign(:search_term, filtered_types)}
   end
 
   @impl true
@@ -330,10 +369,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     %{template: template, decoration: current_decoration} = socket.assigns
 
     # 创建一个ID到装饰元素的映射
-    id_to_element_map = Enum.reduce(current_decoration, %{}, fn elem, acc ->
-      elem_id = elem["id"] || elem[:id]
-      Map.put(acc, elem_id, elem)
-    end)
+    id_to_element_map =
+      Enum.reduce(current_decoration, %{}, fn elem, acc ->
+        elem_id = elem["id"] || elem[:id]
+        Map.put(acc, elem_id, elem)
+      end)
 
     # 按新顺序重新排列装饰元素
     updated_decoration = Enum.map(ordered_ids, fn id -> Map.get(id_to_element_map, id) end)
@@ -342,17 +382,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     case FormTemplates.update_template(template, %{decoration: updated_decoration}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:decoration, updated_decoration)
-          |> put_flash(:info, "装饰元素顺序已更新")
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:decoration, updated_decoration)
+         |> put_flash(:info, "装饰元素顺序已更新")}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> put_flash(:error, "无法更新装饰元素顺序")
-        }
+         socket
+         |> put_flash(:error, "无法更新装饰元素顺序")}
     end
   end
 
@@ -360,44 +398,47 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   def handle_event("type_changed", %{"type" => type}, socket) do
     # 清除高亮状态，重置current_item，确保切换类型时不保留之前输入框的高亮状态
     {:noreply,
-      socket
-      |> assign(:item_type, type)
-      |> assign(:current_item, %FormItem{})
-      |> assign(:temp_label, nil)}
+     socket
+     |> assign(:item_type, type)
+     |> assign(:current_item, %FormItem{})
+     |> assign(:temp_label, nil)}
   end
 
   @impl true
   def handle_event("add_item", _params, socket) do
     # 使用当前选择的控件类型
     item_type = socket.assigns.item_type || "text_input"
-    _type_atom = case item_type do
-      "text_input" -> :text_input
-      "textarea" -> :textarea
-      "radio" -> :radio
-      "checkbox" -> :checkbox
-      "dropdown" -> :dropdown
-      "rating" -> :rating
-      "number" -> :number
-      "email" -> :email
-      "phone" -> :phone
-      "date" -> :date
-      "time" -> :time
-      "region" -> :region
-      "matrix" -> :matrix
-      "image_choice" -> :image_choice
-      "file_upload" -> :file_upload
-      _ -> :text_input
-    end
+
+    _type_atom =
+      case item_type do
+        "text_input" -> :text_input
+        "textarea" -> :textarea
+        "radio" -> :radio
+        "checkbox" -> :checkbox
+        "dropdown" -> :dropdown
+        "rating" -> :rating
+        "number" -> :number
+        "email" -> :email
+        "phone" -> :phone
+        "date" -> :date
+        "time" -> :time
+        "region" -> :region
+        "matrix" -> :matrix
+        "image_choice" -> :image_choice
+        "file_upload" -> :file_upload
+        _ -> :text_input
+      end
 
     # 使用当前表单类型设置默认标签
-    default_label = case item_type do
-      "radio" -> "新单选问题"
-      "checkbox" -> "新复选问题"
-      "matrix" -> "新矩阵题"
-      "dropdown" -> "新下拉菜单"
-      "rating" -> "新评分题"
-      _ -> "新问题"
-    end
+    default_label =
+      case item_type do
+        "radio" -> "新单选问题"
+        "checkbox" -> "新复选问题"
+        "matrix" -> "新矩阵题"
+        "dropdown" -> "新下拉菜单"
+        "rating" -> "新评分题"
+        _ -> "新问题"
+      end
 
     # 准备要添加到模板结构的新项目
     new_item = %{
@@ -409,27 +450,29 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     }
 
     # 根据控件类型设置特定属性
-    new_item = cond do
-      item_type == "matrix" ->
-        new_item
-        |> Map.put("matrix_rows", ["问题1", "问题2", "问题3"])
-        |> Map.put("matrix_columns", ["选项A", "选项B", "选项C"])
-        |> Map.put("matrix_type", "single")
+    new_item =
+      cond do
+        item_type == "matrix" ->
+          new_item
+          |> Map.put("matrix_rows", ["问题1", "问题2", "问题3"])
+          |> Map.put("matrix_columns", ["选项A", "选项B", "选项C"])
+          |> Map.put("matrix_type", "single")
 
-      item_type == "image_choice" ->
-        new_item
-        |> Map.put("selection_type", "single")
-        |> Map.put("image_caption_position", "bottom")
+        item_type == "image_choice" ->
+          new_item
+          |> Map.put("selection_type", "single")
+          |> Map.put("image_caption_position", "bottom")
 
-      item_type in ["radio", "checkbox", "dropdown"] ->
-        new_item
-        |> Map.put("options", [
-          %{"id" => Ecto.UUID.generate(), "label" => "选项A", "value" => "option_a"},
-          %{"id" => Ecto.UUID.generate(), "label" => "选项B", "value" => "option_b"}
-        ])
+        item_type in ["radio", "checkbox", "dropdown"] ->
+          new_item
+          |> Map.put("options", [
+            %{"id" => Ecto.UUID.generate(), "label" => "选项A", "value" => "option_a"},
+            %{"id" => Ecto.UUID.generate(), "label" => "选项B", "value" => "option_b"}
+          ])
 
-      true -> new_item
-    end
+        true ->
+          new_item
+      end
 
     # 添加新项目到结构中
     updated_structure = socket.assigns.structure ++ [new_item]
@@ -438,17 +481,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:structure, updated_template.structure)
-          |> put_flash(:info, "已添加新控件")
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:structure, updated_template.structure)
+         |> put_flash(:info, "已添加新控件")}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> put_flash(:error, "无法添加新控件")
-        }
+         socket
+         |> put_flash(:error, "无法添加新控件")}
     end
   end
 
@@ -463,27 +504,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     id = socket.assigns.delete_item_id
 
     # 从结构中移除指定ID的项目
-    updated_structure = Enum.reject(socket.assigns.structure, fn item ->
-      Map.get(item, "id") == id
-    end)
+    updated_structure =
+      Enum.reject(socket.assigns.structure, fn item ->
+        Map.get(item, "id") == id
+      end)
 
     # 保存更新后的模板结构
     case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
       {:ok, updated_template} ->
         {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:structure, updated_template.structure)
-          |> assign(:delete_item_id, nil)
-          |> put_flash(:info, "控件已删除")
-        }
+         socket
+         |> assign(:template, updated_template)
+         |> assign(:structure, updated_template.structure)
+         |> assign(:delete_item_id, nil)
+         |> put_flash(:info, "控件已删除")}
 
       {:error, _changeset} ->
         {:noreply,
-          socket
-          |> assign(:delete_item_id, nil)
-          |> put_flash(:error, "无法删除控件")
-        }
+         socket
+         |> assign(:delete_item_id, nil)
+         |> put_flash(:error, "无法删除控件")}
     end
   end
 
@@ -504,41 +544,40 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     existing_logic = Map.get(item, "logic", nil)
 
     # 如果不在条件逻辑标签页，先切换到该标签页
-    socket = if current_tab != "conditions" do
-      # 设置标签页标题
-      tab_titles = %{
-        "structure" => "结构设计",
-        "conditions" => "条件逻辑",
-        "decoration" => "页面装饰"
-      }
+    socket =
+      if current_tab != "conditions" do
+        # 设置标签页标题
+        tab_titles = %{
+          "structure" => "结构设计",
+          "conditions" => "条件逻辑",
+          "decoration" => "页面装饰"
+        }
 
-      socket
-      |> assign(:active_tab, "conditions")
-      |> assign(:tab_title, Map.get(tab_titles, "conditions", "条件逻辑"))
-    else
-      socket
-    end
+        socket
+        |> assign(:active_tab, "conditions")
+        |> assign(:tab_title, Map.get(tab_titles, "conditions", "条件逻辑"))
+      else
+        socket
+      end
 
     # 打开逻辑编辑器
     {:noreply,
-      socket
-      |> assign(:editing_logic_item_id, item_id)
-      |> assign(:logic_type, Map.get(existing_logic || %{}, "type", "jump"))
-      |> assign(:logic_target_id, Map.get(existing_logic || %{}, "target_id", nil))
-      |> assign(:logic_condition, Map.get(existing_logic || %{}, "condition", nil))
-    }
+     socket
+     |> assign(:editing_logic_item_id, item_id)
+     |> assign(:logic_type, Map.get(existing_logic || %{}, "type", "jump"))
+     |> assign(:logic_target_id, Map.get(existing_logic || %{}, "target_id", nil))
+     |> assign(:logic_condition, Map.get(existing_logic || %{}, "condition", nil))}
   end
 
   @impl true
   def handle_event("close_logic_editor", _params, socket) do
     # 关闭逻辑编辑器
     {:noreply,
-      socket
-      |> assign(:editing_logic_item_id, nil)
-      |> assign(:logic_type, nil)
-      |> assign(:logic_target_id, nil)
-      |> assign(:logic_condition, nil)
-    }
+     socket
+     |> assign(:editing_logic_item_id, nil)
+     |> assign(:logic_type, nil)
+     |> assign(:logic_target_id, nil)
+     |> assign(:logic_condition, nil)}
   end
 
   @impl true
@@ -548,44 +587,43 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # 仅在编辑项目存在时处理
     if item_id do
       # 查找并更新对应的表单项
-      updated_structure = Enum.map(socket.assigns.structure, fn item ->
-        if item["id"] == item_id do
-          # 构建完整的逻辑结构
-          logic = %{
-            "type" => logic_params["type"],
-            "target_id" => logic_params["target_id"],
-            "condition" => %{
-              "operator" => logic_params["condition_operator"],
-              "value" => logic_params["condition_value"]
+      updated_structure =
+        Enum.map(socket.assigns.structure, fn item ->
+          if item["id"] == item_id do
+            # 构建完整的逻辑结构
+            logic = %{
+              "type" => logic_params["type"],
+              "target_id" => logic_params["target_id"],
+              "condition" => %{
+                "operator" => logic_params["condition_operator"],
+                "value" => logic_params["condition_value"]
+              }
             }
-          }
 
-          # 将逻辑添加到表单项
-          Map.put(item, "logic", logic)
-        else
-          item
-        end
-      end)
+            # 将逻辑添加到表单项
+            Map.put(item, "logic", logic)
+          else
+            item
+          end
+        end)
 
       # 保存更新后的模板结构
       case FormTemplates.update_template(socket.assigns.template, %{structure: updated_structure}) do
         {:ok, updated_template} ->
           {:noreply,
-            socket
-            |> assign(:template, updated_template)
-            |> assign(:structure, updated_template.structure)
-            |> assign(:editing_logic_item_id, nil)
-            |> assign(:logic_type, nil)
-            |> assign(:logic_target_id, nil)
-            |> assign(:logic_condition, nil)
-            |> put_flash(:info, "逻辑规则已保存")
-          }
+           socket
+           |> assign(:template, updated_template)
+           |> assign(:structure, updated_template.structure)
+           |> assign(:editing_logic_item_id, nil)
+           |> assign(:logic_type, nil)
+           |> assign(:logic_target_id, nil)
+           |> assign(:logic_condition, nil)
+           |> put_flash(:info, "逻辑规则已保存")}
 
         {:error, _changeset} ->
           {:noreply,
-            socket
-            |> put_flash(:error, "无法保存逻辑规则")
-          }
+           socket
+           |> put_flash(:error, "无法保存逻辑规则")}
       end
     else
       {:noreply, socket}
@@ -607,8 +645,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     {:noreply,
      socket
      |> assign(:decoration_category, category_atom)
-     |> assign(:decoration_search_term, nil) # 切换类别时清空搜索
-    }
+     # 切换类别时清空搜索
+     |> assign(:decoration_search_term, nil)}
   end
 
   @impl true
@@ -633,13 +671,15 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     position_type = Map.get(params, "position")
     target_id = Map.get(params, "target_id")
 
-    {:noreply, socket
+    {:noreply,
+     socket
      |> assign(:show_decoration_selector, true)
      |> assign(:position_type, position_type)
      |> assign(:position_target_id, target_id)
-     |> assign(:decoration_category, :content) # 默认选择内容类别
-     |> assign(:decoration_type, "title") # 默认选择标题元素类型
-    }
+     # 默认选择内容类别
+     |> assign(:decoration_category, :content)
+     # 默认选择标题元素类型
+     |> assign(:decoration_type, "title")}
   end
 
   def handle_event("close_decoration_selector", _params, socket) do
@@ -652,83 +692,83 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     position_type = socket.assigns.position_type
     position_target_id = socket.assigns.position_target_id
 
-
     # 确保装饰元素类型不为 nil
     if decoration_type == nil do
       {:noreply,
-        socket
-        |> put_flash(:error, "请选择装饰元素类型")
-        |> assign(:show_decoration_selector, true)
-      }
+       socket
+       |> put_flash(:error, "请选择装饰元素类型")
+       |> assign(:show_decoration_selector, true)}
     else
-    # 创建新的装饰元素
-      base_element = case decoration_type do
-      "title" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "title",
-          "title" => "新标题",
-          "level" => 2,
-          "align" => "left"
-        }
+      # 创建新的装饰元素
+      base_element =
+        case decoration_type do
+          "title" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "title",
+              "title" => "新标题",
+              "level" => 2,
+              "align" => "left"
+            }
 
-      "paragraph" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "paragraph",
-          "content" => "这是一个段落内容。在这里填写文字说明。"
-        }
+          "paragraph" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "paragraph",
+              "content" => "这是一个段落内容。在这里填写文字说明。"
+            }
 
-      "section" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "section",
-          "title" => "章节标题",
-          "divider_style" => "solid"
-        }
+          "section" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "section",
+              "title" => "章节标题",
+              "divider_style" => "solid"
+            }
 
-      "explanation" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "explanation",
-          "content" => "这里是重要说明内容。",
-          "note_type" => "info"
-        }
+          "explanation" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "explanation",
+              "content" => "这里是重要说明内容。",
+              "note_type" => "info"
+            }
 
-      "header_image" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "header_image",
-          "image_url" => "",
-          "height" => "300px"
-        }
+          "header_image" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "header_image",
+              "image_url" => "",
+              "height" => "300px"
+            }
 
-      "inline_image" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "inline_image",
-          "image_url" => "",
-          "caption" => "图片说明",
-          "width" => "80%",
-          "align" => "center"
-        }
+          "inline_image" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "inline_image",
+              "image_url" => "",
+              "caption" => "图片说明",
+              "width" => "80%",
+              "align" => "center"
+            }
 
-      "spacer" ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => "spacer",
-          "height" => "2rem"
-        }
+          "spacer" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "spacer",
+              "height" => "2rem"
+            }
 
-      _ ->
-        %{
-          "id" => Ecto.UUID.generate(),
-          "type" => decoration_type
-        }
-    end
+          _ ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => decoration_type
+            }
+        end
 
       # 添加位置信息，无论target_id是表单元素还是装饰元素，都正确记录
       target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
+
       position = %{
         "type" => position_type,
         "target_id" => target_id
@@ -737,27 +777,27 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       new_element = Map.put(base_element, "position", position)
 
       # 保存新元素的位置信息
-    updated_decoration = socket.assigns.decoration ++ [new_element]
+      updated_decoration = socket.assigns.decoration ++ [new_element]
       # 注意：这里不再修改元素在装饰元素列表中的位置
       # 只保存正确的位置属性，表单模板渲染时会按照位置属性渲染
 
-    # 保存更新后的模板
-    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-      {:ok, updated_template} ->
-        {:noreply,
-          socket
-          |> assign(:template, updated_template)
-          |> assign(:decoration, updated_template.decoration)
-            |> assign(:show_decoration_selector, false)
-          |> put_flash(:info, "已添加装饰元素")
-        }
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{
+             decoration: updated_decoration
+           }) do
+        {:ok, updated_template} ->
+          {:noreply,
+           socket
+           |> assign(:template, updated_template)
+           |> assign(:decoration, updated_template.decoration)
+           |> assign(:show_decoration_selector, false)
+           |> put_flash(:info, "已添加装饰元素")}
 
-      {:error, _changeset} ->
-        {:noreply,
-          socket
-          |> put_flash(:error, "无法添加装饰元素")
-            |> assign(:show_decoration_selector, false)
-        }
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "无法添加装饰元素")
+           |> assign(:show_decoration_selector, false)}
       end
     end
   end
@@ -772,78 +812,79 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     # 确保装饰元素类型不为 nil
     if decoration_type == nil do
       {:noreply,
-            socket
-        |> put_flash(:error, "请选择装饰元素类型")
-      }
+       socket
+       |> put_flash(:error, "请选择装饰元素类型")}
     else
       # 创建新的装饰元素
-      base_element = case decoration_type do
-        "title" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "title",
-            "title" => "新标题",
-            "level" => 2,
-            "align" => "left"
-          }
+      base_element =
+        case decoration_type do
+          "title" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "title",
+              "title" => "新标题",
+              "level" => 2,
+              "align" => "left"
+            }
 
-        "paragraph" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "paragraph",
-            "content" => "这是一个段落内容。在这里填写文字说明。"
-          }
+          "paragraph" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "paragraph",
+              "content" => "这是一个段落内容。在这里填写文字说明。"
+            }
 
-        "section" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "section",
-            "title" => "章节标题",
-            "divider_style" => "solid"
-          }
+          "section" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "section",
+              "title" => "章节标题",
+              "divider_style" => "solid"
+            }
 
-        "explanation" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "explanation",
-            "content" => "这里是重要说明内容。",
-            "note_type" => "info"
-          }
+          "explanation" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "explanation",
+              "content" => "这里是重要说明内容。",
+              "note_type" => "info"
+            }
 
-        "header_image" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "header_image",
-            "image_url" => "",
-            "height" => "300px"
-          }
+          "header_image" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "header_image",
+              "image_url" => "",
+              "height" => "300px"
+            }
 
-        "inline_image" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "inline_image",
-            "image_url" => "",
-            "caption" => "图片说明",
-            "width" => "80%",
-            "align" => "center"
-          }
+          "inline_image" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "inline_image",
+              "image_url" => "",
+              "caption" => "图片说明",
+              "width" => "80%",
+              "align" => "center"
+            }
 
-        "spacer" ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => "spacer",
-            "height" => "2rem"
-          }
+          "spacer" ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => "spacer",
+              "height" => "2rem"
+            }
 
-        _ ->
-          %{
-            "id" => Ecto.UUID.generate(),
-            "type" => decoration_type
-          }
-      end
+          _ ->
+            %{
+              "id" => Ecto.UUID.generate(),
+              "type" => decoration_type
+            }
+        end
 
       # 添加位置信息
       target_id = if position_type in ["before", "after"], do: position_target_id, else: nil
+
       position = %{
         "type" => position_type,
         "target_id" => target_id
@@ -852,28 +893,29 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       new_element = Map.put(base_element, "position", position)
 
       # 根据位置信息添加元素
-      updated_decoration = add_decoration_at_position(
-        socket.assigns.decoration,
-        new_element,
-        position,
-        socket.assigns.structure
-      )
+      updated_decoration =
+        add_decoration_at_position(
+          socket.assigns.decoration,
+          new_element,
+          position,
+          socket.assigns.structure
+        )
 
-    # 保存更新后的模板
-    case FormTemplates.update_template(socket.assigns.template, %{decoration: updated_decoration}) do
-      {:ok, updated_template} ->
-        {:noreply,
-          socket
-          |> assign(:template, updated_template)
-            |> assign(:decoration, updated_template.decoration)
-            |> put_flash(:info, "已添加装饰元素")
-        }
+      # 保存更新后的模板
+      case FormTemplates.update_template(socket.assigns.template, %{
+             decoration: updated_decoration
+           }) do
+        {:ok, updated_template} ->
+          {:noreply,
+           socket
+           |> assign(:template, updated_template)
+           |> assign(:decoration, updated_template.decoration)
+           |> put_flash(:info, "已添加装饰元素")}
 
-      {:error, _changeset} ->
-        {:noreply,
-          socket
-            |> put_flash(:error, "无法添加装饰元素")
-        }
+        {:error, _changeset} ->
+          {:noreply,
+           socket
+           |> put_flash(:error, "无法添加装饰元素")}
       end
     end
   end
@@ -889,16 +931,23 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     decoration ++ [new_element]
   end
 
-  defp add_decoration_at_position(decoration, new_element, %{"type" => position_type, "target_id" => target_id}, _structure)
-    when position_type in ["before", "after"] and not is_nil(target_id) do
+  defp add_decoration_at_position(
+         decoration,
+         new_element,
+         %{"type" => position_type, "target_id" => target_id},
+         _structure
+       )
+       when position_type in ["before", "after"] and not is_nil(target_id) do
     # 直接将元素添加到目标元素的前面或后面，而不是添加到列表末尾
     case position_type do
       "before" ->
         # 将元素添加到目标元素前面
         Enum.reduce(decoration, [], fn element, acc ->
           element_id = Map.get(element, "id") || Map.get(element, :id)
+
           if element_id == target_id do
-            acc ++ [new_element, element]  # 先添加新元素，再添加目标元素
+            # 先添加新元素，再添加目标元素
+            acc ++ [new_element, element]
           else
             acc ++ [element]
           end
@@ -908,8 +957,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         # 将元素添加到目标元素后面
         Enum.reduce(decoration, [], fn element, acc ->
           element_id = Map.get(element, "id") || Map.get(element, :id)
+
           if element_id == target_id do
-            acc ++ [element, new_element]  # 先添加目标元素，再添加新元素
+            # 先添加目标元素，再添加新元素
+            acc ++ [element, new_element]
           else
             acc ++ [element]
           end
@@ -927,20 +978,47 @@ defmodule MyAppWeb.FormTemplateEditorLive do
     ~H"""
     <!-- 装饰元素选择器弹出层 -->
     <%= if @show_decoration_selector do %>
-      <div class="decoration-selector-overlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 50;">
-        <div class="decoration-selector-modal" style="background-color: white; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;">
-          <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+      <div
+        class="decoration-selector-overlay"
+        style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 50;"
+      >
+        <div
+          class="decoration-selector-modal"
+          style="background-color: white; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;"
+        >
+          <div
+            class="modal-header"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;"
+          >
             <h3 style="font-size: 1.125rem; font-weight: 500;">选择装饰元素类型</h3>
-            <button phx-click="close_decoration_selector" class="close-button" style="background: none; border: none; cursor: pointer; color: #6b7280;">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <button
+              phx-click="close_decoration_selector"
+              class="close-button"
+              style="background: none; border: none; cursor: pointer; color: #6b7280;"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="width: 1.25rem; height: 1.25rem;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
           <div class="modal-body" style="padding: 1rem; max-height: 60vh; overflow-y: auto;">
             <!-- 装饰元素类别选择器 -->
-            <div class="category-tabs" style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;">
+            <div
+              class="category-tabs"
+              style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;"
+            >
               <button
                 type="button"
                 phx-click="decoration_category_changed"
@@ -966,9 +1044,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 布局
               </button>
             </div>
-
-            <!-- 装饰元素类型选择 -->
-            <div class="decoration-types-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+            
+    <!-- 装饰元素类型选择 -->
+            <div
+              class="decoration-types-grid"
+              style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;"
+            >
               <%= if @decoration_category == :content do %>
                 <button
                   type="button"
@@ -976,8 +1057,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="title"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "title", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "title", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "title", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14M5 12h14M5 19h9" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 5h14M5 12h14M5 19h9"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">标题</div>
                 </button>
@@ -988,8 +1080,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="paragraph"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "paragraph", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">段落</div>
                 </button>
@@ -1000,8 +1103,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="section"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "section", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "section", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "section", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M18 12H6"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">章节分隔</div>
                 </button>
@@ -1012,8 +1126,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="explanation"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "explanation", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "explanation", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "explanation", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">解释框</div>
                 </button>
@@ -1026,8 +1151,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="header_image"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "header_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "header_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "header_image", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">题图</div>
                 </button>
@@ -1038,8 +1174,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="inline_image"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "inline_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">中间插图</div>
                 </button>
@@ -1052,8 +1199,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   phx-value-type="spacer"
                   style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "spacer", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "spacer", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "spacer", do: "#4f46e5", else: "#1f2937"};"}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11v8m4-16v16m4-11v11" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M7 11v8m4-16v16m4-11v11"
+                    />
                   </svg>
                   <div style="font-size: 0.75rem; white-space: nowrap;">空间</div>
                 </button>
@@ -1061,7 +1219,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
             </div>
           </div>
 
-          <div class="modal-footer" style="padding: 1rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <div
+            class="modal-footer"
+            style="padding: 1rem; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 0.5rem;"
+          >
             <button
               phx-click="close_decoration_selector"
               class="cancel-button"
@@ -1082,23 +1243,38 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       </div>
     <% end %>
     <div class="form-editor-container">
-
-      <!-- 模板编辑页面 -->
+      
+    <!-- 模板编辑页面 -->
       <div style="display: flex; max-width: 100%; overflow-hidden;">
         <!-- 左侧控件类型选择栏 - 仅在结构设计标签页显示 -->
         <div style={"flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 4rem); #{if @active_tab != "structure", do: "display: none;"}"}>
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">控件类型</h2>
-
-          <!-- 分类标签 -->
-          <div style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;" data-test-id="form-item-category-selector">
+          
+    <!-- 分类标签 -->
+          <div
+            style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;"
+            data-test-id="form-item-category-selector"
+          >
             <button
               phx-click="change_category"
               phx-value-category="basic"
               data-category="basic"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :basic, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :basic, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="width: 1.25rem; height: 1.25rem;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                />
               </svg>
               基础控件
             </button>
@@ -1108,8 +1284,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               data-category="personal"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :personal, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :personal, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="width: 1.25rem; height: 1.25rem;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
               </svg>
               个人信息
             </button>
@@ -1119,14 +1307,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               data-category="advanced"
               style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @active_category == :advanced, do: "#4f46e5", else: "transparent"}; color: #{if @active_category == :advanced, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="width: 1.25rem; height: 1.25rem;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                />
               </svg>
               高级控件
             </button>
           </div>
-
-          <!-- 控件类型搜索 -->
+          
+    <!-- 控件类型搜索 -->
           <div style="margin-bottom: 1rem;">
             <div style="position: relative;">
               <input
@@ -1138,19 +1338,31 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 name="search"
               />
               <div style="position: absolute; left: 0.5rem; top: 0.5rem; color: #9ca3af;">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                  <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  style="width: 1.25rem; height: 1.25rem;"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
               </div>
             </div>
           </div>
-
-          <!-- 渲染控件类型列表 -->
+          
+    <!-- 渲染控件类型列表 -->
           <%= if is_nil(@search_term) do %>
             <!-- 分类显示 -->
             <%= if @active_category == :basic do %>
               <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">基础控件</h3>
+                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                  基础控件
+                </h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                   <button
                     type="button"
@@ -1159,8 +1371,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-text_input"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "text_input", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "text_input", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "text_input", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">文本输入</div>
                   </button>
@@ -1172,8 +1396,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-textarea"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "textarea", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "textarea", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "textarea", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 6h16M4 12h16M4 18h7"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">文本区域</div>
                   </button>
@@ -1185,8 +1421,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-radio"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "radio", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "radio", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "radio", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">单选按钮</div>
                   </button>
@@ -1198,8 +1446,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-checkbox"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "checkbox", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "checkbox", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "checkbox", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">复选框</div>
                   </button>
@@ -1211,31 +1471,57 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-dropdown"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "dropdown", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "dropdown", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "dropdown", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 9l4-4 4 4m0 6l-4 4-4-4"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">下拉菜单</div>
                   </button>
 
-                    <button
-                      type="button"
-                      phx-click="type_changed"
+                  <button
+                    type="button"
+                    phx-click="type_changed"
                     phx-value-type="number"
                     data-test-id="item-type-number"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "number", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "number", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "number", do: "#4f46e5", else: "#1f2937"};"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
                     >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">数字输入</div>
-                    </button>
+                  </button>
                 </div>
               </div>
             <% end %>
 
             <%= if @active_category == :personal do %>
               <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">个人信息控件</h3>
+                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                  个人信息控件
+                </h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                   <button
                     type="button"
@@ -1244,8 +1530,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-email"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "email", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "email", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "email", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">电子邮箱</div>
                   </button>
@@ -1257,8 +1555,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-phone"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "phone", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "phone", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "phone", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">电话号码</div>
                   </button>
@@ -1270,8 +1580,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-date"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "date", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "date", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "date", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">日期选择</div>
                   </button>
@@ -1283,32 +1605,63 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-time"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "time", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "time", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "time", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">时间选择</div>
                   </button>
 
-                    <button
-                      type="button"
-                      phx-click="type_changed"
+                  <button
+                    type="button"
+                    phx-click="type_changed"
                     phx-value-type="region"
                     data-test-id="item-type-region"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "region", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "region", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "region", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">地区选择</div>
-                    </button>
+                  </button>
                 </div>
               </div>
             <% end %>
 
             <%= if @active_category == :advanced do %>
               <div style="margin-bottom: 1rem;">
-                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">高级控件</h3>
+                <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                  高级控件
+                </h3>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                   <button
                     type="button"
@@ -1317,8 +1670,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-rating"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "rating", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "rating", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "rating", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">评分控件</div>
                   </button>
@@ -1330,8 +1695,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-matrix"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "matrix", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "matrix", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "matrix", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">矩阵问题</div>
                   </button>
@@ -1343,31 +1720,57 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     data-test-id="item-type-image_choice"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "image_choice", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "image_choice", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "image_choice", do: "#4f46e5", else: "#1f2937"};"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">图片选择</div>
                   </button>
 
-                    <button
-                      type="button"
-                      phx-click="type_changed"
+                  <button
+                    type="button"
+                    phx-click="type_changed"
                     phx-value-type="file_upload"
                     data-test-id="item-type-file_upload"
                     style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "file_upload", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "file_upload", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "file_upload", do: "#4f46e5", else: "#1f2937"};"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-6 w-6 mb-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
                     >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
                     </svg>
                     <div style="font-size: 0.75rem; white-space: nowrap;">文件上传</div>
-                    </button>
+                  </button>
                 </div>
               </div>
             <% end %>
           <% else %>
             <!-- 搜索结果显示 -->
             <div style="margin-bottom: 1rem;">
-              <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">搜索结果</h3>
+              <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                搜索结果
+              </h3>
               <%= if Enum.empty?(@search_term) do %>
                 <div style="text-align: center; padding: 1rem; color: #6b7280; background-color: #f9fafb; border-radius: 0.375rem;">
                   <p>没有找到匹配的控件类型</p>
@@ -1381,15 +1784,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       phx-value-type={type}
                       style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == to_string(type), do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == to_string(type), do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == to_string(type), do: "#4f46e5", else: "#1f2937"};"}
                     >
-                      <div style="font-size: 0.75rem; white-space: nowrap;"><%= display_selected_type(type) %></div>
+                      <div style="font-size: 0.75rem; white-space: nowrap;">
+                        {display_selected_type(type)}
+                      </div>
                     </button>
                   <% end %>
                 </div>
               <% end %>
             </div>
           <% end %>
-
-          <!-- 添加控件按钮 -->
+          
+    <!-- 添加控件按钮 -->
           <div style="margin-top: 1rem;">
             <button
               type="button"
@@ -1398,25 +1803,39 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               disabled={is_nil(@item_type)}
               style={"width: 100%; padding: 0.75rem; border: none; border-radius: 0.375rem; background-color: #{if is_nil(@item_type), do: "#d1d5db", else: "#4f46e5"}; color: white; font-weight: 500; cursor: #{if is_nil(@item_type), do: "not-allowed", else: "pointer"}; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                style="width: 1.25rem; height: 1.25rem;"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               添加选中控件
             </button>
           </div>
         </div>
-
-        <!-- 右侧内容区域 -->
+        
+    <!-- 右侧内容区域 -->
         <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 4rem);">
           <!-- 添加通知组件 -->
-          <.live_component module={MyAppWeb.NotificationComponent} id="notification"
+          <.live_component
+            module={MyAppWeb.NotificationComponent}
+            id="notification"
             notification={@notification}
-            notification_type={@notification_type} />
-
-          <!-- 模板标题和操作区 -->
+            notification_type={@notification_type}
+          />
+          
+    <!-- 模板标题和操作区 -->
           <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem;">
-            <%# <h1 style=\"font-size: 1.5rem; font-weight: 700;\">Template Name Removed</h1> REMOVED %>
-
+            
             <div style="display: flex; gap: 0.75rem;">
               <.link
                 patch={~p"/forms"}
@@ -1434,10 +1853,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </button>
             </div>
           </div>
-
-          <!-- 标签页导航 -->
+          
+    <!-- 标签页导航 -->
           <div style="border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem;">
-            <%# Changed: Use flex to distribute space, remove gap %>
+            
             <div style="display: flex; width: 100%;">
               <button
                 type="button"
@@ -1445,7 +1864,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 phx-value-tab="structure"
                 style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "structure", do: "#f3f4f6", else: "transparent"}; font-size: 1rem; font-weight: #{if @active_tab == "structure", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "structure", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "structure", do: "#4f46e5", else: "#6b7280"};"}
               >
-                1. 结构设计 <%# Changed: Added number %>
+                1. 结构设计
               </button>
               <button
                 type="button"
@@ -1453,7 +1872,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 phx-value-tab="conditions"
                 style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "conditions", do: "#f3f4f6", else: "transparent"}; font-size: 1rem; font-weight: #{if @active_tab == "conditions", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "conditions", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "conditions", do: "#4f46e5", else: "#6b7280"};"}
               >
-                2. 条件逻辑 <%# Changed: Added number %>
+                2. 条件逻辑
               </button>
               <button
                 type="button"
@@ -1461,12 +1880,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 phx-value-tab="decoration"
                 style={"flex: 1; text-align: center; padding: 0.75rem 1rem; border: none; background-color: #{if @active_tab == "decoration", do: "#f3f4f6", else: "transparent"}; font-size: 1rem; font-weight: #{if @active_tab == "decoration", do: "600", else: "400"}; cursor: pointer; border-bottom: 3px solid #{if @active_tab == "decoration", do: "#4f46e5", else: "transparent"}; color: #{if @active_tab == "decoration", do: "#4f46e5", else: "#6b7280"};"}
               >
-                3. 页面装饰 <%# Changed: Added number %>
+                3. 页面装饰
               </button>
             </div>
           </div>
-
-          <!-- 标签页导航按钮 -->
+          
+    <!-- 标签页导航按钮 -->
           <div style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
             <%= if @active_tab != "structure" do %>
               <button
@@ -1474,8 +1893,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 phx-click="prev_tab"
                 style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.25rem;">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 mr-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style="width: 1rem; height: 1rem; margin-right: 0.25rem;"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
                 上一步
               </button>
@@ -1491,8 +1922,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                 style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: white; color: #4b5563; border: 1px solid #d1d5db; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem;"
               >
                 下一步
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-left: 0.25rem;">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 ml-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style="width: 1rem; height: 1rem; margin-left: 0.25rem;"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               </button>
             <% else %>
@@ -1500,8 +1943,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               <div></div>
             <% end %>
           </div>
-
-          <!-- 确认删除对话框 -->
+          
+    <!-- 确认删除对话框 -->
           <%= if @delete_item_id do %>
             <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div class="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
@@ -1527,8 +1970,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
               </div>
             </div>
           <% end %>
-
-          <!-- 标签页内容区域 -->
+          
+    <!-- 标签页内容区域 -->
           <%= case @active_tab do %>
             <% "structure" -> %>
               <!-- 模板结构列表 -->
@@ -1539,22 +1982,36 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   <%= if Enum.empty?(@structure) do %>
                     <div style="text-align: center; padding: 3rem 0;">
                       <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
                         </svg>
                       </div>
-                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">模板还没有元素</h3>
-                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">从左侧选择控件类型并点击"添加选中控件"按钮</p>
+                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">
+                        模板还没有元素
+                      </h3>
+                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                        从左侧选择控件类型并点击"添加选中控件"按钮
+                      </p>
                     </div>
                   <% else %>
                     <%= for element <- @structure do %>
-                      <%
-                        elem_id = Map.get(element, "id", "unknown")
-                        # 优先从 @form_items 中查找数据库记录
-                        db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+                      <% elem_id = Map.get(element, "id", "unknown")
+                      # 优先从 @form_items 中查找数据库记录
+                      db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
 
-                        # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
-                        form_item = if db_item do
+                      # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                      form_item =
+                        if db_item do
                           # 使用来自数据库的 item 数据 (Map 形式以兼容 ItemRendererComponent)
                           %{
                             id: db_item.id,
@@ -1590,11 +2047,16 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           }
                         else
                           # 回退：使用模板结构中的数据 (记录警告)
-                          Logger.warning("FormTemplateEditorLive: Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data.")
+                          Logger.warning(
+                            "FormTemplateEditorLive: Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data."
+                          )
+
                           elem_type_str = Map.get(element, "type", "text_input")
+
                           %{
                             id: elem_id,
-                            type: safe_to_atom(elem_type_str), # 确保是 atom
+                            # 确保是 atom
+                            type: safe_to_atom(elem_type_str),
                             label: Map.get(element, "label") || "未命名元素",
                             required: Map.get(element, "required", false),
                             description: Map.get(element, "description"),
@@ -1615,7 +2077,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             matrix_rows: Map.get(element, "matrix_rows"),
                             matrix_columns: Map.get(element, "matrix_columns"),
                             matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
-                            image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                            image_caption_position:
+                              safe_caption_position(Map.get(element, "image_caption_position")),
                             selection_type: safe_selection_type(Map.get(element, "selection_type")),
                             multiple_files: Map.get(element, "multiple_files"),
                             max_files: Map.get(element, "max_files"),
@@ -1626,12 +2089,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           }
                         end
 
-                        # 从构建好的 form_item 中获取显示所需的变量
-                        elem_type = to_string(form_item.type)
-                        elem_label = form_item.label
-                        elem_required = form_item.required
-                        elem_description = form_item.description
-                      %>
+                      # 从构建好的 form_item 中获取显示所需的变量
+                      elem_type = to_string(form_item.type)
+                      elem_label = form_item.label
+                      elem_required = form_item.required
+                      elem_description = form_item.description %>
                       <div
                         id={"item-#{elem_id}"}
                         data-id={elem_id}
@@ -1639,43 +2101,55 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       >
                         <div class="flex justify-between items-center">
                           <div class="flex items-center">
-                            <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">⠿</span>
+                            <span class="drag-handle text-gray-400 hover:text-gray-600 mr-3 cursor-move text-xl">
+                              ⠿
+                            </span>
                             <div>
                               <div class="flex items-center">
-                                <span class="font-medium text-gray-700"><%= elem_label %></span>
+                                <span class="font-medium text-gray-700">{elem_label}</span>
                                 <%= if elem_required do %>
                                   <span class="ml-2 text-red-500">*</span>
                                 <% end %>
                                 <%= if Map.get(element, "logic") do %>
                                   <span class="ml-2 text-blue-500 text-xs bg-blue-50 px-1 rounded">
                                     <%= case get_in(element, ["logic", "type"]) do %>
-                                      <% "jump" -> %>跳转
-                                      <% "show" -> %>显示
-                                      <% "hide" -> %>隐藏
-                                      <% "end" -> %>结束
-                                      <% _ -> %>逻辑
+                                      <% "jump" -> %>
+                                        跳转
+                                      <% "show" -> %>
+                                        显示
+                                      <% "hide" -> %>
+                                        隐藏
+                                      <% "end" -> %>
+                                        结束
+                                      <% _ -> %>
+                                        逻辑
                                     <% end %>
                                   </span>
                                 <% end %>
                               </div>
                               <div class="text-xs text-gray-500 mt-1">
-                                控件类型: <%= display_selected_type(elem_type) %>
+                                控件类型: {display_selected_type(elem_type)}
                               </div>
                             </div>
                           </div>
 
                           <div class="flex gap-2">
-                            <button type="button" phx-click="delete_item" phx-value-id={elem_id} style="color: #ef4444; background: none; border: none; cursor: pointer;">
+                            <button
+                              type="button"
+                              phx-click="delete_item"
+                              phx-value-id={elem_id}
+                              style="color: #ef4444; background: none; border: none; cursor: pointer;"
+                            >
                               删除
                             </button>
                           </div>
                         </div>
 
                         <%= if elem_description do %>
-                          <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
+                          <div class="text-sm text-gray-500 mt-2">{elem_description}</div>
                         <% end %>
-
-                        <!-- 逻辑编辑面板 - 仅在选中时显示 -->
+                        
+    <!-- 逻辑编辑面板 - 仅在选中时显示 -->
                         <%= if @editing_logic_item_id == elem_id do %>
                           <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
                             <div class="flex justify-between items-center mb-3">
@@ -1685,27 +2159,67 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                 phx-click="close_logic_editor"
                                 class="text-gray-500 hover:text-gray-800"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  class="h-5 w-5"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fill-rule="evenodd"
+                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                    clip-rule="evenodd"
+                                  />
                                 </svg>
                               </button>
                             </div>
 
                             <form phx-submit="save_logic" class="space-y-3">
                               <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                  如果此题答案为：
+                                </label>
                                 <div class="flex items-center gap-2">
-                                  <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                                    <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
-                                    <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
-                                    <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                                  <select
+                                    name="logic[condition_operator]"
+                                    class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  >
+                                    <option
+                                      value="equals"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "equals"
+                                      }
+                                    >
+                                      等于
+                                    </option>
+                                    <option
+                                      value="not_equals"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "not_equals"
+                                      }
+                                    >
+                                      不等于
+                                    </option>
+                                    <option
+                                      value="contains"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "contains"
+                                      }
+                                    >
+                                      包含
+                                    </option>
                                   </select>
-                                  <%= render_condition_value_input(Enum.find(@structure, fn item -> item["id"] == elem_id end), @logic_condition) %>
+                                  {render_condition_value_input(
+                                    Enum.find(@structure, fn item -> item["id"] == elem_id end),
+                                    @logic_condition
+                                  )}
                                 </div>
                               </div>
 
                               <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                  执行动作：
+                                </label>
                                 <div class="flex flex-col gap-2">
                                   <label class="inline-flex items-center">
                                     <input
@@ -1760,7 +2274,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                               <%= if @logic_type in ["jump", "show", "hide"] do %>
                                 <div>
-                                  <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    选择目标题目：
+                                  </label>
                                   <select
                                     name="logic[target_id]"
                                     class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -1770,7 +2286,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                       <% target_id = Map.get(target_item, "id") %>
                                       <% target_label = Map.get(target_item, "label") || "未命名题目" %>
                                       <%= if target_id != elem_id do %>
-                                        <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                                        <option
+                                          value={target_id}
+                                          selected={@logic_target_id == target_id}
+                                        >
+                                          {target_label}
+                                        </option>
                                       <% end %>
                                     <% end %>
                                   </select>
@@ -1797,15 +2318,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <% end %>
 
                         <div class="mt-3 border-t pt-3">
-                          <%# !!! 关键改动：传递构建好的 form_item 给渲染组件 !!! %>
-                          <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                          
+                          <MyAppWeb.FormLive.ItemRendererComponent.render_item
+                            item={form_item}
+                            mode={:edit_preview}
+                          />
                         </div>
                       </div>
                     <% end %>
                   <% end %>
                 </div>
               </div>
-
             <% "conditions" -> %>
               <!-- 条件逻辑标签页内容 -->
               <div class="form-card">
@@ -1826,30 +2349,44 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                     点击每个题目右侧的<span class="font-semibold">「添加逻辑」</span>或<span class="font-semibold">「编辑逻辑」</span>按钮来设置条件规则。
                   </p>
                 </div>
-
-                <!-- 模板结构列表 - 与结构设计标签页相似，但带逻辑按钮 -->
+                
+    <!-- 模板结构列表 - 与结构设计标签页相似，但带逻辑按钮 -->
                 <!-- 模板结构列表展示 -->
                 <div id="logic-structure-list" class="space-y-4">
                   <%= if Enum.empty?(@structure) do %>
                     <div style="text-align: center; padding: 3rem 0;">
                       <div style="margin: 0 auto; height: 3rem; width: 3rem; color: #9ca3af;">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
                         </svg>
                       </div>
-                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">模板还没有元素</h3>
-                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">请先前往「结构设计」标签添加表单元素</p>
+                      <h3 style="font-size: 1.125rem; font-weight: 500; color: #1f2937; margin-top: 0.5rem;">
+                        模板还没有元素
+                      </h3>
+                      <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+                        请先前往「结构设计」标签添加表单元素
+                      </p>
                     </div>
                   <% else %>
                     <%= for element <- @structure do %>
-                      <%
-                        elem_id = Map.get(element, "id", "unknown")
-                        # !!! START CHANGE !!!
-                        # 优先从 @form_items 中查找数据库记录
-                        db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+                      <% elem_id = Map.get(element, "id", "unknown")
+                      # !!! START CHANGE !!!
+                      # 优先从 @form_items 中查找数据库记录
+                      db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
 
-                        # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
-                        form_item = if db_item do
+                      # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                      form_item =
+                        if db_item do
                           # 使用来自数据库的 item 数据
                           %{
                             id: db_item.id,
@@ -1858,7 +2395,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             required: db_item.required,
                             description: db_item.description,
                             placeholder: db_item.placeholder,
-                            options: db_item.options, # 直接使用数据库预加载的 options
+                            # 直接使用数据库预加载的 options
+                            options: db_item.options,
                             min: db_item.min,
                             max: db_item.max,
                             step: db_item.step,
@@ -1884,16 +2422,22 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           }
                         else
                           # 回退：使用模板结构中的数据 (记录警告)
-                          Logger.warning("FormTemplateEditorLive (conditions tab): Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data.")
+                          Logger.warning(
+                            "FormTemplateEditorLive (conditions tab): Could not find form item with ID #{elem_id} in @form_items. Falling back to template structure data."
+                          )
+
                           elem_type_str = Map.get(element, "type", "text_input")
+
                           %{
                             id: elem_id,
-                            type: safe_to_atom(elem_type_str), # 确保是 atom
+                            # 确保是 atom
+                            type: safe_to_atom(elem_type_str),
                             label: Map.get(element, "label") || "未命名元素",
                             required: Map.get(element, "required", false),
                             description: Map.get(element, "description"),
                             placeholder: Map.get(element, "placeholder"),
-                            options: format_options_for_component(Map.get(element, "options", [])), # 回退时格式化
+                            # 回退时格式化
+                            options: format_options_for_component(Map.get(element, "options", [])),
                             min: Map.get(element, "min"),
                             max: Map.get(element, "max"),
                             step: Map.get(element, "step"),
@@ -1908,7 +2452,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             matrix_rows: Map.get(element, "matrix_rows"),
                             matrix_columns: Map.get(element, "matrix_columns"),
                             matrix_type: safe_matrix_type(Map.get(element, "matrix_type")),
-                            image_caption_position: safe_caption_position(Map.get(element, "image_caption_position")),
+                            image_caption_position:
+                              safe_caption_position(Map.get(element, "image_caption_position")),
                             selection_type: safe_selection_type(Map.get(element, "selection_type")),
                             multiple_files: Map.get(element, "multiple_files"),
                             max_files: Map.get(element, "max_files"),
@@ -1919,43 +2464,49 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           }
                         end
 
-                        # 从构建好的 form_item 中获取显示所需的变量
-                        elem_type = to_string(form_item.type)
-                        elem_label = form_item.label
-                        elem_required = form_item.required
-                        elem_description = form_item.description
-                        # !!! END CHANGE !!!
+                      # 从构建好的 form_item 中获取显示所需的变量
+                      elem_type = to_string(form_item.type)
+                      elem_label = form_item.label
+                      elem_required = form_item.required
+                      elem_description = form_item.description
+                      # !!! END CHANGE !!!
 
-                        # 检查是否有逻辑设置
-                        has_logic = Map.get(element, "logic") != nil
-                        logic = Map.get(element, "logic")
-                        logic_type = if has_logic, do: Map.get(logic, "type"), else: nil
-                        condition = if has_logic, do: Map.get(logic, "condition"), else: nil
-                        condition_op = if condition, do: Map.get(condition, "operator", ""), else: nil
-                        condition_value = if condition, do: Map.get(condition, "value", ""), else: nil
-                        target_id = if has_logic, do: Map.get(logic, "target_id"), else: nil
+                      # 检查是否有逻辑设置
+                      has_logic = Map.get(element, "logic") != nil
+                      logic = Map.get(element, "logic")
+                      logic_type = if has_logic, do: Map.get(logic, "type"), else: nil
+                      condition = if has_logic, do: Map.get(logic, "condition"), else: nil
+                      condition_op = if condition, do: Map.get(condition, "operator", ""), else: nil
+                      condition_value = if condition, do: Map.get(condition, "value", ""), else: nil
+                      target_id = if has_logic, do: Map.get(logic, "target_id"), else: nil
 
-                        # 查找目标题目（如果有）
-                        target_item = if target_id, do: Enum.find(@structure, fn i -> Map.get(i, "id") == target_id end), else: nil
-                        target_label = if target_item, do: Map.get(target_item, "label") || "未命名题目", else: nil
+                      # 查找目标题目（如果有）
+                      target_item =
+                        if target_id,
+                          do: Enum.find(@structure, fn i -> Map.get(i, "id") == target_id end),
+                          else: nil
 
-                        # 条件操作符显示文本
-                        condition_op_text = case condition_op do
+                      target_label =
+                        if target_item, do: Map.get(target_item, "label") || "未命名题目", else: nil
+
+                      # 条件操作符显示文本
+                      condition_op_text =
+                        case condition_op do
                           "equals" -> "等于"
                           "not_equals" -> "不等于"
                           "contains" -> "包含"
                           _ -> condition_op
                         end
 
-                        # 逻辑类型显示文本
-                        logic_type_text = case logic_type do
+                      # 逻辑类型显示文本
+                      logic_type_text =
+                        case logic_type do
                           "jump" -> "跳转到"
                           "show" -> "显示"
                           "hide" -> "隐藏"
                           "end" -> "结束问卷"
                           _ -> logic_type
-                        end
-                      %>
+                        end %>
                       <div
                         id={"logic-item-#{elem_id}"}
                         class="p-3 border rounded bg-white shadow-sm form-card"
@@ -1964,24 +2515,29 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           <div class="flex items-center">
                             <div>
                               <div class="flex items-center">
-                                <span class="font-medium text-gray-700"><%= elem_label %></span>
+                                <span class="font-medium text-gray-700">{elem_label}</span>
                                 <%= if elem_required do %>
                                   <span class="ml-2 text-red-500">*</span>
                                 <% end %>
                                 <%= if has_logic do %>
                                   <span class="ml-2 text-blue-500 text-xs bg-blue-50 px-1 rounded">
                                     <%= case logic_type do %>
-                                      <% "jump" -> %>跳转
-                                      <% "show" -> %>显示
-                                      <% "hide" -> %>隐藏
-                                      <% "end" -> %>结束
-                                      <% _ -> %>逻辑
+                                      <% "jump" -> %>
+                                        跳转
+                                      <% "show" -> %>
+                                        显示
+                                      <% "hide" -> %>
+                                        隐藏
+                                      <% "end" -> %>
+                                        结束
+                                      <% _ -> %>
+                                        逻辑
                                     <% end %>
                                   </span>
                                 <% end %>
                               </div>
                               <div class="text-xs text-gray-500 mt-1">
-                                控件类型: <%= display_selected_type(elem_type) %>
+                                控件类型: {display_selected_type(elem_type)}
                               </div>
                             </div>
                           </div>
@@ -1993,26 +2549,40 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               phx-value-id={elem_id}
                               style="color: #3b82f6; background: none; border: none; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.25rem;"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+                                />
                               </svg>
-                              <%= if has_logic, do: "编辑逻辑", else: "添加逻辑" %>
+                              {if has_logic, do: "编辑逻辑", else: "添加逻辑"}
                             </button>
                           </div>
                         </div>
 
                         <%= if elem_description do %>
-                          <div class="text-sm text-gray-500 mt-2"><%= elem_description %></div>
+                          <div class="text-sm text-gray-500 mt-2">{elem_description}</div>
                         <% end %>
 
                         <%= if has_logic do %>
                           <div class="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded-md">
-                            <p>如果答案<strong><%= condition_op_text %></strong> "<%= condition_value %>"
-                            则<strong><%= logic_type_text %></strong> <%= if target_label, do: "「#{target_label}」" %></p>
+                            <p>
+                              如果答案<strong><%= condition_op_text %></strong> "{condition_value}"
+                              则<strong><%= logic_type_text %></strong> {if target_label,
+                                do: "「#{target_label}」"}
+                            </p>
                           </div>
                         <% end %>
-
-                        <!-- 逻辑编辑面板 - 仅在选中时显示 -->
+                        
+    <!-- 逻辑编辑面板 - 仅在选中时显示 -->
                         <%= if @editing_logic_item_id == elem_id do %>
                           <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
                             <div class="flex justify-between items-center mb-3">
@@ -2022,28 +2592,64 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                 phx-click="close_logic_editor"
                                 class="text-gray-500 hover:text-gray-800"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  class="h-5 w-5"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fill-rule="evenodd"
+                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                    clip-rule="evenodd"
+                                  />
                                 </svg>
                               </button>
                             </div>
 
                             <form phx-submit="save_logic" class="space-y-3">
                               <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                  如果此题答案为：
+                                </label>
                                 <div class="flex items-center gap-2">
-                                  <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                                    <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
-                                    <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
-                                    <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                                  <select
+                                    name="logic[condition_operator]"
+                                    class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                  >
+                                    <option
+                                      value="equals"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "equals"
+                                      }
+                                    >
+                                      等于
+                                    </option>
+                                    <option
+                                      value="not_equals"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "not_equals"
+                                      }
+                                    >
+                                      不等于
+                                    </option>
+                                    <option
+                                      value="contains"
+                                      selected={
+                                        get_in(@logic_condition || %{}, ["operator"]) == "contains"
+                                      }
+                                    >
+                                      包含
+                                    </option>
                                   </select>
-                                  <%# !!! CHANGE: Pass the constructed form_item map instead of finding from structure again !!! %>
-                                  <%= render_condition_value_input(form_item, @logic_condition) %>
+                                  {render_condition_value_input(form_item, @logic_condition)}
                                 </div>
                               </div>
 
                               <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">执行动作：</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                  执行动作：
+                                </label>
                                 <div class="flex flex-col gap-2">
                                   <label class="inline-flex items-center">
                                     <input
@@ -2098,7 +2704,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                               <%= if @logic_type in ["jump", "show", "hide"] do %>
                                 <div>
-                                  <label class="block text-sm font-medium text-gray-700 mb-1">选择目标题目：</label>
+                                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    选择目标题目：
+                                  </label>
                                   <select
                                     name="logic[target_id]"
                                     class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -2108,7 +2716,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                       <% target_id = Map.get(target_item, "id") %>
                                       <% target_label = Map.get(target_item, "label") || "未命名题目" %>
                                       <%= if target_id != elem_id do %>
-                                        <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                                        <option
+                                          value={target_id}
+                                          selected={@logic_target_id == target_id}
+                                        >
+                                          {target_label}
+                                        </option>
                                       <% end %>
                                     <% end %>
                                   </select>
@@ -2135,31 +2748,44 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <% end %>
 
                         <div class="mt-3 border-t pt-3">
-                          <%# !!! 关键改动：传递构建好的 form_item 给渲染组件 !!! %>
-                          <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                          
+                          <MyAppWeb.FormLive.ItemRendererComponent.render_item
+                            item={form_item}
+                            mode={:edit_preview}
+                          />
                         </div>
                       </div>
                     <% end %>
                   <% end %>
                 </div>
-
-                <!-- 逻辑编辑面板 - 当存在编辑项时显示 -->
+                
+    <!-- 逻辑编辑面板 - 当存在编辑项时显示 -->
                 <%= if @editing_logic_item_id do %>
-                  <%
-                    # 查找正在编辑的项目
-                    editing_item = Enum.find(@structure, fn item -> Map.get(item, "id") == @editing_logic_item_id end)
-                    item_label = if editing_item, do: Map.get(editing_item, "label") || "未命名题目", else: "未知题目"
-                  %>
+                  <% # 查找正在编辑的项目
+                  editing_item =
+                    Enum.find(@structure, fn item -> Map.get(item, "id") == @editing_logic_item_id end)
+
+                  item_label =
+                    if editing_item, do: Map.get(editing_item, "label") || "未命名题目", else: "未知题目" %>
                   <div class="mt-5 p-4 border border-blue-200 bg-blue-50 rounded-md">
                     <div class="flex justify-between items-center mb-3">
-                      <h3 class="font-medium text-blue-800">编辑「<%= item_label %>」的逻辑</h3>
+                      <h3 class="font-medium text-blue-800">编辑「{item_label}」的逻辑</h3>
                       <button
                         type="button"
                         phx-click="close_logic_editor"
                         class="text-gray-500 hover:text-gray-800"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -2168,46 +2794,73 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">如果此题答案为：</label>
                         <div class="flex items-center gap-2">
-                          <select name="logic[condition_operator]" class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                            <option value="equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}>等于</option>
-                            <option value="not_equals" selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}>不等于</option>
-                            <option value="contains" selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}>包含</option>
+                          <select
+                            name="logic[condition_operator]"
+                            class="block w-1/3 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                          >
+                            <option
+                              value="equals"
+                              selected={get_in(@logic_condition || %{}, ["operator"]) == "equals"}
+                            >
+                              等于
+                            </option>
+                            <option
+                              value="not_equals"
+                              selected={get_in(@logic_condition || %{}, ["operator"]) == "not_equals"}
+                            >
+                              不等于
+                            </option>
+                            <option
+                              value="contains"
+                              selected={get_in(@logic_condition || %{}, ["operator"]) == "contains"}
+                            >
+                              包含
+                            </option>
                           </select>
-                          <%# !!! CHANGE: Pass the constructed form_item map for the editing item !!! %>
-                          <%
-                              # Find the form_item map for the item being edited for logic
-                              editing_db_item = Enum.find(@form_items, fn fi -> fi.id == @editing_logic_item_id end)
-                              editing_form_item_map = if editing_db_item do
-                                # Convert the struct to a map if needed by render_condition_value_input
-                                # Or adjust render_condition_value_input to accept the struct directly
-                                # Assuming render_condition_value_input can handle the struct:
-                                editing_db_item
+                          <% # Find the form_item map for the item being edited for logic
+                          editing_db_item =
+                            Enum.find(@form_items, fn fi -> fi.id == @editing_logic_item_id end)
+
+                          editing_form_item_map =
+                            if editing_db_item do
+                              # Convert the struct to a map if needed by render_condition_value_input
+                              # Or adjust render_condition_value_input to accept the struct directly
+                              # Assuming render_condition_value_input can handle the struct:
+                              editing_db_item
+                            else
+                              # Fallback: Find from structure and build map (less ideal)
+                              editing_element =
+                                Enum.find(@structure, fn el ->
+                                  Map.get(el, "id") == @editing_logic_item_id
+                                end)
+
+                              if editing_element do
+                                elem_type_str = Map.get(editing_element, "type", "text_input")
+
+                                %{
+                                  id: @editing_logic_item_id,
+                                  type: safe_to_atom(elem_type_str),
+                                  label: Map.get(editing_element, "label") || "未命名元素",
+                                  required: Map.get(editing_element, "required", false),
+                                  description: Map.get(editing_element, "description"),
+                                  placeholder: Map.get(editing_element, "placeholder"),
+                                  # !!! FIX: Add options field to fallback map !!!
+                                  options:
+                                    format_options_for_component(
+                                      Map.get(editing_element, "options", [])
+                                    ),
+                                  min: Map.get(editing_element, "min"),
+                                  max: Map.get(editing_element, "max"),
+                                  step: Map.get(editing_element, "step"),
+                                  max_rating: Map.get(editing_element, "max_rating", 5)
+                                  # Add other fields as needed by render_condition_value_input
+                                }
                               else
-                                # Fallback: Find from structure and build map (less ideal)
-                                editing_element = Enum.find(@structure, fn el -> Map.get(el, "id") == @editing_logic_item_id end)
-                                if editing_element do
-                                    elem_type_str = Map.get(editing_element, "type", "text_input")
-                                    %{
-                                      id: @editing_logic_item_id,
-                                      type: safe_to_atom(elem_type_str),
-                                      label: Map.get(editing_element, "label") || "未命名元素",
-                                      required: Map.get(editing_element, "required", false),
-                                      description: Map.get(editing_element, "description"),
-                                      placeholder: Map.get(editing_element, "placeholder"),
-                                      # !!! FIX: Add options field to fallback map !!!
-                                      options: format_options_for_component(Map.get(editing_element, "options", [])),
-                                      min: Map.get(editing_element, "min"),
-                                      max: Map.get(editing_element, "max"),
-                                      step: Map.get(editing_element, "step"),
-                                      max_rating: Map.get(editing_element, "max_rating", 5)
-                                      # Add other fields as needed by render_condition_value_input
-                                    }
-                                else
-                                    nil # Should not happen if @editing_logic_item_id is set
-                                end
+                                # Should not happen if @editing_logic_item_id is set
+                                nil
                               end
-                           %>
-                          <%= render_condition_value_input(editing_form_item_map, @logic_condition) %>
+                            end %>
+                          {render_condition_value_input(editing_form_item_map, @logic_condition)}
                         </div>
                       </div>
 
@@ -2277,7 +2930,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               <% target_id = Map.get(target_item, "id") %>
                               <% target_label = Map.get(target_item, "label") || "未命名题目" %>
                               <%= if target_id != @editing_logic_item_id do %>
-                                <option value={target_id} selected={@logic_target_id == target_id}><%= target_label %></option>
+                                <option value={target_id} selected={@logic_target_id == target_id}>
+                                  {target_label}
+                                </option>
                               <% end %>
                             <% end %>
                           </select>
@@ -2303,15 +2958,14 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                   </div>
                 <% end %>
               </div>
-
             <% "decoration" -> %>
               <!-- 页面装饰标签页内容 -->
               <div style="display: flex; max-width: 100%; overflow-hidden;">
                 <!-- 左侧装饰元素类型选择栏 -->
                 <div style="flex: 0 0 16rem; border-right: 1px solid #e5e7eb; background-color: white; padding: 1rem; overflow-y: auto; height: calc(100vh - 10rem);">
                   <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">装饰元素类型</h2>
-
-                  <!-- 分类标签 -->
+                  
+    <!-- 分类标签 -->
                   <div style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1rem;">
                     <button
                       phx-click="change_decoration_category"
@@ -2319,8 +2973,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       data-category="content"
                       style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :content, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :content, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        style="width: 1.25rem; height: 1.25rem;"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 6h16M4 12h16M4 18h7"
+                        />
                       </svg>
                       内容
                     </button>
@@ -2330,8 +2996,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       data-category="visual"
                       style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :visual, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :visual, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        style="width: 1.25rem; height: 1.25rem;"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
                       </svg>
                       视觉
                     </button>
@@ -2341,17 +3019,31 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       data-category="layout"
                       style={"padding: 0.5rem 0.75rem; border: none; background: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid #{if @decoration_category == :layout, do: "#4f46e5", else: "transparent"}; color: #{if @decoration_category == :layout, do: "#4f46e5", else: "#6b7280"}; display: flex; align-items: center; gap: 0.375rem;"}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        style="width: 1.25rem; height: 1.25rem;"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                        />
                       </svg>
                       布局
                     </button>
                   </div>
-
-                  <!-- 装饰元素类型选择 -->
+                  
+    <!-- 装饰元素类型选择 -->
                   <%= if @decoration_category == :content do %>
                     <div style="margin-bottom: 1rem;">
-                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">内容元素</h3>
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                        内容元素
+                      </h3>
                       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                         <button
                           type="button"
@@ -2359,8 +3051,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="title"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "title", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "title", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "title", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14M5 12h14M5 19h9" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M5 5h14M5 12h14M5 19h9"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">标题</div>
                         </button>
@@ -2371,8 +3075,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="paragraph"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "paragraph", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "paragraph", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">段落</div>
                         </button>
@@ -2383,8 +3099,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="section"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "section", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "section", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "section", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M18 12H6"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">章节分隔</div>
                         </button>
@@ -2395,8 +3123,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="explanation"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "explanation", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "explanation", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "explanation", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">解释框</div>
                         </button>
@@ -2406,7 +3146,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                   <%= if @decoration_category == :visual do %>
                     <div style="margin-bottom: 1rem;">
-                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">视觉元素</h3>
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                        视觉元素
+                      </h3>
                       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                         <button
                           type="button"
@@ -2414,8 +3156,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="header_image"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "header_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "header_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "header_image", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">题图</div>
                         </button>
@@ -2426,8 +3180,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="inline_image"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "inline_image", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "inline_image", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">中间插图</div>
                         </button>
@@ -2437,7 +3203,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
                   <%= if @decoration_category == :layout do %>
                     <div style="margin-bottom: 1rem;">
-                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">布局元素</h3>
+                      <h3 style="font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; color: #4b5563;">
+                        布局元素
+                      </h3>
                       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                         <button
                           type="button"
@@ -2445,19 +3213,33 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                           phx-value-type="spacer"
                           style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @decoration_type == "spacer", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @decoration_type == "spacer", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @decoration_type == "spacer", do: "#4f46e5", else: "#1f2937"};"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11v8m4-16v16m4-11v11" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 mb-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M7 11v8m4-16v16m4-11v11"
+                            />
                           </svg>
                           <div style="font-size: 0.75rem; white-space: nowrap;">空间</div>
                         </button>
                       </div>
                     </div>
                   <% end %>
-
-                  <!-- 位置选择器 -->
+                  
+    <!-- 位置选择器 -->
                   <div style="margin-top: 1rem; margin-bottom: 1rem;">
                     <div class="form-group">
-                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">位置选择</label>
+                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">
+                        位置选择
+                      </label>
                       <select
                         id="position_type_select"
                         phx-change="decoration_position_changed"
@@ -2469,10 +3251,20 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <option value="after">在特定控件之后</option>
                       </select>
                     </div>
-
-                    <!-- 当选择"在特定控件之前/后"时显示的控件选择器 -->
-                    <div id="target_item_selector" class="target-item-selector" style={if @position_type in ["before", "after"], do: "display: block; margin-top: 0.75rem;", else: "display: none; margin-top: 0.75rem;"}>
-                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">选择控件</label>
+                    
+    <!-- 当选择"在特定控件之前/后"时显示的控件选择器 -->
+                    <div
+                      id="target_item_selector"
+                      class="target-item-selector"
+                      style={
+                        if @position_type in ["before", "after"],
+                          do: "display: block; margin-top: 0.75rem;",
+                          else: "display: none; margin-top: 0.75rem;"
+                      }
+                    >
+                      <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #4b5563; margin-bottom: 0.5rem;">
+                        选择控件
+                      </label>
                       <select
                         id="target_item_select"
                         phx-change="decoration_target_changed"
@@ -2481,13 +3273,13 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <%= for item <- @structure do %>
                           <% item_id = Map.get(item, "id") || Map.get(item, :id) %>
                           <% item_label = Map.get(item, "label") || Map.get(item, :label) || "未命名控件" %>
-                          <option value={item_id}><%= item_label %></option>
+                          <option value={item_id}>{item_label}</option>
                         <% end %>
                       </select>
                     </div>
                   </div>
-
-                  <!-- 添加装饰元素按钮 -->
+                  
+    <!-- 添加装饰元素按钮 -->
                   <div style="margin-top: 1rem;">
                     <button
                       type="button"
@@ -2496,66 +3288,98 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                       disabled={is_nil(@decoration_type)}
                       style={"width: 100%; padding: 0.75rem; border: none; border-radius: 0.375rem; background-color: #{if is_nil(@decoration_type), do: "#d1d5db", else: "#4f46e5"}; color: white; font-weight: 500; cursor: #{if is_nil(@decoration_type), do: "not-allowed", else: "pointer"}; display: flex; justify-content: center; align-items: center; gap: 0.5rem;"}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1.25rem; height: 1.25rem;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        style="width: 1.25rem; height: 1.25rem;"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 4v16m8-8H4"
+                        />
                       </svg>
                       添加装饰元素
                     </button>
                   </div>
                 </div>
-
-                <!-- 右侧内容区域 -->
+                
+    <!-- 右侧内容区域 -->
                 <div style="flex: 1; padding: 1.5rem; overflow-y: auto; height: calc(100vh - 10rem);">
                   <div class="form-card">
-                    <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单结构与装饰</h2>
-
-                    <!-- 完整的表单视图 -->
+                    <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">
+                      表单结构与装饰
+                    </h2>
+                    
+    <!-- 完整的表单视图 -->
                     <div id="form-structure-view" class="space-y-4 mb-6 decoration-element-container">
                       <div class="flex items-center mb-4">
-                        <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; padding-bottom: 0.5rem;">表单控件与插入点</h3>
+                        <h3 style="font-size: 1rem; font-weight: 500; color: #4b5563; padding-bottom: 0.5rem;">
+                          表单控件与插入点
+                        </h3>
                         <div class="decoration-help-tooltip ml-2">
                           <span class="tooltip-icon">?</span>
                           <span class="tooltip-text">
-                            表单控件在这里以只读模式显示，方便您看到它们在表单中的位置。<br>
-                            您可以使用位置选择器或直接点击表单控件之间的"添加装饰元素"插入点来定位装饰元素。<br>
-                            您需要在"结构设计"标签页编辑这些控件。
+                            表单控件在这里以只读模式显示，方便您看到它们在表单中的位置。<br />
+                            您可以使用位置选择器或直接点击表单控件之间的"添加装饰元素"插入点来定位装饰元素。<br /> 您需要在"结构设计"标签页编辑这些控件。
                           </span>
-                          </div>
+                        </div>
                       </div>
 
                       <%= if Enum.empty?(@structure) do %>
                         <div style="text-align: center; padding: 1.5rem 0; background-color: #f9fafb; border: 1px dashed #d1d5db; border-radius: 0.375rem;">
                           <p style="font-size: 0.875rem; color: #6b7280;">表单中还没有控件</p>
-                          <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">请在"结构设计"标签页添加控件</p>
+                          <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">
+                            请在"结构设计"标签页添加控件
+                          </p>
                         </div>
                       <% else %>
                         <!-- 在表单最前面添加装饰元素的插入点 -->
                         <div class="insertion-point" style="padding: 0.5rem 0; text-align: center;">
-                          <button phx-click="show_decoration_selector" phx-value-position="start" class="insertion-button"
-                            style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                          <button
+                            phx-click="show_decoration_selector"
+                            phx-value-position="start"
+                            class="insertion-button"
+                            style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              style="width: 1rem; height: 1rem; margin-right: 0.375rem;"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 4v16m8-8H4"
+                              />
                             </svg>
                             <span>在表单开头添加装饰元素</span>
                           </button>
                         </div>
-
-                        <!-- 渲染开头位置的装饰元素 -->
+                        
+    <!-- 渲染开头位置的装饰元素 -->
                         <%= for element <- Enum.filter(@decoration, fn elem ->
                           position = Map.get(elem, "position") || Map.get(elem, :position)
                           position != nil && (position["type"] == "start" || position[:type] == "start")
                         end) do %>
-                          <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                          {render_decoration_editor_card(element, @editing_decoration_id)}
                         <% end %>
 
                         <%= for {item, _index} <- Enum.with_index(@structure) do %>
-                          <%
-                            elem_id = Map.get(item, "id", "unknown")
-                            # 优先从 @form_items 中查找数据库记录
-                            db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
+                          <% elem_id = Map.get(item, "id", "unknown")
+                          # 优先从 @form_items 中查找数据库记录
+                          db_item = Enum.find(@form_items, fn fi -> fi.id == elem_id end)
 
-                            # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
-                            form_item = if db_item do
+                          # 如果找到 db_item，则使用数据库数据，否则回退到 structure 数据
+                          form_item =
+                            if db_item do
                               # 使用来自数据库的 item 数据 (Map 形式以兼容 ItemRendererComponent)
                               %{
                                 id: db_item.id,
@@ -2591,6 +3415,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             else
                               # 回退：使用模板结构中的数据
                               elem_type_str = Map.get(item, "type", "text_input")
+
                               %{
                                 id: elem_id,
                                 type: safe_to_atom(elem_type_str),
@@ -2613,7 +3438,8 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                                 matrix_rows: Map.get(item, "matrix_rows"),
                                 matrix_columns: Map.get(item, "matrix_columns"),
                                 matrix_type: safe_matrix_type(Map.get(item, "matrix_type")),
-                                image_caption_position: safe_caption_position(Map.get(item, "image_caption_position")),
+                                image_caption_position:
+                                  safe_caption_position(Map.get(item, "image_caption_position")),
                                 selection_type: safe_selection_type(Map.get(item, "selection_type")),
                                 multiple_files: Map.get(item, "multiple_files"),
                                 max_files: Map.get(item, "max_files"),
@@ -2624,10 +3450,9 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                               }
                             end
 
-                            # 从构建好的 form_item 中获取显示所需的变量
-                            elem_type = to_string(form_item.type)
-                            elem_label = form_item.label
-                          %>
+                          # 从构建好的 form_item 中获取显示所需的变量
+                          elem_type = to_string(form_item.type)
+                          elem_label = form_item.label %>
                           <!-- 渲染"before"位置的装饰元素 -->
                           <%= for element <- Enum.filter(@decoration, fn elem ->
                             position = Map.get(elem, "position") || Map.get(elem, :position)
@@ -2636,30 +3461,36 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             (position["type"] == "before" || position[:type] == "before") &&
                             target_id == elem_id
                           end) do %>
-                            <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                            {render_decoration_editor_card(element, @editing_decoration_id)}
                           <% end %>
 
-                          <div id={"form-item-#{elem_id}"} class="p-3 border rounded bg-white shadow-sm form-card opacity-75">
+                          <div
+                            id={"form-item-#{elem_id}"}
+                            class="p-3 border rounded bg-white shadow-sm form-card opacity-75"
+                          >
                             <div class="flex justify-between items-center">
                               <div class="flex items-center">
                                 <span class="form-item-badge">表单项</span>
                                 <div>
-                                  <div class="font-medium"><%= elem_label %></div>
+                                  <div class="font-medium">{elem_label}</div>
                                   <div class="text-xs text-gray-500 mt-1">
-                                    控件类型: <%= display_selected_type(elem_type) %>
+                                    控件类型: {display_selected_type(elem_type)}
                                   </div>
                                 </div>
                               </div>
                               <div class="text-xs text-gray-400 italic">只读</div>
                             </div>
-
-                            <!-- 预览区域 -->
+                            
+    <!-- 预览区域 -->
                             <div class="mt-3 border-t pt-3">
-                              <MyAppWeb.FormLive.ItemRendererComponent.render_item item={form_item} mode={:edit_preview} />
+                              <MyAppWeb.FormLive.ItemRendererComponent.render_item
+                                item={form_item}
+                                mode={:edit_preview}
+                              />
                             </div>
                           </div>
-
-                          <!-- 渲染"after"位置的装饰元素 -->
+                          
+    <!-- 渲染"after"位置的装饰元素 -->
                           <%= for element <- Enum.filter(@decoration, fn elem ->
                             position = Map.get(elem, "position") || Map.get(elem, :position)
                             target_id = if position, do: position["target_id"] || position[:target_id], else: nil
@@ -2667,15 +3498,31 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                             (position["type"] == "after" || position[:type] == "after") &&
                             target_id == elem_id
                           end) do %>
-                            <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                            {render_decoration_editor_card(element, @editing_decoration_id)}
                           <% end %>
-
-                          <!-- 在控件后面添加装饰元素的插入点 -->
+                          
+    <!-- 在控件后面添加装饰元素的插入点 -->
                           <div class="insertion-point" style="padding: 0.5rem 0; text-align: center;">
-                            <button phx-click="show_decoration_selector" phx-value-position="after" phx-value-target_id={elem_id} class="insertion-button"
-                              style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            <button
+                              phx-click="show_decoration_selector"
+                              phx-value-position="after"
+                              phx-value-target_id={elem_id}
+                              class="insertion-button"
+                              style="display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                style="width: 1rem; height: 1rem; margin-right: 0.375rem;"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M12 4v16m8-8H4"
+                                />
                               </svg>
                               <span>在此处添加装饰元素</span>
                             </button>
@@ -2683,21 +3530,36 @@ defmodule MyAppWeb.FormTemplateEditorLive do
                         <% end %>
                       <% end %>
                     </div>
-
-                    <!-- 渲染"end"位置的装饰元素 -->
+                    
+    <!-- 渲染"end"位置的装饰元素 -->
                     <%= for element <- Enum.filter(@decoration, fn elem ->
                       position = Map.get(elem, "position") || Map.get(elem, :position)
                       position != nil && (position["type"] == "end" || position[:type] == "end")
                     end) do %>
-                      <%= render_decoration_editor_card(element, @editing_decoration_id) %>
+                      {render_decoration_editor_card(element, @editing_decoration_id)}
                     <% end %>
-
-                    <!-- 表单的最后添加一个可以添加元素的按钮 -->
+                    
+    <!-- 表单的最后添加一个可以添加元素的按钮 -->
                     <div class="insertion-point mt-8" style="padding: 0.5rem 0; text-align: center;">
-                      <button phx-click="show_decoration_selector" phx-value-position="end" class="insertion-button"
-                        style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 1rem; height: 1rem; margin-right: 0.375rem;">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      <button
+                        phx-click="show_decoration_selector"
+                        phx-value-position="end"
+                        class="insertion-button"
+                        style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; border: 1px dashed #d1d5db; border-radius: 0.375rem; background-color: #f9fafb; color: #6b7280; font-size: 0.875rem; cursor: pointer; transition: all 0.2s ease;"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          style="width: 1rem; height: 1rem; margin-right: 0.375rem;"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 4v16m8-8H4"
+                          />
                         </svg>
                         <span>在表单末尾添加装饰元素</span>
                       </button>
@@ -2720,6 +3582,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       ArgumentError -> :text_input
     end
   end
+
   defp safe_to_atom(_), do: :text_input
 
   # 安全处理matrix_type值
@@ -2744,22 +3607,25 @@ defmodule MyAppWeb.FormTemplateEditorLive do
   # 根据新的顺序重排结构项
   defp reorder_structure_items(structure, ordered_ids) do
     # 创建一个ID到结构项的映射
-    id_to_item_map = Enum.reduce(structure, %{}, fn item, acc ->
-      item_id = Map.get(item, "id")
-      if item_id, do: Map.put(acc, item_id, item), else: acc
-    end)
+    id_to_item_map =
+      Enum.reduce(structure, %{}, fn item, acc ->
+        item_id = Map.get(item, "id")
+        if item_id, do: Map.put(acc, item_id, item), else: acc
+      end)
 
     # 按新顺序重组结构项
-    reordered_items = Enum.map(ordered_ids, fn id ->
-      Map.get(id_to_item_map, id)
-    end)
-    |> Enum.filter(&(&1 != nil))
+    reordered_items =
+      Enum.map(ordered_ids, fn id ->
+        Map.get(id_to_item_map, id)
+      end)
+      |> Enum.filter(&(&1 != nil))
 
     # 处理可能不在ordered_ids中的项（尽管这种情况应该不会发生）
-    missing_items = Enum.filter(structure, fn item ->
-      item_id = Map.get(item, "id")
-      item_id && !Enum.member?(ordered_ids, item_id)
-    end)
+    missing_items =
+      Enum.filter(structure, fn item ->
+        item_id = Map.get(item, "id")
+        item_id && !Enum.member?(ordered_ids, item_id)
+      end)
 
     # 合并重排序的项和缺失的项
     reordered_items ++ missing_items
@@ -2797,39 +3663,44 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   # 添加一个辅助函数，用于渲染装饰元素编辑卡片
   defp render_decoration_editor_card(element, editing_decoration_id) do
-                            elem_id = element["id"] || element[:id]
-                            elem_type = element["type"] || element[:type]
-                            elem_title = case elem_type do
-                              "title" -> element["title"] || element[:title] || "未命名标题"
-                              "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
-                              "section" -> element["title"] || element[:title] || "章节分隔"
-                              "explanation" -> element["content"] || element[:content] || "解释框"
-                              "header_image" -> "题图"
-                              "inline_image" -> element["caption"] || element[:caption] || "插图"
-                              "spacer" -> "空间"
-                              _ -> "未知元素"
-                            end
+    elem_id = element["id"] || element[:id]
+    elem_type = element["type"] || element[:type]
+
+    elem_title =
+      case elem_type do
+        "title" -> element["title"] || element[:title] || "未命名标题"
+        "paragraph" -> truncate(element["content"] || element[:content] || "", 30)
+        "section" -> element["title"] || element[:title] || "章节分隔"
+        "explanation" -> element["content"] || element[:content] || "解释框"
+        "header_image" -> "题图"
+        "inline_image" -> element["caption"] || element[:caption] || "插图"
+        "spacer" -> "空间"
+        _ -> "未知元素"
+      end
 
     # 判断装饰元素位置类型
     position = element["position"] || element[:position]
-    position_text = if position do
-      case position["type"] || position[:type] do
-        "start" -> "开头装饰"
-        "end" -> "结尾装饰"
-        "before" -> "前置装饰"
-        "after" -> "后置装饰"
-        _ -> "装饰元素"
+
+    position_text =
+      if position do
+        case position["type"] || position[:type] do
+          "start" -> "开头装饰"
+          "end" -> "结尾装饰"
+          "before" -> "前置装饰"
+          "after" -> "后置装饰"
+          _ -> "装饰元素"
+        end
+      else
+        "装饰元素"
       end
-    else
-      "装饰元素"
-    end
 
     # 位置提示类名
-    position_class = cond do
-      elem_type in ["header_image", "title"] -> "bg-indigo-50 border-indigo-200"
-      elem_type in ["section", "paragraph", "explanation"] -> "bg-amber-50 border-amber-200"
-      true -> "bg-emerald-50 border-emerald-200"
-    end
+    position_class =
+      cond do
+        elem_type in ["header_image", "title"] -> "bg-indigo-50 border-indigo-200"
+        elem_type in ["section", "paragraph", "explanation"] -> "bg-amber-50 border-amber-200"
+        true -> "bg-emerald-50 border-emerald-200"
+      end
 
     assigns = %{
       elem_id: elem_id,
@@ -2846,65 +3717,74 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       id={"decoration-#{@elem_id}"}
       data-id={@elem_id}
       class={"p-3 mb-3 border rounded shadow-sm decoration-card #{@position_class}"}
-                          >
-                            <div class="flex justify-between items-center">
-                              <div class="flex items-center">
-          <span class="decoration-badge"><%= @position_text %></span>
-                                <div>
-                                  <div class="flex items-center">
-              <span class="font-medium text-gray-700"><%= @elem_title %></span>
-                                  </div>
-                                  <div class="text-xs text-gray-500 mt-1">
-              元素类型: <%= display_decoration_type(@elem_type) %>
-                                  </div>
-                                </div>
-                              </div>
+    >
+      <div class="flex justify-between items-center">
+        <div class="flex items-center">
+          <span class="decoration-badge">{@position_text}</span>
+          <div>
+            <div class="flex items-center">
+              <span class="font-medium text-gray-700">{@elem_title}</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">
+              元素类型: {display_decoration_type(@elem_type)}
+            </div>
+          </div>
+        </div>
 
-                              <div class="flex gap-2">
-                                <button
-                                  type="button"
-                                  phx-click="edit_decoration_element"
+        <div class="flex gap-2">
+          <button
+            type="button"
+            phx-click="edit_decoration_element"
             phx-value-id={@elem_id}
             class="px-2 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded bg-blue-50 hover:bg-blue-100"
-                                >
-                                  编辑
-                                </button>
-                                <button
-                                  type="button"
-                                  phx-click="delete_decoration_element"
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            phx-click="delete_decoration_element"
             phx-value-id={@elem_id}
             class="px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded bg-red-50 hover:bg-red-100"
-                                >
-                                  删除
-                                </button>
-                              </div>
-                            </div>
-
-                            <!-- 预览区域 -->
-                            <div class="mt-3 border-t pt-3">
-        <%= render_decoration_preview(@element) %>
-                            </div>
-
-                            <!-- 编辑面板 - 仅在选中时显示 -->
+          >
+            删除
+          </button>
+        </div>
+      </div>
+      
+    <!-- 预览区域 -->
+      <div class="mt-3 border-t pt-3">
+        {render_decoration_preview(@element)}
+      </div>
+      
+    <!-- 编辑面板 - 仅在选中时显示 -->
       <%= if @editing_decoration_id == @elem_id do %>
-                              <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
-                                <div class="flex justify-between items-center mb-3">
-                                  <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
-                                  <button
-                                    type="button"
-                                    phx-click="close_decoration_editor"
-                                    class="text-gray-500 hover:text-gray-800"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
-                                  </button>
-                                </div>
+        <div class="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-medium text-blue-800">编辑装饰元素</h3>
+            <button
+              type="button"
+              phx-click="close_decoration_editor"
+              class="text-gray-500 hover:text-gray-800"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
 
-          <%= render_decoration_editor(@element) %>
-                              </div>
-                            <% end %>
-                          </div>
+          {render_decoration_editor(@element)}
+        </div>
+      <% end %>
+    </div>
     """
   end
 
@@ -2916,6 +3796,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
       text
     end
   end
+
   defp truncate(_, _), do: ""
 
   # 根据表单项类型渲染适当的条件值输入控件
@@ -2924,29 +3805,38 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
     # 1. Safely extract needed data from form_item_data (struct or map)
 
-    item_type = case form_item_data do
-                  %MyApp.Forms.FormItem{type: type} -> type
-                  %{type: type} -> type # Assumes atom type in map
-                  _ -> nil
-                end
+    item_type =
+      case form_item_data do
+        %MyApp.Forms.FormItem{type: type} -> type
+        # Assumes atom type in map
+        %{type: type} -> type
+        _ -> nil
+      end
 
     # Get options safely, handling both struct and map, ensuring it's a list
-    options = case form_item_data do
-                %MyApp.Forms.FormItem{options: opts} when is_list(opts) -> opts # Already ItemOption structs
-                %{options: opts} when is_list(opts) -> opts # Assumes list of ItemOption structs/maps from fallback
-                _ -> []
-              end
+    options =
+      case form_item_data do
+        # Already ItemOption structs
+        %MyApp.Forms.FormItem{options: opts} when is_list(opts) -> opts
+        # Assumes list of ItemOption structs/maps from fallback
+        %{options: opts} when is_list(opts) -> opts
+        _ -> []
+      end
 
-    max_rating = case form_item_data do
-                   %MyApp.Forms.FormItem{max_rating: rating} -> rating
-                   %{max_rating: rating} -> rating # Assumes atom key :max_rating
-                   _ -> 5 # Default
-                 end
+    max_rating =
+      case form_item_data do
+        %MyApp.Forms.FormItem{max_rating: rating} -> rating
+        # Assumes atom key :max_rating
+        %{max_rating: rating} -> rating
+        # Default
+        _ -> 5
+      end
 
     # Check if we could determine the item type
     if is_nil(item_type) do
       # Render disabled text input if type couldn't be determined or item data was bad
       assigns = %{current_value: get_in(logic_condition || %{}, ["value"])}
+
       ~H"""
       <input
         type="text"
@@ -2965,6 +3855,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         # 选择题类型 (单选、多选、下拉菜单)
         item_type in [:radio, :checkbox, :dropdown] ->
           assigns = %{current_value: current_value, options: options}
+
           ~H"""
           <select
             name="logic[condition_value]"
@@ -2972,11 +3863,11 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           >
             <option value="">-- 请选择选项 --</option>
             <%= for option <- @options do %>
-              <%# Access fields safely for struct or map %>
+              
               <% opt_value = option.value || Map.get(option, :value) %>
               <% opt_label = option.label || Map.get(option, :label) %>
-              <option value={opt_value} selected={@current_value == opt_value}><%= opt_label %></option>
-                        <% end %>
+              <option value={opt_value} selected={@current_value == opt_value}>{opt_label}</option>
+            <% end %>
           </select>
           """
 
@@ -2984,6 +3875,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         item_type == :rating ->
           local_max_rating = max_rating || 5
           assigns = %{max_rating: local_max_rating, current_value: current_value}
+
           ~H"""
           <select
             name="logic[condition_value]"
@@ -2991,7 +3883,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
           >
             <option value="">-- 请选择评分 --</option>
             <%= for rating <- 1..@max_rating do %>
-              <option value={Integer.to_string(rating)} selected={@current_value == Integer.to_string(rating)}><%= rating %> 分</option>
+              <option
+                value={Integer.to_string(rating)}
+                selected={@current_value == Integer.to_string(rating)}
+              >
+                {rating} 分
+              </option>
             <% end %>
           </select>
           """
@@ -2999,6 +3896,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         # 日期选择
         item_type == :date ->
           assigns = %{current_value: current_value}
+
           ~H"""
           <input
             type="date"
@@ -3012,6 +3910,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         # 时间选择
         item_type == :time ->
           assigns = %{current_value: current_value}
+
           ~H"""
           <input
             type="time"
@@ -3025,6 +3924,7 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         # 默认使用文本输入框
         true ->
           assigns = %{current_value: current_value}
+
           ~H"""
           <input
             type="text"
@@ -3049,25 +3949,31 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         align = element["align"] || element[:align] || "left"
 
         assigns = %{title: title, level: level, align: align}
+
         ~H"""
         <div style={"text-align: #{@align};"}>
           <%= case @level do %>
-            <% 1 -> %><h1 style="font-size: 1.5rem; font-weight: 700;"><%= @title %></h1>
-            <% 2 -> %><h2 style="font-size: 1.25rem; font-weight: 600;"><%= @title %></h2>
-            <% 3 -> %><h3 style="font-size: 1.125rem; font-weight: 500;"><%= @title %></h3>
-            <% _ -> %><h4 style="font-size: 1rem; font-weight: 500;"><%= @title %></h4>
-                      <% end %>
-                    </div>
+            <% 1 -> %>
+              <h1 style="font-size: 1.5rem; font-weight: 700;">{@title}</h1>
+            <% 2 -> %>
+              <h2 style="font-size: 1.25rem; font-weight: 600;">{@title}</h2>
+            <% 3 -> %>
+              <h3 style="font-size: 1.125rem; font-weight: 500;">{@title}</h3>
+            <% _ -> %>
+              <h4 style="font-size: 1rem; font-weight: 500;">{@title}</h4>
+          <% end %>
+        </div>
         """
 
       "paragraph" ->
         content = element["content"] || element[:content] || ""
 
         assigns = %{content: content}
+
         ~H"""
         <div class="text-gray-700">
-          <%= Phoenix.HTML.raw(@content) %>
-                  </div>
+          {Phoenix.HTML.raw(@content)}
+        </div>
         """
 
       "section" ->
@@ -3075,46 +3981,60 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         divider_style = element["divider_style"] || element[:divider_style] || "solid"
 
         assigns = %{title: title, divider_style: divider_style}
+
         ~H"""
         <div>
           <hr style={"border-style: #{@divider_style}; border-color: #e5e7eb;"} />
           <%= if @title do %>
-            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;"><%= @title %></h3>
+            <h3 style="font-size: 1.125rem; font-weight: 500; margin-top: 0.5rem;">{@title}</h3>
           <% end %>
-                </div>
+        </div>
         """
 
       "explanation" ->
         content = element["content"] || element[:content] || ""
         type = element["note_type"] || element[:note_type] || "info"
 
-        bg_color = case type do
-          "warning" -> "#fff7ed"
-          "tip" -> "#f0fdf4"
-          _ -> "#f0f9ff"  # info 默认
-        end
+        bg_color =
+          case type do
+            "warning" -> "#fff7ed"
+            "tip" -> "#f0fdf4"
+            # info 默认
+            _ -> "#f0f9ff"
+          end
 
-        border_color = case type do
-          "warning" -> "#fdba74"
-          "tip" -> "#86efac"
-          _ -> "#bae6fd"  # info 默认
-        end
+        border_color =
+          case type do
+            "warning" -> "#fdba74"
+            "tip" -> "#86efac"
+            # info 默认
+            _ -> "#bae6fd"
+          end
 
-        icon = case type do
-          "warning" -> "⚠️"
-          "tip" -> "💡"
-          _ -> "ℹ️"  # info 默认
-        end
+        icon =
+          case type do
+            "warning" -> "⚠️"
+            "tip" -> "💡"
+            # info 默认
+            _ -> "ℹ️"
+          end
 
-        assigns = %{content: content, bg_color: bg_color, border_color: border_color, icon: icon, type: type}
+        assigns = %{
+          content: content,
+          bg_color: bg_color,
+          border_color: border_color,
+          icon: icon,
+          type: type
+        }
+
         ~H"""
         <div style={"background-color: #{@bg_color}; border-left: 4px solid #{@border_color}; padding: 1rem; border-radius: 0.25rem;"}>
           <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-            <div style="font-size: 1.25rem; line-height: 1.25;"><%= @icon %></div>
+            <div style="font-size: 1.25rem; line-height: 1.25;">{@icon}</div>
             <div>
-              <div style="font-weight: 500; margin-bottom: 0.25rem;"><%= String.capitalize(@type) %></div>
+              <div style="font-weight: 500; margin-bottom: 0.25rem;">{String.capitalize(@type)}</div>
               <div class="text-gray-700">
-                <%= Phoenix.HTML.raw(@content) %>
+                {Phoenix.HTML.raw(@content)}
               </div>
             </div>
           </div>
@@ -3126,14 +4046,19 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         height = element["height"] || element[:height] || "300px"
 
         assigns = %{image_url: image_url, height: height}
+
         ~H"""
         <div>
           <%= if @image_url != "" do %>
-            <img src={@image_url} alt="题图" style={"height: #{@height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"} />
+            <img
+              src={@image_url}
+              alt="题图"
+              style={"height: #{@height}; width: 100%; object-fit: cover; border-radius: 0.25rem;"}
+            />
           <% else %>
             <div style={"height: #{@height}; width: 100%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
               <span class="text-gray-400">请设置图片URL</span>
-              </div>
+            </div>
           <% end %>
         </div>
         """
@@ -3145,31 +4070,38 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         align = element["align"] || element[:align] || "center"
 
         assigns = %{image_url: image_url, caption: caption, width: width, align: align}
+
         ~H"""
         <div style={"text-align: #{@align};"}>
           <%= if @image_url != "" do %>
-            <img src={@image_url} alt={@caption} style={"width: #{@width}; max-width: 100%; border-radius: 0.25rem;"} />
+            <img
+              src={@image_url}
+              alt={@caption}
+              style={"width: #{@width}; max-width: 100%; border-radius: 0.25rem;"}
+            />
           <% else %>
             <div style={"width: #{@width}; max-width: 100%; margin: 0 auto; height: 150px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; border-radius: 0.25rem;"}>
               <span class="text-gray-400">请设置图片URL</span>
-      </div>
+            </div>
           <% end %>
           <%= if @caption != "" do %>
-            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;"><%= @caption %></div>
+            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">{@caption}</div>
           <% end %>
-    </div>
-    """
+        </div>
+        """
 
       "spacer" ->
         height = element["height"] || element[:height] || "1rem"
 
         assigns = %{height: height}
+
         ~H"""
         <div style={"height: #{@height};"} class="spacer"></div>
         """
 
       _ ->
         assigns = %{}
+
         ~H"""
         <div class="text-gray-500">未知元素类型</div>
         """
@@ -3188,17 +4120,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         align = element["align"] || element[:align] || "left"
 
         assigns = %{id: id, title: title, level: level, align: align}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">标题文本</label>
-              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="title"
+                value={@title}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">标题级别</label>
-              <select name="level" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <select
+                name="level"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
                 <option value="1" selected={@level == 1}>大标题 (H1)</option>
                 <option value="2" selected={@level == 2}>中标题 (H2)</option>
                 <option value="3" selected={@level == 3}>小标题 (H3)</option>
@@ -3208,7 +4149,10 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
-              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <select
+                name="align"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
                 <option value="left" selected={@align == "left"}>左对齐</option>
                 <option value="center" selected={@align == "center"}>居中</option>
                 <option value="right" selected={@align == "right"}>右对齐</option>
@@ -3238,12 +4182,17 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         content = element["content"] || element[:content] || ""
 
         assigns = %{id: id, content: content}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">段落内容</label>
-              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <textarea
+                name="content"
+                rows="4"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >{@content}</textarea>
               <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
             </div>
 
@@ -3271,17 +4220,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         divider_style = element["divider_style"] || element[:divider_style] || "solid"
 
         assigns = %{id: id, title: title, divider_style: divider_style}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">章节标题（可选）</label>
-              <input type="text" name="title" value={@title} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="title"
+                value={@title}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">分隔线样式</label>
-              <select name="divider_style" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <select
+                name="divider_style"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
                 <option value="solid" selected={@divider_style == "solid"}>实线</option>
                 <option value="dashed" selected={@divider_style == "dashed"}>虚线</option>
                 <option value="dotted" selected={@divider_style == "dotted"}>点线</option>
@@ -3313,18 +4271,26 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         note_type = element["note_type"] || element[:note_type] || "info"
 
         assigns = %{id: id, content: content, note_type: note_type}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">说明内容</label>
-              <textarea name="content" rows="4" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{@content}</textarea>
+              <textarea
+                name="content"
+                rows="4"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >{@content}</textarea>
               <p class="mt-1 text-xs text-gray-500">支持基本的HTML标签</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">提示类型</label>
-              <select name="note_type" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <select
+                name="note_type"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
                 <option value="info" selected={@note_type == "info"}>信息 (蓝色)</option>
                 <option value="tip" selected={@note_type == "tip"}>提示 (绿色)</option>
                 <option value="warning" selected={@note_type == "warning"}>警告 (黄色)</option>
@@ -3355,18 +4321,29 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         height = element["height"] || element[:height] || "300px"
 
         assigns = %{id: id, image_url: image_url, height: height}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
-              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="image_url"
+                value={@image_url}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
               <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">高度</label>
-              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="height"
+                value={@height}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
               <p class="mt-1 text-xs text-gray-500">例如: 300px, 20rem 或 50vh</p>
             </div>
 
@@ -3396,29 +4373,48 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         align = element["align"] || element[:align] || "center"
 
         assigns = %{id: id, image_url: image_url, caption: caption, width: width, align: align}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">图片URL</label>
-              <input type="text" name="image_url" value={@image_url} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="image_url"
+                value={@image_url}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
               <p class="mt-1 text-xs text-gray-500">输入完整的图片URL地址</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">图片说明</label>
-              <input type="text" name="caption" value={@caption} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="caption"
+                value={@caption}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">图片宽度</label>
-              <input type="text" name="width" value={@width} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="width"
+                value={@width}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
               <p class="mt-1 text-xs text-gray-500">例如: 50%, 300px</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">对齐方式</label>
-              <select name="align" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <select
+                name="align"
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              >
                 <option value="left" selected={@align == "left"}>左对齐</option>
                 <option value="center" selected={@align == "center"}>居中</option>
                 <option value="right" selected={@align == "right"}>右对齐</option>
@@ -3448,12 +4444,18 @@ defmodule MyAppWeb.FormTemplateEditorLive do
         height = element["height"] || element[:height] || "1rem"
 
         assigns = %{id: id, height: height}
+
         ~H"""
         <form phx-submit="save_decoration_element" phx-value-id={@id}>
           <div class="space-y-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">空间高度</label>
-              <input type="text" name="height" value={@height} class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+              <input
+                type="text"
+                name="height"
+                value={@height}
+                class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
               <p class="mt-1 text-xs text-gray-500">例如: 1rem, 20px, 2em</p>
             </div>
 
@@ -3478,13 +4480,12 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
       _ ->
         assigns = %{}
+
         ~H"""
         <div class="text-gray-500">无法编辑未知类型的元素</div>
         """
     end
   end
-
-
 
   # 确保所有键都是字符串
 
@@ -3492,57 +4493,67 @@ defmodule MyAppWeb.FormTemplateEditorLive do
 
   # 处理required字段的值
 
-
   # 这个函数现在只用于回退情况，确保返回 Map 列表以兼容 ItemRendererComponent
   defp format_options_for_component(options) when is_list(options) do
+    result =
+      Enum.map(options, fn option ->
+        formatted =
+          cond do
+            # 处理Map类型的选项 (来自template structure)
+            is_map(option) ->
+              id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
+              value = Map.get(option, "value") || Map.get(option, :value) || ""
+              label = Map.get(option, "label") || Map.get(option, :label) || value || ""
 
-    result = Enum.map(options, fn option ->
+              image_filename =
+                Map.get(option, "image_filename") || Map.get(option, :image_filename)
 
-      formatted = cond do
-        # 处理Map类型的选项 (来自template structure)
-        is_map(option) ->
-          id = Map.get(option, "id") || Map.get(option, :id) || Ecto.UUID.generate()
-          value = Map.get(option, "value") || Map.get(option, :value) || ""
-          label = Map.get(option, "label") || Map.get(option, :label) || value || ""
-          image_filename = Map.get(option, "image_filename") || Map.get(option, :image_filename)
+              # 返回 ItemOption 结构体
+              %MyApp.Forms.ItemOption{
+                id: id,
+                value: value,
+                label: label,
+                image_filename: image_filename,
+                # 确保其他必须字段有默认值，虽然 ItemRendererComponent 可能不直接用
+                order: Map.get(option, "order", 0),
+                # 回退时无法确定
+                form_item_id: nil,
+                image_id: Map.get(option, "image_id")
+              }
 
-          %MyApp.Forms.ItemOption{ # 返回 ItemOption 结构体
-            id: id,
-            value: value,
-            label: label,
-            image_filename: image_filename,
-             # 确保其他必须字段有默认值，虽然 ItemRendererComponent 可能不直接用
-            order: Map.get(option, "order", 0),
-            form_item_id: nil, # 回退时无法确定
-            image_id: Map.get(option, "image_id")
-          }
+            # 处理字符串类型的选项 (来自template structure)
+            is_binary(option) ->
+              %MyApp.Forms.ItemOption{
+                id: Ecto.UUID.generate(),
+                value: option,
+                label: option,
+                order: 0,
+                form_item_id: nil,
+                image_filename: nil,
+                image_id: nil
+              }
 
-        # 处理字符串类型的选项 (来自template structure)
-        is_binary(option) ->
-           %MyApp.Forms.ItemOption{
-             id: Ecto.UUID.generate(),
-             value: option,
-             label: option,
-             order: 0,
-             form_item_id: nil,
-             image_filename: nil,
-             image_id: nil
-           }
+            # 其他无法处理的类型
+            true ->
+              Logger.warning(
+                "Unsupported option format encountered in format_options_for_component: #{inspect(option)}"
+              )
 
-        # 其他无法处理的类型
-        true ->
-          Logger.warning("Unsupported option format encountered in format_options_for_component: #{inspect(option)}")
-          nil
-      end
+              nil
+          end
 
-      formatted
-    end)
-    |> Enum.filter(&(&1 != nil)) # 过滤掉处理失败的选项
+        formatted
+      end)
+      # 过滤掉处理失败的选项
+      |> Enum.filter(&(&1 != nil))
 
     result
   end
-  defp format_options_for_component(nil), do: [] # 确保 nil 返回空列表
-  defp format_options_for_component(_), do: [] # 确保其他类型返回空列表
+
+  # 确保 nil 返回空列表
+  defp format_options_for_component(nil), do: []
+  # 确保其他类型返回空列表
+  defp format_options_for_component(_), do: []
 
   @impl true
   def handle_info({:clear_notification, _component_id}, socket) do
@@ -3560,5 +4571,4 @@ defmodule MyAppWeb.FormTemplateEditorLive do
      |> assign(:notification_type, nil)
      |> assign(:notification_timer, nil)}
   end
-
 end

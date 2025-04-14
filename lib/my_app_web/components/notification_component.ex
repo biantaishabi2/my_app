@@ -39,11 +39,12 @@ defmodule MyAppWeb.NotificationComponent do
     end
 
     # 使用send_update发送消息到组件自身
-    timer_ref = Process.send_after(
-      self(),
-      :clear_notification,
-      timeout
-    )
+    timer_ref =
+      Process.send_after(
+        self(),
+        :clear_notification,
+        timeout
+      )
 
     socket
     |> assign(:notification, message)
@@ -102,18 +103,24 @@ defmodule MyAppWeb.NotificationComponent do
           style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 80%; max-width: 600px; cursor: pointer;"
         >
           <%= if @notification_type == :info do %>
-            <div style="background-color: #d1fae5; border-left: 4px solid #10b981; color: #065f46; padding: 16px; margin-bottom: 16px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);" role="alert">
+            <div
+              style="background-color: #d1fae5; border-left: 4px solid #10b981; color: #065f46; padding: 16px; margin-bottom: 16px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
+              role="alert"
+            >
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <p style="margin: 0; font-weight: 500;"><%= @notification %></p>
+                <p style="margin: 0; font-weight: 500;">{@notification}</p>
                 <span style="font-size: 18px; font-weight: bold;">×</span>
               </div>
             </div>
           <% end %>
 
           <%= if @notification_type == :error do %>
-            <div style="background-color: #fee2e2; border-left: 4px solid #ef4444; color: #7f1d1d; padding: 16px; margin-bottom: 16px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);" role="alert">
+            <div
+              style="background-color: #fee2e2; border-left: 4px solid #ef4444; color: #7f1d1d; padding: 16px; margin-bottom: 16px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"
+              role="alert"
+            >
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <p style="margin: 0; font-weight: 500;"><%= @notification %></p>
+                <p style="margin: 0; font-weight: 500;">{@notification}</p>
                 <span style="font-size: 18px; font-weight: bold;">×</span>
               </div>
             </div>

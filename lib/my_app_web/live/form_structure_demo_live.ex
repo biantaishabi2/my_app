@@ -122,7 +122,6 @@ defmodule MyAppWeb.FormStructureDemoLive do
     ~H"""
     <.flash_group flash={@flash} />
     <div class="container mx-auto p-6">
-      
       <h1 class="text-2xl font-bold mb-4">模板结构拖放 Demo (来自 JSON)</h1>
 
       <div

@@ -10,6 +10,7 @@ defmodule MyAppWeb.FormLive.Statistics do
     case Forms.get_form(form_id) do
       nil ->
         {:ok, socket |> put_flash(:error, "表单不存在") |> redirect(to: ~p"/forms")}
+
       form ->
         # 获取表单的回答者属性设置
         respondent_attributes = form.respondent_attributes || []
@@ -33,12 +34,16 @@ defmodule MyAppWeb.FormLive.Statistics do
     form_id = socket.assigns.form_id
 
     # 查找属性标签
-    attribute = Enum.find(socket.assigns.respondent_attributes, fn attr ->
-      attr_id = Map.get(attr, :id) || Map.get(attr, "id")
-      attr_id == attribute_id
-    end)
+    attribute =
+      Enum.find(socket.assigns.respondent_attributes, fn attr ->
+        attr_id = Map.get(attr, :id) || Map.get(attr, "id")
+        attr_id == attribute_id
+      end)
 
-    attribute_label = if attribute, do: Map.get(attribute, :label) || Map.get(attribute, "label"), else: attribute_id
+    attribute_label =
+      if attribute,
+        do: Map.get(attribute, :label) || Map.get(attribute, "label"),
+        else: attribute_id
 
     # 标记加载状态
     socket = assign(socket, :loading, true)
@@ -46,7 +51,8 @@ defmodule MyAppWeb.FormLive.Statistics do
     # 获取分组统计数据
     case GroupedStatistics.get_grouped_statistics(form_id, attribute_id) do
       {:ok, stats} ->
-        has_no_responses = Enum.empty?(stats) || Enum.all?(stats, fn group -> group.count == 0 end)
+        has_no_responses =
+          Enum.empty?(stats) || Enum.all?(stats, fn group -> group.count == 0 end)
 
         {:noreply,
          socket
@@ -55,6 +61,7 @@ defmodule MyAppWeb.FormLive.Statistics do
          |> assign(:selected_attribute_label, attribute_label)
          |> assign(:grouped_statistics, stats)
          |> assign(:has_no_responses, has_no_responses)}
+
       {:error, reason} ->
         {:noreply,
          socket
@@ -74,9 +81,10 @@ defmodule MyAppWeb.FormLive.Statistics do
          socket
          |> put_flash(:info, "导出成功")
          |> push_event("download", %{
-              filename: "grouped_statistics_#{form_id}_by_#{attribute_id}.csv",
-              content: csv_data
-            })}
+           filename: "grouped_statistics_#{form_id}_by_#{attribute_id}.csv",
+           content: csv_data
+         })}
+
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "导出失败: #{reason}")}
     end

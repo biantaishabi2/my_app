@@ -585,7 +585,6 @@
           </div>
           <div class="conversation-list">
             <%= for conv <- @conversations do %>
-              
               <%= if conv.id == :new do %>
                 <div class="conversation active">
                   <!-- Keep it visually selected, but non-clickable? -->
@@ -911,7 +910,6 @@
           >
             <%= if @current_conversation do %>
               <%= for {message, _idx} <- Enum.with_index(@messages) do %>
-                
                 <div
                   id={"message-#{message.id}"}
                   class={

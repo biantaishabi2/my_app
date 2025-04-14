@@ -30,26 +30,34 @@ defmodule MyAppWeb.FormLive.Submit do
     form_template = FormTemplateRenderer.load_form_template(form)
 
     # --- 新增：在 mount 时就将模板逻辑合并到 form_items ---
-    form_items_with_logic = if form_template && form_template.structure do
-      template_structure = form_template.structure || []
-      Enum.map(form_items, fn item ->
-        template_item = Enum.find(template_structure, fn struct_item ->
-          template_id = struct_item["id"] || struct_item[:id]
-          to_string(template_id) == to_string(item.id)
-        end)
+    form_items_with_logic =
+      if form_template && form_template.structure do
+        template_structure = form_template.structure || []
 
-        if template_item && (Map.has_key?(template_item, "logic") || Map.has_key?(template_item, :logic)) do
-          logic = template_item["logic"] || template_item[:logic]
-          Logger.info("[Mount] Attaching logic to item #{item.id}: #{inspect(logic)}")
-          Map.put(item, :logic, logic) # Add logic to the item struct
-        else
-          item # Return item as is if no logic found
-        end
-      end)
-    else
-      Logger.info("[Mount] No form template or structure found, using raw form items.")
-      form_items # No template, use raw items
-    end
+        Enum.map(form_items, fn item ->
+          template_item =
+            Enum.find(template_structure, fn struct_item ->
+              template_id = struct_item["id"] || struct_item[:id]
+              to_string(template_id) == to_string(item.id)
+            end)
+
+          if template_item &&
+               (Map.has_key?(template_item, "logic") || Map.has_key?(template_item, :logic)) do
+            logic = template_item["logic"] || template_item[:logic]
+            Logger.info("[Mount] Attaching logic to item #{item.id}: #{inspect(logic)}")
+            # Add logic to the item struct
+            Map.put(item, :logic, logic)
+          else
+            # Return item as is if no logic found
+            item
+          end
+        end)
+      else
+        Logger.info("[Mount] No form template or structure found, using raw form items.")
+        # No template, use raw items
+        form_items
+      end
+
     # --- 结束新增逻辑 ---
 
     Logger.info(
@@ -92,11 +100,13 @@ defmodule MyAppWeb.FormLive.Submit do
     # 获取当前页面的表单项（第一页或默认所有项目）
     current_page = List.first(form.pages || [])
     # 使用带有逻辑的 items 来获取页面项
-    page_items = get_page_items(%{form | items: form_items_with_logic}, current_page) # Pass modified items
+    # Pass modified items
+    page_items = get_page_items(%{form | items: form_items_with_logic}, current_page)
     current_page_idx = 0
 
     # 构建表单项映射，便于后续验证和查询 - 使用带有逻辑的 items
-    items_map = build_items_map(form_items_with_logic) # Build map from items with logic
+    # Build map from items with logic
+    items_map = build_items_map(form_items_with_logic)
 
     # 初始化基本 assigns
     socket =
@@ -107,22 +117,28 @@ defmodule MyAppWeb.FormLive.Submit do
         pages_status: initialize_pages_status(form.pages || []),
         form: form,
         form_template: form_template,
-        form_items: form_items_with_logic, # <--- Assign items WITH logic here
-        page_items: page_items, # Page items derived from items with logic
+        # <--- Assign items WITH logic here
+        form_items: form_items_with_logic,
+        # Page items derived from items with logic
+        page_items: page_items,
         form_data: %{},
         form_state: %{},
         upload_names: upload_names,
-        items_map: items_map, # Map built from items with logic
-        form_updated_at: System.system_time(:millisecond), # 添加时间戳用于强制视图更新
+        # Map built from items with logic
+        items_map: items_map,
+        # 添加时间戳用于强制视图更新
+        form_updated_at: System.system_time(:millisecond),
         changeset: MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, %{}),
         current_user: current_user,
         errors: %{},
         submitted: false,
         existing_files_map: existing_files_map,
-        jump_state: %{active: false, target_id: nil} # 初始化跳转状态
+        # 初始化跳转状态
+        jump_state: %{active: false, target_id: nil}
       })
 
-    {:ok, socket, temporary_assigns: [form_items: []]} # Keep temporary assign as is
+    # Keep temporary assign as is
+    {:ok, socket, temporary_assigns: [form_items: []]}
   end
 
   @impl true
@@ -163,12 +179,11 @@ defmodule MyAppWeb.FormLive.Submit do
 
     # 更新 socket assigns
     {:noreply,
-      socket
-      |> assign(:province_field_id, field_id)
-      |> assign(:province, province)
-      |> assign(:cities, cities)
-      |> assign(:districts, [])
-    }
+     socket
+     |> assign(:province_field_id, field_id)
+     |> assign(:province, province)
+     |> assign(:cities, cities)
+     |> assign(:districts, [])}
   end
 
   @impl true
@@ -269,10 +284,11 @@ defmodule MyAppWeb.FormLive.Submit do
       |> Map.merge(form_data)
 
     # 当用户与表单交互时，检查变更的字段
-    changed_field_id = case params["_target"] do
-      ["form_data", field_id] -> field_id
-      _ -> nil
-    end
+    changed_field_id =
+      case params["_target"] do
+        ["form_data", field_id] -> field_id
+        _ -> nil
+      end
 
     if changed_field_id do
       # 处理字段变更 - 日志和特殊处理
@@ -281,6 +297,55 @@ defmodule MyAppWeb.FormLive.Submit do
 
       # 可以在这里添加特定字段的特殊处理逻辑
     end
+
+    # 更新状态并应用验证逻辑
+    updated_socket = socket |> maybe_validate_form(updated_form_state)
+
+    {:noreply, updated_socket}
+  end
+
+  @impl true
+  def handle_event(
+        "update_blank",
+        %{"field" => field_id, "blank" => blank_idx, "value" => value},
+        socket
+      ) do
+    blank_idx = String.to_integer(blank_idx)
+
+    # 获取当前表单状态
+    form_state = socket.assigns.form_state
+
+    # 从表单状态中获取当前字段的值（应该是JSON格式的数组）
+    current_values =
+      case Map.get(form_state, field_id) do
+        nil -> "[]"
+        val when is_binary(val) -> val
+        _ -> "[]"
+      end
+
+    # 解析JSON字符串为Elixir列表
+    values_list =
+      case Jason.decode(current_values) do
+        {:ok, list} when is_list(list) -> list
+        _ -> []
+      end
+
+    # 确保值列表长度足够
+    padded_list =
+      if length(values_list) <= blank_idx do
+        values_list ++ List.duplicate("", blank_idx - length(values_list) + 1)
+      else
+        values_list
+      end
+
+    # 更新特定索引的值
+    updated_list = List.replace_at(padded_list, blank_idx, value)
+
+    # 将更新后的列表转换回JSON字符串
+    updated_json = Jason.encode!(updated_list)
+
+    # 更新表单状态
+    updated_form_state = Map.put(form_state, field_id, updated_json)
 
     # 更新状态并应用验证逻辑
     updated_socket = socket |> maybe_validate_form(updated_form_state)
@@ -341,6 +406,7 @@ defmodule MyAppWeb.FormLive.Submit do
       case Upload.delete_file(file_id) do
         {:ok, _} ->
           Logger.info("Successfully deleted file #{file_id}")
+
         {:error, reason} ->
           Logger.error("Failed to delete file #{file_id}: #{inspect(reason)}")
       end
@@ -442,23 +508,28 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
   @impl true
-  def handle_event("matrix_change", %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx} = params, socket) do
+  def handle_event(
+        "matrix_change",
+        %{"field-id" => field_id, "row-idx" => row_idx, "col-idx" => col_idx} = params,
+        socket
+      ) do
     form_state = socket.assigns.form_state || %{}
     item = Map.get(socket.assigns.items_map, field_id)
 
     # 根据矩阵类型处理
-    updated_form_state = if item && item.matrix_type == :multiple do
-      # 多选矩阵 - 每个单元格是复选框
-      cell_value = params["value"] == "true"
+    updated_form_state =
+      if item && item.matrix_type == :multiple do
+        # 多选矩阵 - 每个单元格是复选框
+        cell_value = params["value"] == "true"
 
-      # 更新特定单元格的值
-      path = [field_id, row_idx, col_idx]
-      deep_put_in(form_state, path, cell_value)
-    else
-      # 单选矩阵 - 每行只能选一个
-      path = [field_id, row_idx]
-      deep_put_in(form_state, path, col_idx)
-    end
+        # 更新特定单元格的值
+        path = [field_id, row_idx, col_idx]
+        deep_put_in(form_state, path, cell_value)
+      else
+        # 单选矩阵 - 每行只能选一个
+        path = [field_id, row_idx]
+        deep_put_in(form_state, path, col_idx)
+      end
 
     # 重新验证并更新状态
     {:noreply,
@@ -621,7 +692,6 @@ defmodule MyAppWeb.FormLive.Submit do
      |> assign(:errors, %{})}
   end
 
-
   # 辅助函数：在表单状态更新后进行验证和跳转逻辑评估
   defp maybe_validate_form(socket, current_form_data) do
     require Logger
@@ -634,50 +704,60 @@ defmodule MyAppWeb.FormLive.Submit do
     template_structure = if form_template, do: form_template.structure || [], else: []
 
     # 评估跳转条件，确定是否激活跳转
-    active_jump = Enum.find_value(template_structure, %{active: false}, fn template_item ->
-      # 检查模板项是否有跳转逻辑
-      logic = template_item["logic"] || Map.get(template_item, :logic)
-      logic_type = if logic, do: logic["type"] || Map.get(logic, :type), else: nil
+    active_jump =
+      Enum.find_value(template_structure, %{active: false}, fn template_item ->
+        # 检查模板项是否有跳转逻辑
+        logic = template_item["logic"] || Map.get(template_item, :logic)
+        logic_type = if logic, do: logic["type"] || Map.get(logic, :type), else: nil
 
-      if logic && logic_type == "jump" do
-        source_id = template_item["id"] || Map.get(template_item, :id)
-        condition = Map.get(logic, "condition") || Map.get(logic, :condition) || %{}
-        target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
-        operator = Map.get(condition, "operator") || Map.get(condition, :operator)
-        value_to_match = Map.get(condition, "value") || Map.get(condition, :value)
+        if logic && logic_type == "jump" do
+          source_id = template_item["id"] || Map.get(template_item, :id)
+          condition = Map.get(logic, "condition") || Map.get(logic, :condition) || %{}
+          target_id = Map.get(logic, "target_id") || Map.get(logic, :target_id)
+          operator = Map.get(condition, "operator") || Map.get(condition, :operator)
+          value_to_match = Map.get(condition, "value") || Map.get(condition, :value)
 
-        unless target_id do
-          Logger.warning("跳转逻辑缺少目标ID: 源=#{source_id}")
-          nil
-        else
-          # 从表单数据获取源字段的当前值
-          source_value = Map.get(current_form_data, source_id)
-
-          # 条件评估
-          condition_met = case operator do
-            "equals" -> "#{source_value}" == "#{value_to_match}"
-            "not_equals" -> "#{source_value}" != "#{value_to_match}"
-            "contains" -> is_binary(source_value) && String.contains?("#{source_value}", "#{value_to_match}")
-            _ -> false
-          end
-
-          # 条件满足则激活跳转
-          if condition_met do
-            %{active: true, source_id: source_id, target_id: target_id}
-          else
+          unless target_id do
+            Logger.warning("跳转逻辑缺少目标ID: 源=#{source_id}")
             nil
+          else
+            # 从表单数据获取源字段的当前值
+            source_value = Map.get(current_form_data, source_id)
+
+            # 条件评估
+            condition_met =
+              case operator do
+                "equals" ->
+                  "#{source_value}" == "#{value_to_match}"
+
+                "not_equals" ->
+                  "#{source_value}" != "#{value_to_match}"
+
+                "contains" ->
+                  is_binary(source_value) &&
+                    String.contains?("#{source_value}", "#{value_to_match}")
+
+                _ ->
+                  false
+              end
+
+            # 条件满足则激活跳转
+            if condition_met do
+              %{active: true, source_id: source_id, target_id: target_id}
+            else
+              nil
+            end
           end
+        else
+          nil
         end
-      else
-        nil
-      end
-    end)
+      end)
 
     # 更新视图状态 - 使用form_state作为唯一数据源
     socket
-      |> assign(:form_state, current_form_data)
-      |> assign(:errors, errors)
-      |> assign(:jump_state, active_jump)
+    |> assign(:form_state, current_form_data)
+    |> assign(:errors, errors)
+    |> assign(:jump_state, active_jump)
   end
 
   # ===========================================
@@ -844,7 +924,9 @@ defmodule MyAppWeb.FormLive.Submit do
 
     # 处理每个文件上传字段
     {files_data, errors, updated_socket} =
-      Enum.reduce(upload_names, {%{}, upload_errors, socket}, fn {item_id, upload_name}, {acc_data, acc_errors, acc_socket} ->
+      Enum.reduce(upload_names, {%{}, upload_errors, socket}, fn {item_id, upload_name},
+                                                                 {acc_data, acc_errors,
+                                                                  acc_socket} ->
         try do
           uploaded_files =
             consume_uploaded_entries(acc_socket, upload_name, fn %{path: path}, entry ->
@@ -861,14 +943,15 @@ defmodule MyAppWeb.FormLive.Submit do
               File.cp!(path, dest_path)
 
               # 保存到数据库
-              {:ok, file} = Upload.save_uploaded_file(form_id, item_id, %{
-                id: file_id,
-                original_filename: entry.client_name,
-                filename: filename,
-                path: "/uploads/#{filename}",
-                content_type: entry.client_type,
-                size: entry.client_size
-              })
+              {:ok, file} =
+                Upload.save_uploaded_file(form_id, item_id, %{
+                  id: file_id,
+                  original_filename: entry.client_name,
+                  filename: filename,
+                  path: "/uploads/#{filename}",
+                  content_type: entry.client_type,
+                  size: entry.client_size
+                })
 
               # 返回处理结果
               %{
@@ -901,7 +984,10 @@ defmodule MyAppWeb.FormLive.Submit do
             Logger.error("Stack trace: #{formatted_error}")
 
             # 添加到错误列表
-            updated_errors = [%{item_id: item_id, error: "上传文件处理失败: #{inspect(reason)}"} | acc_errors]
+            updated_errors = [
+              %{item_id: item_id, error: "上传文件处理失败: #{inspect(reason)}"} | acc_errors
+            ]
+
             {acc_data, updated_errors, acc_socket}
         end
       end)

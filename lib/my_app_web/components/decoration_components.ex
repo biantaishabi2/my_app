@@ -24,10 +24,10 @@ defmodule MyAppWeb.DecorationComponents do
     ~H"""
     <div id={@id} class="decoration-title decoration-element">
       <div class={"title-level-#{@level}"} style={"text-align: #{@align};"}>
-        <h1 :if={@tag == "h1"} class="decoration-title-text" style={@style}><%= @title %></h1>
-        <h2 :if={@tag == "h2"} class="decoration-title-text" style={@style}><%= @title %></h2>
-        <h3 :if={@tag == "h3"} class="decoration-title-text" style={@style}><%= @title %></h3>
-        <h4 :if={@tag == "h4"} class="decoration-title-text" style={@style}><%= @title %></h4>
+        <h1 :if={@tag == "h1"} class="decoration-title-text" style={@style}>{@title}</h1>
+        <h2 :if={@tag == "h2"} class="decoration-title-text" style={@style}>{@title}</h2>
+        <h3 :if={@tag == "h3"} class="decoration-title-text" style={@style}>{@title}</h3>
+        <h4 :if={@tag == "h4"} class="decoration-title-text" style={@style}>{@title}</h4>
       </div>
     </div>
     """
@@ -175,7 +175,7 @@ defmodule MyAppWeb.DecorationComponents do
   # 以下是各类元素编辑器的渲染函数，实际实现取决于您的需求
   defp render_title_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="title-editor">
       <div class="form-group">
@@ -222,7 +222,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_image_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="image-editor">
       <div class="form-group">
@@ -264,7 +264,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_paragraph_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="paragraph-editor">
       <div class="form-group">
@@ -283,7 +283,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_section_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="section-editor">
       <div class="form-group">
@@ -317,7 +317,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_explanation_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="explanation-editor">
       <div class="form-group">
@@ -349,7 +349,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_inline_image_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="inline-image-editor">
       <div class="form-group">
@@ -404,7 +404,7 @@ defmodule MyAppWeb.DecorationComponents do
 
   defp render_unknown_editor(element) do
     assigns = %{element: element}
-    
+
     ~H"""
     <div class="unknown-element-editor">
       <p>未知的元素类型: {@element.type}</p>

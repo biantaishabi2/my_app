@@ -91,31 +91,35 @@ defmodule MyApp.FormLogic do
   """
   def should_show_item?(form_item, form_data) do
     require Logger
-    
-    result = cond do
-      # 没有可见性条件，默认显示
-      is_nil(form_item.visibility_condition) ->
-        Logger.debug("表单项 #{form_item.id} 没有可见性条件，默认显示")
-        true
 
-      # 有可见性条件，评估条件是否满足
-      true ->
-        try do
-          condition = Jason.decode!(form_item.visibility_condition)
-          Logger.debug("评估表单项 #{form_item.id} 可见性条件: #{inspect(condition)}")
-          Logger.debug("使用表单数据: #{inspect(form_data)}")
-          
-          should_show = evaluate_condition(condition, form_data)
-          Logger.info("表单项 #{form_item.id} 的可见性评估结果: #{should_show}")
-          should_show
-        rescue
-          e ->
-            # 解析出错时记录错误并默认显示该字段
-            Logger.error("解析可见性条件时出错: #{inspect(e)}, condition: #{inspect(form_item.visibility_condition)}")
-            true
-        end
-    end
-    
+    result =
+      cond do
+        # 没有可见性条件，默认显示
+        is_nil(form_item.visibility_condition) ->
+          Logger.debug("表单项 #{form_item.id} 没有可见性条件，默认显示")
+          true
+
+        # 有可见性条件，评估条件是否满足
+        true ->
+          try do
+            condition = Jason.decode!(form_item.visibility_condition)
+            Logger.debug("评估表单项 #{form_item.id} 可见性条件: #{inspect(condition)}")
+            Logger.debug("使用表单数据: #{inspect(form_data)}")
+
+            should_show = evaluate_condition(condition, form_data)
+            Logger.info("表单项 #{form_item.id} 的可见性评估结果: #{should_show}")
+            should_show
+          rescue
+            e ->
+              # 解析出错时记录错误并默认显示该字段
+              Logger.error(
+                "解析可见性条件时出错: #{inspect(e)}, condition: #{inspect(form_item.visibility_condition)}"
+              )
+
+              true
+          end
+      end
+
     result
   end
 
@@ -161,7 +165,7 @@ defmodule MyApp.FormLogic do
       # 将目标值转换为字符串以确保一致性
       string_target = if is_binary(target_value), do: target_value, else: to_string(target_value)
       string_actual = if is_binary(actual_value), do: actual_value, else: to_string(actual_value)
-      
+
       # 安全处理：防止nil或空字符串比较错误
       case operator do
         "equals" ->
@@ -173,8 +177,16 @@ defmodule MyApp.FormLogic do
         "greater_than" ->
           # 尝试转换为数字进行比较
           try do
-            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
-            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
+            {actual_num, _} =
+              if is_number(actual_value),
+                do: {actual_value, nil},
+                else: Float.parse(string_actual)
+
+            {target_num, _} =
+              if is_number(target_value),
+                do: {target_value, nil},
+                else: Float.parse(string_target)
+
             actual_num > target_num
           rescue
             _ -> false
@@ -183,8 +195,16 @@ defmodule MyApp.FormLogic do
         "greater_than_or_equal" ->
           # 尝试转换为数字进行比较
           try do
-            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
-            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
+            {actual_num, _} =
+              if is_number(actual_value),
+                do: {actual_value, nil},
+                else: Float.parse(string_actual)
+
+            {target_num, _} =
+              if is_number(target_value),
+                do: {target_value, nil},
+                else: Float.parse(string_target)
+
             actual_num >= target_num
           rescue
             _ -> false
@@ -193,8 +213,16 @@ defmodule MyApp.FormLogic do
         "less_than" ->
           # 尝试转换为数字进行比较
           try do
-            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
-            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
+            {actual_num, _} =
+              if is_number(actual_value),
+                do: {actual_value, nil},
+                else: Float.parse(string_actual)
+
+            {target_num, _} =
+              if is_number(target_value),
+                do: {target_value, nil},
+                else: Float.parse(string_target)
+
             actual_num < target_num
           rescue
             _ -> false
@@ -203,8 +231,16 @@ defmodule MyApp.FormLogic do
         "less_than_or_equal" ->
           # 尝试转换为数字进行比较
           try do
-            {actual_num, _} = if is_number(actual_value), do: {actual_value, nil}, else: Float.parse(string_actual)
-            {target_num, _} = if is_number(target_value), do: {target_value, nil}, else: Float.parse(string_target)
+            {actual_num, _} =
+              if is_number(actual_value),
+                do: {actual_value, nil},
+                else: Float.parse(string_actual)
+
+            {target_num, _} =
+              if is_number(target_value),
+                do: {target_value, nil},
+                else: Float.parse(string_target)
+
             actual_num <= target_num
           rescue
             _ -> false

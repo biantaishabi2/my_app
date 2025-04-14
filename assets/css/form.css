@@ -607,6 +607,44 @@ button#form-submit-button:active {
   color: #000 !important;
 }
 
+/* 填空题样式 */
+.fill-in-blank-container {
+  margin: 1rem 0;
+  line-height: 2;
+}
+
+.fill-in-blank-text {
+  font-size: 1rem;
+}
+
+.fill-in-blank-text input[type="text"] {
+  display: inline-block;
+  background-color: rgba(245, 247, 255, 0.5);
+  border: none;
+  border-bottom: 2px solid #6366f1;
+  border-radius: 0;
+  padding: 2px 5px;
+  margin: 0 2px;
+  min-width: 60px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.fill-in-blank-text input[type="text"]:focus {
+  outline: none;
+  background-color: rgba(238, 242, 255, 0.8);
+  border-bottom-color: #4f46e5;
+  box-shadow: 0 2px 0 0 #4f46e5;
+}
+
+.fill-in-blank-text input[type="text"].border-red-500 {
+  border-bottom-color: #ef4444;
+}
+
+.fill-in-blank-text input[type="text"].border-red-500:focus {
+  box-shadow: 0 2px 0 0 #ef4444;
+}
+
 /* 确保下拉菜单文本正确显示 */
 select option {
   white-space: normal;

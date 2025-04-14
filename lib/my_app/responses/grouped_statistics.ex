@@ -31,7 +31,6 @@ defmodule MyApp.Responses.GroupedStatistics do
     with :ok <- validate_attribute_id(attribute_id),
          {:ok, form} <- get_form(form_id),
          {:ok, responses} <- get_filtered_responses(form_id, options) do
-
       # 按指定属性分组响应
       grouped_responses = group_responses_by_attribute(responses, attribute_id)
 
@@ -58,7 +57,6 @@ defmodule MyApp.Responses.GroupedStatistics do
     with :ok <- validate_attribute_id(attribute_id),
          {:ok, form} <- get_form(form_id),
          {:ok, responses} <- get_filtered_responses(form_id, options) do
-
       # 按属性分组响应
       grouped_responses = group_responses_by_attribute(responses, attribute_id)
 
@@ -102,9 +100,12 @@ defmodule MyApp.Responses.GroupedStatistics do
     query = apply_date_filters(query, options)
 
     # 执行查询与预加载
-    responses = Repo.all(query)
-                |> Repo.preload(answers: from(a in Answer, order_by: a.id),
-                               form: [pages: [items: :options], items: :options])
+    responses =
+      Repo.all(query)
+      |> Repo.preload(
+        answers: from(a in Answer, order_by: a.id),
+        form: [pages: [items: :options], items: :options]
+      )
 
     {:ok, responses}
   end
@@ -119,6 +120,7 @@ defmodule MyApp.Responses.GroupedStatistics do
 
   # 如果提供了开始日期，添加过滤条件
   defp maybe_filter_by_start_date(query, nil), do: query
+
   defp maybe_filter_by_start_date(query, start_date) do
     start_datetime = date_to_datetime(start_date, :start_of_day)
     from(r in query, where: r.submitted_at >= ^start_datetime)
@@ -126,6 +128,7 @@ defmodule MyApp.Responses.GroupedStatistics do
 
   # 如果提供了结束日期，添加过滤条件
   defp maybe_filter_by_end_date(query, nil), do: query
+
   defp maybe_filter_by_end_date(query, end_date) do
     end_datetime = date_to_datetime(end_date, :end_of_day)
     from(r in query, where: r.submitted_at <= ^end_datetime)
@@ -142,6 +145,7 @@ defmodule MyApp.Responses.GroupedStatistics do
     case date do
       %Date{} ->
         DateTime.new!(date, time, "Etc/UTC")
+
       date_string when is_binary(date_string) ->
         {:ok, date} = Date.from_iso8601(date_string)
         DateTime.new!(date, time, "Etc/UTC")
@@ -159,6 +163,7 @@ defmodule MyApp.Responses.GroupedStatistics do
 
   # 从respondent_info中获取属性值，处理各种边缘情况
   defp get_attribute_value(nil, _), do: "未指定"
+
   defp get_attribute_value(respondent_info, attribute_id) do
     case Map.get(respondent_info, attribute_id) do
       nil -> "未指定"
@@ -180,12 +185,16 @@ defmodule MyApp.Responses.GroupedStatistics do
       case item.type do
         :radio ->
           {item.id, calculate_choice_statistics(item, group_responses, :single)}
+
         :checkbox ->
           {item.id, calculate_choice_statistics(item, group_responses, :multiple)}
+
         :rating ->
           {item.id, calculate_rating_statistics(item, group_responses)}
+
         :text_input ->
           {item.id, calculate_text_statistics(item, group_responses)}
+
         _ ->
           {item.id, %{type: item.type, stats: nil}}
       end
@@ -199,9 +208,10 @@ defmodule MyApp.Responses.GroupedStatistics do
     options = Enum.sort_by(item.options, & &1.order)
 
     # 初始化每个选项的计数
-    initial_counts = Enum.reduce(options, %{}, fn opt, acc ->
-      Map.put(acc, opt.id, 0)
-    end)
+    initial_counts =
+      Enum.reduce(options, %{}, fn opt, acc ->
+        Map.put(acc, opt.id, 0)
+      end)
 
     # 统计各选项的选择次数
     counts =
@@ -291,6 +301,7 @@ defmodule MyApp.Responses.GroupedStatistics do
 
         # 计算评分分布
         max_rating = item.max_rating || 5
+
         distribution =
           Enum.reduce(1..max_rating, %{}, fn i, acc ->
             Map.put(acc, i, 0)
@@ -341,12 +352,14 @@ defmodule MyApp.Responses.GroupedStatistics do
 
   # 解析评分值
   defp parse_rating_value(value) when is_integer(value), do: value
+
   defp parse_rating_value(value) when is_binary(value) do
     case Integer.parse(value) do
       {int_value, _} -> int_value
       :error -> nil
     end
   end
+
   defp parse_rating_value(_), do: nil
 
   # 计算文本题统计数据
@@ -415,12 +428,16 @@ defmodule MyApp.Responses.GroupedStatistics do
             case item.type do
               :radio ->
                 item_acc ++ generate_choice_statistics_for_group(item, group_responses, "单选题")
+
               :checkbox ->
                 item_acc ++ generate_choice_statistics_for_group(item, group_responses, "多选题")
+
               :rating ->
                 item_acc ++ generate_rating_statistics_for_group(item, group_responses)
+
               :text_input ->
                 item_acc ++ generate_text_statistics_for_group(item, group_responses)
+
               _ ->
                 item_acc
             end
@@ -453,12 +470,12 @@ defmodule MyApp.Responses.GroupedStatistics do
         ["#{item_type}:", item.label],
         ["选项", "回答数量", "百分比"]
       ] ++
-      Enum.map(options, fn option ->
-        count = Map.get(option_counts, option.id, 0)
-        percentage = if total_responses > 0, do: count / total_responses * 100, else: 0
-        [option.label, "#{count}", "#{Float.round(percentage, 1)}%"]
-      end) ++
-      [["总计", "#{total_responses}", "100%"]]
+        Enum.map(options, fn option ->
+          count = Map.get(option_counts, option.id, 0)
+          percentage = if total_responses > 0, do: count / total_responses * 100, else: 0
+          [option.label, "#{count}", "#{Float.round(percentage, 1)}%"]
+        end) ++
+        [["总计", "#{total_responses}", "100%"]]
     else
       [
         [""],
@@ -471,9 +488,10 @@ defmodule MyApp.Responses.GroupedStatistics do
   # 统计选项选择
   defp count_option_selections(item, responses, options) do
     # 初始化选项计数
-    initial_counts = Enum.reduce(options, %{}, fn opt, acc ->
-      Map.put(acc, opt.id, 0)
-    end)
+    initial_counts =
+      Enum.reduce(options, %{}, fn opt, acc ->
+        Map.put(acc, opt.id, 0)
+      end)
 
     # 计算每个选项的选择次数
     Enum.reduce(responses, initial_counts, fn response, acc ->
@@ -506,7 +524,8 @@ defmodule MyApp.Responses.GroupedStatistics do
               acc
             end
 
-          _ -> acc
+          _ ->
+            acc
         end
       else
         acc
@@ -536,6 +555,7 @@ defmodule MyApp.Responses.GroupedStatistics do
 
       # 计算评分分布
       max_rating = item.max_rating || 5
+
       distribution =
         Enum.reduce(1..max_rating, %{}, fn i, acc ->
           Map.put(acc, i, 0)
@@ -558,11 +578,11 @@ defmodule MyApp.Responses.GroupedStatistics do
         [""],
         ["评分", "回答数量", "百分比"]
       ] ++
-      Enum.map(1..max_rating, fn rating ->
-        rating_count = Map.get(distribution, rating, 0)
-        percentage = if count > 0, do: rating_count / count * 100, else: 0
-        ["#{rating}", "#{rating_count}", "#{Float.round(percentage, 1)}%"]
-      end)
+        Enum.map(1..max_rating, fn rating ->
+          rating_count = Map.get(distribution, rating, 0)
+          percentage = if count > 0, do: rating_count / count * 100, else: 0
+          ["#{rating}", "#{rating_count}", "#{Float.round(percentage, 1)}%"]
+        end)
     else
       [
         [""],

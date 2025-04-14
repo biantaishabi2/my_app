@@ -33,7 +33,15 @@ defmodule MyApp.Forms.Form do
   @doc false
   def changeset(form, attrs) do
     form
-    |> cast(attrs, [:title, :description, :status, :user_id, :default_page_id, :form_template_id, :respondent_attributes])
+    |> cast(attrs, [
+      :title,
+      :description,
+      :status,
+      :user_id,
+      :default_page_id,
+      :form_template_id,
+      :respondent_attributes
+    ])
     |> validate_required([:title, :status, :user_id])
     |> foreign_key_constraint(:default_page_id)
     |> foreign_key_constraint(:form_template_id)

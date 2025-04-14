@@ -19,7 +19,7 @@ defmodule MyAppWeb.FormLive.Show do
         if form.user_id == current_user.id || form.status == :published do
           # 加载表单模板
           form_template = FormTemplateRenderer.load_form_template(form)
-          
+
           {:ok,
            socket
            |> assign(:page_title, form.title)

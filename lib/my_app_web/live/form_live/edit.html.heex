@@ -517,6 +517,31 @@
                 </svg>
                 <div style="font-size: 0.75rem; white-space: nowrap;">文件上传</div>
               </button>
+              
+              <button
+                type="button"
+                phx-click="type_changed"
+                phx-value-type="fill_in_blank"
+                data-test-id="item-type-fill_in_blank"
+                style={"display: flex; flex-direction: column; align-items: center; padding: 0.75rem; border: 1px solid #{if @item_type == "fill_in_blank", do: "#4f46e5", else: "#e5e7eb"}; border-radius: 0.375rem; background-color: #{if @item_type == "fill_in_blank", do: "#f5f3ff", else: "white"}; cursor: pointer; text-align: center; color: #{if @item_type == "fill_in_blank", do: "#4f46e5", else: "#1f2937"};"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-6 w-6 mb-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style="width: 1.5rem; height: 1.5rem; margin-bottom: 0.25rem;"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <div style="font-size: 0.75rem; white-space: nowrap;">填空题</div>
+              </button>
             </div>
           </div>
         <% end %>
@@ -590,7 +615,7 @@
           >
             编辑表单信息
           </button>
-          
+
           <button
             type="button"
             phx-click="edit_respondent_attributes"
@@ -716,13 +741,13 @@
       <%= if @editing_respondent_attributes do %>
         <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: #f9fafb;">
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">回答者属性设置</h2>
-          
+
           <.live_component
             module={MyAppWeb.FormLive.RespondentAttributesComponent}
             id="respondent-attributes"
             form={@form}
           />
-          
+
           <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
             <button
               type="button"
@@ -739,8 +764,15 @@
       <%= if @editing_item and is_nil(@editing_item_id) do %>
         <div
           style="border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: #f9fafb;"
-          id="top-item-editor-wrapper"  # 确保 ID 存在
-          phx-hook="ScrollIntoView"      # 添加 Hook
+          id="top-item-editor-wrapper"
+          #
+          确保
+          ID
+          存在
+          phx-hook="ScrollIntoView"
+          #
+          添加
+          Hook
         >
           <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">
             添加新表单项 - {display_selected_type(@item_type)}
@@ -860,7 +892,6 @@
         </div>
       <% end %>
       
-      
 <!-- 确认删除页面对话框 -->
       <%= if @delete_page_id do %>
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -887,20 +918,16 @@
           </div>
         </div>
       <% end %>
-
-      <!-- 编辑页面模态框 -->
+      
+<!-- 编辑页面模态框 -->
       <%= if @editing_page do %>
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div class="bg-white rounded-lg p-6 max-w-lg w-full shadow-xl">
             <h3 class="text-lg font-medium mb-4">
-              编辑页面 - <%= if @current_page, do: @current_page.title, else: "新页面" %>
+              编辑页面 - {if @current_page, do: @current_page.title, else: "新页面"}
             </h3>
             <form phx-submit="save_page">
-              <input
-                type="hidden"
-                name="page[id]"
-                value={if @current_page, do: @current_page.id}
-              />
+              <input type="hidden" name="page[id]" value={if @current_page, do: @current_page.id} />
               <div class="mb-4">
                 <label for="page-title-input" class="block text-sm font-medium text-gray-700 mb-1">
                   页面标题 <span class="text-red-500">*</span>
@@ -916,7 +943,10 @@
                 />
               </div>
               <div class="mb-6">
-                <label for="page-description-input" class="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  for="page-description-input"
+                  class="block text-sm font-medium text-gray-700 mb-1"
+                >
                   页面描述 (可选)
                 </label>
                 <textarea
@@ -939,7 +969,7 @@
                   type="submit"
                   class="inline-flex justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <%= if @current_page, do: "保存更改", else: "添加页面" %>
+                  {if @current_page, do: "保存更改", else: "添加页面"}
                 </button>
               </div>
             </form>
@@ -952,29 +982,29 @@
         <!-- 表单标题和描述区域，类似提交页面的标题部分 -->
         <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
           <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">
-            <%= @form.title || "未命名表单" %>
+            {@form.title || "未命名表单"}
           </h2>
           <%= if @form.description do %>
             <p style="color: #6b7280; font-size: 0.875rem;">
-              <%= @form.description %>
+              {@form.description}
             </p>
           <% end %>
         </div>
         
-        <!-- 当前页面标题和进度条区域 -->
+<!-- 当前页面标题和进度条区域 -->
         <div style="padding: 1.5rem; border-bottom: 1px solid #f3f4f6;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <div style="display: flex; align-items: center; gap: 1rem;">
               <h3 style="font-size: 1.125rem; font-weight: 500;">
-                <%= if @current_page, do: @current_page.title, else: "表单内容" %>
+                {if @current_page, do: @current_page.title, else: "表单内容"}
               </h3>
               <%= if @current_page && @current_page.description do %>
                 <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">
-                  <%= @current_page.description %>
+                  {@current_page.description}
                 </p>
               <% end %>
               
-              <!-- 当前页面的编辑和删除按钮 -->
+<!-- 当前页面的编辑和删除按钮 -->
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <%= if @current_page do %>
                   <button
@@ -985,7 +1015,7 @@
                   >
                     编辑
                   </button>
-                  
+
                   <%= if @form.default_page_id != @current_page.id && length(@form.pages || []) > 1 do %>
                     <button
                       phx-click="delete_page"
@@ -1000,17 +1030,18 @@
               </div>
             </div>
             <div style="font-size: 0.875rem; color: #6b7280;">
-              <%= @current_page_idx + 1 %> / <%= length(@form.pages || []) %>
+              {@current_page_idx + 1} / {length(@form.pages || [])}
             </div>
           </div>
           
-          <!-- 进度条 -->
+<!-- 进度条 -->
           <div style="height: 0.25rem; width: 100%; background-color: #e5e7eb; border-radius: 9999px; overflow: hidden;">
-            <div style={"width: #{(@current_page_idx + 1) * 100 / length(@form.pages || [1])}%; height: 100%; background-color: #4f46e5;"}></div>
+            <div style={"width: #{(@current_page_idx + 1) * 100 / length(@form.pages || [1])}%; height: 100%; background-color: #4f46e5;"}>
+            </div>
           </div>
         </div>
         
-        <!-- 页码导航区域 -->
+<!-- 页码导航区域 -->
         <div style="display: flex; justify-content: center; padding: 1rem 1.5rem 1.5rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
             <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
@@ -1021,11 +1052,11 @@
                 phx-click="switch_page"
                 phx-value-page_id={page.id}
               >
-                <%= idx + 1 %>
+                {idx + 1}
               </button>
             <% end %>
             
-            <!-- 添加页面按钮 -->
+<!-- 添加页面按钮 -->
             <button
               type="button"
               phx-click="add_page"

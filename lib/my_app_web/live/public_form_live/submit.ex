@@ -33,7 +33,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           else
             form.items |> Enum.sort_by(& &1.order)
           end
-          
+
         # 加载表单模板
         form_template = FormTemplateRenderer.load_form_template(form)
 

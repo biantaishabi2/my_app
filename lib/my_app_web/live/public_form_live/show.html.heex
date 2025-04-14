@@ -6,7 +6,7 @@
     <% end %>
   </div>
   
-  <!-- 表单分页导航 -->
+<!-- 表单分页导航 -->
   <%= if @total_pages > 1 do %>
     <div class="form-pagination-container px-6 pt-4 border-b border-gray-200 mb-6">
       <!-- 分页导航 -->
@@ -19,7 +19,7 @@
         </div>
       </div>
       
-      <!-- 页面进度指示器 -->
+<!-- 页面进度指示器 -->
       <div class="form-pagination-progress">
         <div
           class="form-pagination-progress-bar"
@@ -28,7 +28,7 @@
         </div>
       </div>
       
-      <!-- 页面切换指示器 -->
+<!-- 页面切换指示器 -->
       <div class="form-pagination-indicators">
         <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
           <button
@@ -80,7 +80,7 @@
     <% end %>
   </div>
   
-  <!-- 分页导航按钮 -->
+<!-- 分页导航按钮 -->
   <%= if @total_pages > 1 do %>
     <div class="mt-8 form-pagination-navigation">
       <%= if @current_page_idx > 0 do %>
@@ -108,7 +108,7 @@
         <div></div>
         <!-- 占位元素 -->
       <% end %>
-      
+
       <div class="flex space-x-2">
         <%= if @current_page_idx < @total_pages - 1 do %>
           <button

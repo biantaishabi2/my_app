@@ -433,7 +433,7 @@ defmodule MyAppWeb.FormComponents do
         <%= if @item.id do %>
           <input type="hidden" name="item[id]" value={@item.id} />
         <% else %>
-          <%# 添加新项时，如果 current_item 中有 page_id，则包含它 %>
+
           <%= if @item && @item.page_id do %>
             <input type="hidden" name="item[page_id]" value={@item.page_id} />
           <% end %>
@@ -537,7 +537,7 @@ defmodule MyAppWeb.FormComponents do
             <% end %>
           </div>
 
-          <!-- 标签输入 -->
+    <!-- 标签输入 -->
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">
               标签 <span class="text-red-500">*</span>
@@ -555,7 +555,7 @@ defmodule MyAppWeb.FormComponents do
             />
           </div>
 
-          <!-- 是否必填 - 移动到新行，横跨 -->
+    <!-- 是否必填 - 移动到新行，横跨 -->
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">是否必填</label>
             <div class="flex items-center">
@@ -576,7 +576,7 @@ defmodule MyAppWeb.FormComponents do
             </div>
           </div>
 
-          <!-- 占位提示 - 移动到新行，横跨，并移除重复 -->
+    <!-- 占位提示 - 移动到新行，横跨，并移除重复 -->
           <%= if @item_type in ["text_input", "textarea", "number", "email", "phone"] or @item.type in [:text_input, :textarea, :number, :email, :phone] do %>
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">占位提示</label>
@@ -594,7 +594,7 @@ defmodule MyAppWeb.FormComponents do
           <% end %>
         </div>
 
-        <!-- 选项编辑器等其他部分保持不变，但它们通常自然占满宽度 -->
+    <!-- 选项编辑器等其他部分保持不变，但它们通常自然占满宽度 -->
         <%= if @item_type in ["radio", "checkbox", "dropdown"] or @item.type in [:radio, :checkbox, :dropdown] do %>
           <div class="options-editor mt-4 border-t pt-4">
             <div class="flex justify-between items-center mb-2">
@@ -1081,6 +1081,98 @@ defmodule MyAppWeb.FormComponents do
           </div>
         <% end %>
 
+        <%= if @item.type == :fill_in_blank || @item_type == "fill_in_blank" do %>
+          <div class="pt-4 border-t border-gray-200">
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">填空题文本</label>
+              <div class="text-xs text-gray-500 mb-2">
+                <%= "使用 {{1}}、{{2}} 等标记填空位置，例如：\"中国的首都是{{1}}，最大的城市是{{2}}。\"" %>
+              </div>
+              <textarea
+                name="item[blank_text]"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                rows="5"
+                placeholder="输入带有填空标记的文本..."
+              ><%= @item.blank_text || "" %></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">填空数量</label>
+                <input
+                  type="number"
+                  name="item[blank_count]"
+                  value={@item.blank_count || 1}
+                  min="1"
+                  max="10"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最小字符数</label>
+                <input
+                  type="number"
+                  name="item[blank_min_length]"
+                  value={@item.blank_min_length}
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm text-gray-600 mb-1">最大字符数</label>
+                <input
+                  type="number"
+                  name="item[blank_max_length]"
+                  value={@item.blank_max_length}
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">填空设置</label>
+              <div class="text-xs text-gray-500 mb-2">
+                为每个填空设置提示文本和显示宽度
+              </div>
+
+              <%= for i <- 1..(@item.blank_count || 1) do %>
+                <div class="flex items-center space-x-4 mb-2 p-2 bg-gray-50 rounded">
+                  <div class="w-10 font-medium text-gray-700 text-right"><%= i %></div>
+
+                  <div class="flex-1">
+                    <input
+                      type="text"
+                      name={"item[blank_placeholders][]"}
+                      value={Enum.at(@item.blank_placeholders || [], i-1) || ""}
+                      placeholder="提示文本"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div class="w-24">
+                    <input
+                      type="number"
+                      name={"item[blank_sizes][]"}
+                      value={Enum.at(@item.blank_sizes || [], i-1) || 10}
+                      min="4"
+                      max="30"
+                      placeholder="宽度(em)"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <div class="text-sm text-gray-500">
+              填写多个填空标记后，可以设置填空数量来启用更多设置项
+            </div>
+          </div>
+        <% end %>
+
         <%= if @item.type == :image_choice || @item_type == "image_choice" do %>
           <div class="pt-4 border-t border-gray-200">
             <label class="block text-sm font-medium text-gray-700 mb-2">图片选择设置</label>
@@ -1183,7 +1275,7 @@ defmodule MyAppWeb.FormComponents do
                               stroke-linejoin="round"
                               stroke-width="2"
                               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
+                            />
                           </svg>
                         <% end %>
                       </div>
@@ -1247,7 +1339,7 @@ defmodule MyAppWeb.FormComponents do
                                 stroke-linejoin="round"
                                 stroke-width="2"
                                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                />
+                              />
                             </svg>
                             {if option.image_id, do: "更换图片", else: "选择图片"}
                           </button>
