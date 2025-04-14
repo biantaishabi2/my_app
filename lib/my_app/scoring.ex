@@ -160,7 +160,9 @@ defmodule MyApp.Scoring do
   Returns `{:ok, response_score}` on success,
   or `{:error, reason}` if scoring cannot be performed.
   Reasons include: :response_not_found, :already_scored, :score_rule_not_found,
-  :form_score_config_not_found, :auto_score_disabled, :calculation_error, etc.
+  :form_score_config_not_found, :calculation_error, etc.
+  
+  注意：自动评分无需检查auto_score_enabled，因为该检查已在调用处完成。
   """
   def score_response(response_id) do
     # Preload data needed for calculation and validation, but not the non-existent response_scores assoc
@@ -173,8 +175,7 @@ defmodule MyApp.Scoring do
          :ok <- handle_already_scored(response.id),
          {:ok, form} <- handle_form_association(response),
          {:ok, score_rule} <- find_score_rule(form.id),
-         {:ok, form_config} <- find_form_score_config(form.id),
-         :ok <- check_auto_score_enabled(form_config) do
+         {:ok, form_config} <- find_form_score_config(form.id) do
 
       # --- Actual calculation logic --- START ---
       # Validate rule format before proceeding
@@ -265,7 +266,8 @@ defmodule MyApp.Scoring do
     end
   end
 
-  # Check if auto scoring is enabled
+  # Check if auto scoring is enabled - 保留但不在score_response主流程中使用
+  # 此函数由UI界面调用时使用，自动评分流程会在调用前检查此设置
   defp check_auto_score_enabled(%FormScore{auto_score: true}), do: :ok
   defp check_auto_score_enabled(_form_config), do: {:error, :auto_score_disabled}
 

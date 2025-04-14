@@ -125,12 +125,29 @@ defmodule MyApp.Responses do
         # Insert answers - get form items from pages
         form_items = form.pages |> Enum.flat_map(& &1.items)
         answers = create_answers(response.id, form_items, answers_map)
+        
+        # 添加自动评分功能
+        maybe_auto_score_response(response)
 
         {:ok, %{response | answers: answers}}
 
       error ->
         error
     end
+  end
+  
+  # 自动评分辅助函数
+  defp maybe_auto_score_response(response) do
+    # 开启异步任务进行评分，不阻塞响应创建流程
+    Task.start(fn ->
+      # 获取表单评分配置
+      form_score = MyApp.Scoring.get_form_score_config(response.form_id)
+      
+      # 如果存在配置且启用了自动评分(默认为true)，则对响应进行评分
+      if form_score && form_score.auto_score do
+        MyApp.Scoring.score_response(response.id)
+      end
+    end)
   end
 
   defp create_answers(response_id, form_items, answers_map) do
