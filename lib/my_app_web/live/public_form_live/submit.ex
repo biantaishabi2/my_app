@@ -6,6 +6,7 @@ defmodule MyAppWeb.PublicFormLive.Submit do
   alias MyApp.Forms.Form
   alias MyApp.Responses
   alias MyApp.FormLogic
+  alias MyAppWeb.FormTemplateRenderer
 
   # LiveView上传功能在LiveView模块中
 
@@ -33,6 +34,9 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           else
             form.items |> Enum.sort_by(& &1.order)
           end
+          
+        # 加载表单模板
+        form_template = FormTemplateRenderer.load_form_template(form)
 
         # 初始化socket
         socket =
@@ -44,6 +48,8 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           |> assign(:current_page, current_page)
           |> assign(:current_page_items, current_page_items)
           |> assign(:form_data, form_data)
+          |> assign(:form_template, form_template)
+          |> assign(:jump_state, %{active: false, target_id: nil})
           |> assign(:errors, %{})
           |> assign(:page_title, "填写表单 - #{form.title}")
           |> assign(:respondent_info, %{"name" => "", "email" => ""})

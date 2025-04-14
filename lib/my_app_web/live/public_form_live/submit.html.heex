@@ -21,15 +21,6 @@
     </div>
   <% end %>
 
-  <%= if @current_page do %>
-    <div class="page-header mb-4">
-      <h2 class="text-xl font-semibold">{@current_page.title}</h2>
-      <%= if Map.get(@current_page, :description) do %>
-        <p class="text-gray-600">{@current_page.description}</p>
-      <% end %>
-    </div>
-  <% end %>
-
   <.form
     for={%{}}
     phx-submit={if @page_index == @total_pages - 1, do: "save", else: "next_page"}
@@ -63,38 +54,26 @@
       </div>
     </div>
     
-<!-- 表单项 -->
-    <div class="form-items">
-      <%= if Enum.empty?(@current_page_items) do %>
-        <div class="empty-form">
-          <p class="text-gray-500 italic">此页面还没有添加任何内容</p>
-        </div>
+    <!-- 使用表单模板渲染器渲染表单及装饰元素 -->
+    <div class="form-items space-y-6">
+      <%= if length(@form.pages || []) > 0 do %>
+        <MyAppWeb.FormTemplateRenderer.render_page_with_decorations
+          form={@form}
+          form_template={@form_template}
+          current_page={@current_page}
+          page_items={@current_page_items}
+          form_data={@form_data}
+          errors={@errors}
+          jump_state={@jump_state}
+        />
       <% else %>
-        <%= for item <- @current_page_items do %>
-          <div class="form-item mb-6">
-            <div class="form-item-header mb-2">
-              <label for={item.id} class="block text-lg font-medium">
-                {item.label}
-                <%= if item.required do %>
-                  <span class="form-item-required text-red-500">*</span>
-                <% end %>
-              </label>
-              <%= if item.description do %>
-                <p class="text-sm text-gray-500">{item.description}</p>
-              <% end %>
-            </div>
-
-            <div class="form-item-content">
-              <.render_item item={item} mode={:display} form_data={@form_data} errors={@errors} />
-            </div>
-
-            <%= if Map.has_key?(@errors, item.id) do %>
-              <div class="error-message text-red-500 text-sm mt-1">
-                {@errors[item.id]}
-              </div>
-            <% end %>
-          </div>
-        <% end %>
+        <MyAppWeb.FormTemplateRenderer.render_form_with_decorations
+          form={@form}
+          form_template={@form_template}
+          form_data={@form_data}
+          errors={@errors}
+          jump_state={@jump_state}
+        />
       <% end %>
     </div>
     
