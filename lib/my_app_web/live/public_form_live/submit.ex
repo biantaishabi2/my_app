@@ -1,6 +1,5 @@
 defmodule MyAppWeb.PublicFormLive.Submit do
   use MyAppWeb, :live_view
-  import MyAppWeb.FormLive.ItemRendererComponent
 
   alias MyApp.Forms
   alias MyApp.Forms.Form

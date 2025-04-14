@@ -201,13 +201,4 @@ defmodule MyAppWeb.PublicFormLive.Show do
     Map.put(pages_status, page_idx, new_status)
   end
 
-  # 检查之前页面的状态
-  defp check_previous_pages_status(pages_status, current_idx) do
-    Enum.reduce(0..(current_idx - 1), pages_status, fn idx, acc ->
-      case Map.get(acc, idx) do
-        :pending -> Map.put(acc, idx, :complete)
-        _ -> acc
-      end
-    end)
-  end
 end
