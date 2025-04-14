@@ -390,6 +390,7 @@ defmodule MyApp.Responses do
     * `:start_date` - Optional filter to include responses after this date.
     * `:end_date` - Optional filter to include responses before this date.
     * `:include_respondent_info` - Whether to include respondent info. Defaults to true.
+    * `:include_scores` - Whether to include scoring data. Defaults to true.
 
   ## Examples
       
@@ -421,6 +422,14 @@ defmodule MyApp.Responses do
               "csv" ->
                 # 获取响应并过滤
                 responses = get_filtered_responses(form_id, options)
+                
+                # 如果包含评分数据，加载评分
+                responses = 
+                  if options[:include_scores] != false do
+                    load_responses_with_scores(responses)
+                  else
+                    responses
+                  end
 
                 # 生成CSV
                 generate_responses_csv(form, responses, options)
@@ -428,6 +437,14 @@ defmodule MyApp.Responses do
               nil ->
                 # 默认CSV格式
                 responses = get_filtered_responses(form_id, options)
+                
+                # 如果包含评分数据，加载评分
+                responses = 
+                  if options[:include_scores] != false do
+                    load_responses_with_scores(responses)
+                  else
+                    responses
+                  end
 
                 # 生成CSV
                 generate_responses_csv(form, responses, options)
@@ -525,6 +542,35 @@ defmodule MyApp.Responses do
     end
   end
 
+  # 加载响应的评分数据
+  defp load_responses_with_scores(responses) do
+    # 构建响应ID到响应的映射，以便后续高效更新
+    responses_map = Map.new(responses, fn r -> {r.id, r} end)
+    response_ids = Map.keys(responses_map)
+    
+    # 查询所有相关响应的评分数据
+    scores_query = 
+      from rs in MyApp.Scoring.ResponseScore,
+      where: rs.response_id in ^response_ids
+    
+    scores = MyApp.Repo.all(scores_query)
+    
+    # 将评分数据添加到对应的响应中
+    updated_responses_map = 
+      Enum.reduce(scores, responses_map, fn score, acc ->
+        response = Map.get(acc, score.response_id)
+        if response do
+          updated_response = Map.put(response, :score, score)
+          Map.put(acc, score.response_id, updated_response)
+        else
+          acc
+        end
+      end)
+    
+    # 返回更新后的响应列表，保持原顺序
+    Enum.map(responses, fn r -> Map.get(updated_responses_map, r.id) end)
+  end
+
   # Generate CSV for responses
   defp generate_responses_csv(form, responses, options) do
     # Get form items from pages to ensure we have access to them
@@ -533,11 +579,18 @@ defmodule MyApp.Responses do
     # Create header row
     headers =
       ["回答ID", "提交时间"] ++
-        if options[:include_respondent_info] != false,
-          do: ["回答者信息"],
-          else:
-            [] ++
-              Enum.map(form_items, & &1.label)
+        if options[:include_respondent_info] != false, do: ["回答者信息"], else: []
+        
+    # 添加评分相关的表头
+    headers = 
+      if options[:include_scores] != false do
+        headers ++ ["评分", "满分", "是否通过", "评分时间"]
+      else
+        headers
+      end
+        
+    # 添加表单项标题
+    headers = headers ++ Enum.map(form_items, & &1.label)
 
     # Create data rows
     rows =
@@ -553,6 +606,24 @@ defmodule MyApp.Responses do
           if options[:include_respondent_info] != false do
             respondent_info = response.respondent_info || %{}
             base_info ++ [Jason.encode!(respondent_info)]
+          else
+            base_info
+          end
+          
+        # Add score info if requested and available
+        base_info = 
+          if options[:include_scores] != false do
+            score_data = Map.get(response, :score)
+            if score_data do
+              base_info ++ [
+                score_data.score,
+                score_data.max_score,
+                if(score_data.passed, do: "是", else: "否"),
+                if(score_data.scored_at, do: DateTime.to_string(score_data.scored_at), else: "")
+              ]
+            else
+              base_info ++ ["未评分", "", "", ""]
+            end
           else
             base_info
           end

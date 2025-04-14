@@ -1,5 +1,6 @@
 defmodule MyAppWeb.FormLive.Responses do
   use MyAppWeb, :live_view
+  import Phoenix.LiveView.JS
 
   alias MyApp.Forms
   alias MyApp.Responses
@@ -102,6 +103,29 @@ defmodule MyAppWeb.FormLive.Responses do
         </div>
 
         <div class="flex gap-2">
+          <div class="relative" phx-click-away={JS.remove_class("flex", to: "#export-dropdown")} phx-click-away={JS.add_class("hidden", to: "#export-dropdown")}>
+            <button 
+              phx-click={JS.add_class("flex", to: "#export-dropdown") |> JS.remove_class("hidden", to: "#export-dropdown")}
+              class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              导出数据
+            </button>
+            <div id="export-dropdown" class="absolute hidden flex-col top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
+              <button phx-click="export_responses" phx-value-include-scores="true" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+                导出所有回复和评分
+              </button>
+              <button phx-click="export_responses" phx-value-include-scores="false" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+                仅导出回复数据
+              </button>
+              <button phx-click="export_statistics" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+                导出统计数据
+              </button>
+            </div>
+          </div>
+          
           <a
             href={~p"/forms/#{@form.id}/statistics"}
             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
@@ -208,6 +232,12 @@ defmodule MyAppWeb.FormLive.Responses do
                   scope="col"
                   class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
+                  评分状态
+                </th>
+                <th
+                  scope="col"
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   操作
                 </th>
               </tr>
@@ -225,6 +255,17 @@ defmodule MyAppWeb.FormLive.Responses do
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {format_datetime(response.submitted_at)}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <%= if Map.get(response, :score) do %>
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        已评分
+                      </span>
+                    <% else %>
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        未评分
+                      </span>
+                    <% end %>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <a
@@ -267,7 +308,10 @@ defmodule MyAppWeb.FormLive.Responses do
 
       form ->
         if form.user_id == current_user.id do
-          responses = Responses.list_responses_for_form(form_id)
+          # 获取响应并加载评分数据
+          responses = 
+            Responses.list_responses_for_form(form_id)
+            |> load_response_scores()
 
           {:ok,
            socket
@@ -386,6 +430,53 @@ defmodule MyAppWeb.FormLive.Responses do
     form = socket.assigns.form
     {:noreply, push_navigate(socket, to: ~p"/forms/#{form.id}/responses")}
   end
+  
+  @impl true
+  def handle_event("export_responses", %{"include-scores" => include_scores}, socket) do
+    form_id = socket.assigns.form.id
+    
+    # 转换参数为布尔值
+    include_scores_bool = include_scores == "true"
+    
+    # 导出响应数据
+    case Responses.export_responses(form_id, %{include_scores: include_scores_bool}) do
+      {:ok, csv_data} ->
+        filename = if include_scores_bool, 
+          do: "responses_with_scores_#{form_id}.csv", 
+          else: "responses_#{form_id}.csv"
+          
+        {:noreply,
+         socket
+         |> put_flash(:info, "导出成功")
+         |> push_event("download", %{
+           filename: filename,
+           content: csv_data
+         })}
+         
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "导出失败: #{reason}")}
+    end
+  end
+  
+  @impl true
+  def handle_event("export_statistics", _params, socket) do
+    form_id = socket.assigns.form.id
+    
+    # 导出统计数据
+    case Responses.export_statistics(form_id) do
+      {:ok, csv_data} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "导出成功")
+         |> push_event("download", %{
+           filename: "statistics_#{form_id}.csv",
+           content: csv_data
+         })}
+         
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "导出失败: #{reason}")}
+    end
+  end
 
   # 辅助函数
 
@@ -394,6 +485,39 @@ defmodule MyAppWeb.FormLive.Responses do
     Enum.reduce(items, %{}, fn item, acc ->
       Map.put(acc, item.id, item)
     end)
+  end
+  
+  # 加载响应的评分数据
+  defp load_response_scores(responses) do
+    # 构建响应ID到响应的映射，以便后续高效更新
+    responses_map = Map.new(responses, fn r -> {r.id, r} end)
+    response_ids = Map.keys(responses_map)
+    
+    if Enum.empty?(response_ids) do
+      responses
+    else
+      # 查询所有相关响应的评分数据
+      scores_query = 
+        from rs in MyApp.Scoring.ResponseScore,
+        where: rs.response_id in ^response_ids
+      
+      scores = MyApp.Repo.all(scores_query)
+      
+      # 将评分数据添加到对应的响应中
+      updated_responses_map = 
+        Enum.reduce(scores, responses_map, fn score, acc ->
+          response = Map.get(acc, score.response_id)
+          if response do
+            updated_response = Map.put(response, :score, score)
+            Map.put(acc, score.response_id, updated_response)
+          else
+            acc
+          end
+        end)
+      
+      # 返回更新后的响应列表，保持原顺序
+      Enum.map(responses, fn r -> Map.get(updated_responses_map, r.id) end)
+    end
   end
 
   # 获取回复者姓名
