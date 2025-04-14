@@ -1062,6 +1062,11 @@
               <h3 style="font-size: 1.125rem; font-weight: 500;">
                 <%= if @current_page, do: @current_page.title, else: "表单内容" %>
               </h3>
+              <%= if @current_page && @current_page.description do %>
+                <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem;">
+                  <%= @current_page.description %>
+                </p>
+              <% end %>
               
               <!-- 当前页面的编辑和删除按钮 -->
               <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1181,8 +1186,10 @@
               <%= if @form.pages && is_list(@form.pages) do %>
                 <%= for page <- @form.pages do %>
                   <div
-                    style="border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden;"
+                    style={"border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden; display: #{if @current_page && @current_page.id == page.id, do: 'block', else: 'none'};"}
                     data-test-id={"page-#{page.id}-items"}
+                    class="page-container"
+                    data-page-id={page.id}
                   >
                     <!-- 页面标题区 -->
                     <div style="padding: 0.75rem 1rem; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">

@@ -192,6 +192,30 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
+  def handle_event("switch_page", %{"page_id" => page_id}, socket) do
+    form = socket.assigns.form
+    
+    # 查找页面
+    page = Enum.find(form.pages, fn p -> p.id == page_id end)
+    
+    if page do
+      # 找到页面索引
+      page_idx = Enum.find_index(form.pages, fn p -> p.id == page_id end)
+      
+      # 获取当前页的表单项
+      page_items = get_page_items(form, page)
+      
+      {:noreply,
+       socket
+       |> assign(:current_page, page)
+       |> assign(:current_page_idx, page_idx)
+       |> assign(:page_items, page_items)}
+    else
+      {:noreply, put_flash(socket, :error, "找不到请求的页面")}
+    end
+  end
+
+  @impl true
   def handle_event("pages_reordered", %{"pageIds" => page_ids}, socket) do
     form = socket.assigns.form
 
@@ -222,11 +246,21 @@ defmodule MyAppWeb.FormLive.Edit do
         {:ok, _} ->
           # 重新加载表单
           updated_form = Forms.get_form(form.id)
+          
+          # 删除后，选择第一个页面作为当前页面
+          new_current_page = List.first(updated_form.pages || [])
+          new_current_page_idx = 0
+          
+          # 获取新的页面表单项
+          page_items = get_page_items(updated_form, new_current_page)
 
           {:noreply,
            socket
            |> assign(:form, updated_form)
            |> assign(:delete_page_id, nil)
+           |> assign(:current_page, new_current_page)
+           |> assign(:current_page_idx, new_current_page_idx)
+           |> assign(:page_items, page_items)
            |> put_flash(:info, "页面已删除")}
         {:error, _} ->
           {:noreply,
@@ -257,10 +291,10 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("cancel_edit_page", _params, socket) do
+    # 保留当前页面，不重置为nil
     {:noreply,
      socket
-     |> assign(:editing_page, false)
-     |> assign(:current_page, nil)}
+     |> assign(:editing_page, false)}
   end
 
   @impl true
@@ -271,15 +305,24 @@ defmodule MyAppWeb.FormLive.Edit do
     if current_page do
       # 更新现有页面
       case Forms.update_form_page(current_page, page_params) do
-        {:ok, _updated_page} ->
+        {:ok, updated_page} ->
           # 重新加载表单以获取更新后的页面数据
           updated_form = Forms.get_form(form.id)
+          
+          # 找到更新后的页面在列表中的索引
+          page_idx = Enum.find_index(updated_form.pages, fn p -> p.id == updated_page.id end)
+          
+          # 确保当前页面状态正确
+          page = Enum.find(updated_form.pages, fn p -> p.id == updated_page.id end)
+          page_items = get_page_items(updated_form, page)
 
           {:noreply,
            socket
            |> assign(:form, updated_form)
            |> assign(:editing_page, false)
-           |> assign(:current_page, nil)
+           |> assign(:current_page, page)
+           |> assign(:current_page_idx, page_idx || 0)
+           |> assign(:page_items, page_items)
            |> put_flash(:info, "页面已更新")}
 
         {:error, changeset} ->
@@ -293,15 +336,24 @@ defmodule MyAppWeb.FormLive.Edit do
       # ---- 结束转换 ----
 
       case Forms.create_form_page(form, page_params_with_atom_keys) do
-        {:ok, _new_page} ->
+        {:ok, new_page} ->
           # 重新加载表单以获取新页面数据
           updated_form = Forms.get_form(form.id)
+          
+          # 找到新页面在列表中的索引
+          page_idx = Enum.find_index(updated_form.pages, fn p -> p.id == new_page.id end)
+          
+          # 找到新创建的页面，设置为当前页面
+          page = Enum.find(updated_form.pages, fn p -> p.id == new_page.id end)
+          page_items = get_page_items(updated_form, page)
 
           {:noreply,
            socket
            |> assign(:form, updated_form)
            |> assign(:editing_page, false)
-           |> assign(:current_page, nil)
+           |> assign(:current_page, page)
+           |> assign(:current_page_idx, page_idx || 0)
+           |> assign(:page_items, page_items)
            |> put_flash(:info, "页面已添加")}
 
         {:error, changeset} ->
