@@ -368,12 +368,20 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_event("edit_form_info", _params, socket) do
-    {:noreply, assign(socket, :editing_form_info, true)}
+    {:noreply,
+     socket
+     |> assign(:editing_form_info, true)
+     |> assign(:temp_title, socket.assigns.form.title)
+     |> assign(:temp_description, socket.assigns.form.description)}
   end
 
   @impl true
   def handle_event("cancel_edit_form_info", _params, socket) do
-    {:noreply, assign(socket, :editing_form_info, false)}
+    {:noreply,
+     socket
+     |> assign(:editing_form_info, false)
+     |> assign(:temp_title, nil)
+     |> assign(:temp_description, nil)}
   end
 
   @impl true
@@ -387,31 +395,21 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
-  def handle_event("save_form_info", params, socket) do
-    form = socket.assigns.form
-
-    # 优先使用表单提交的参数，如果没有则使用临时存储的值
-    form_params = params["form"] || %{}
-    title = form_params["title"] || socket.assigns[:temp_title] || form.title
-
-    description =
-      form_params["description"] || socket.assigns[:temp_description] || form.description
-
-    form_params = %{
-      "title" => title,
-      "description" => description
-    }
-
-    case Forms.update_form(form, form_params) do
+  def handle_event("save_form_info", %{"form" => form_params}, socket) do
+    case Forms.update_form(socket.assigns.form, form_params) do
       {:ok, updated_form} ->
-        # 使用公共函数重新加载表单和更新socket
-        {:noreply, reload_form_and_update_socket(socket, updated_form.id, "表单信息已更新")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
          socket
-         |> assign(:form_changeset, changeset)
-         |> put_flash(:error, "表单更新失败")}
+         |> assign(:form, updated_form)
+         |> assign(:editing_form_info, false)
+         |> assign(:temp_title, nil)
+         |> assign(:temp_description, nil)
+         |> put_flash(:info, "表单信息已更新")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, "更新表单信息失败")}
     end
   end
 
@@ -492,7 +490,7 @@ defmodule MyAppWeb.FormLive.Edit do
           new_item
           |> Map.put(:selection_type, :single)
           |> Map.put(:image_caption_position, :bottom)
-          
+
         # 填空题类型的特殊处理：预设默认文本和填空数量
         item_type == :fill_in_blank ->
           new_item
@@ -542,9 +540,9 @@ defmodule MyAppWeb.FormLive.Edit do
 
     # 给当前表单项分配一个ID，防止有多个"添加问题"按钮
     # 注意：设置editing_item=true但不设置editing_item_id，使用顶部编辑区域
-    
+
     # 所有控件类型统一处理
-    socket = 
+    socket =
       socket
       |> assign(:current_item, new_item)
       |> assign(:item_options, initial_options)
@@ -552,7 +550,7 @@ defmodule MyAppWeb.FormLive.Edit do
       |> assign(:editing_item, true)
       |> assign(:editing_item_id, nil)
       |> assign(:temp_label, temp_label)
-    
+
     {:noreply, socket}
   end
 

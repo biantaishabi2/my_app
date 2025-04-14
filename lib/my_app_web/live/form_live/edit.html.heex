@@ -1698,3 +1698,76 @@
     </div>
   </div>
 <% end %>
+
+<!-- 编辑表单信息Modal -->
+<%= if @editing_form_info do %>
+  <div class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-medium text-gray-900">编辑表单信息</h3>
+        <button
+          type="button"
+          phx-click="cancel_edit_form_info"
+          class="text-gray-400 hover:text-gray-500"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <form phx-submit="save_form_info" id="edit-form-info-form">
+        <div class="space-y-4">
+          <div>
+            <label for="form-title" class="block text-sm font-medium text-gray-700">表单标题</label>
+            <input
+              type="text"
+              id="form-title"
+              name="form[title]"
+              value={@form.title}
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              required
+            />
+          </div>
+
+          <div>
+            <label for="form-description" class="block text-sm font-medium text-gray-700">表单描述</label>
+            <textarea
+              id="form-description"
+              name="form[description]"
+              rows="3"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            >{@form.description}</textarea>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              phx-click="cancel_edit_form_info"
+              class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+<% end %>
