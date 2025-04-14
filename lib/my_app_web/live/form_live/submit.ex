@@ -291,9 +291,8 @@ defmodule MyAppWeb.FormLive.Submit do
       end
 
     if changed_field_id do
-      # 处理字段变更 - 日志和特殊处理
-      field_value = Map.get(form_data, changed_field_id)
-      Logger.debug("字段变更: #{changed_field_id}, 值: #{inspect(field_value)}")
+      # 处理字段变更 - 特殊处理
+      _field_value = Map.get(form_data, changed_field_id)
 
       # 可以在这里添加特定字段的特殊处理逻辑
     end
@@ -355,9 +354,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
   # 处理带有_target参数的update_blank事件
   @impl true
-  def handle_event("update_blank", %{"_target" => _target} = params, socket) do
-    Logger.debug("处理带有_target的update_blank事件: #{inspect(params)}")
-
+  def handle_event("update_blank", %{"_target" => _target} = _params, socket) do
     # 简单地返回socket，不做任何处理
     # 在前端JS完成初始化后，会发送正确格式的update_blank事件
     {:noreply, socket}
@@ -431,6 +428,16 @@ defmodule MyAppWeb.FormLive.Submit do
     form_id = socket.assigns.form.id
     _form_items = socket.assigns.form_items
 
+    # 检查当前用户是否存在
+    current_user = socket.assigns.current_user
+    user_id = if current_user, do: current_user.id, else: nil
+
+    # 确保表单响应参数包含所有必需字段
+    response_params = Map.merge(response_params, %{
+      "form_id" => form_id,
+      "submitted_at" => DateTime.utc_now()
+    })
+
     # 1. 处理文件上传 (在验证和保存之前)
     {socket, files_data, upload_errors} = handle_file_uploads(socket)
 
@@ -456,7 +463,7 @@ defmodule MyAppWeb.FormLive.Submit do
       if changeset.valid? do
         Logger.info("Form is valid, attempting to save.")
         # 4. 保存数据
-        case Responses.create_response(all_data, form_id, socket.assigns.current_user.id) do
+        case Responses.create_response(form_id, all_data, %{"user_id" => user_id}) do
           {:ok, response} ->
             Logger.info("Response created successfully: #{response.id}")
 
@@ -489,6 +496,29 @@ defmodule MyAppWeb.FormLive.Submit do
         {:noreply, assign(socket, changeset: changeset)}
       end
     end
+  end
+
+  # 处理空参数或其他形式的submit_form事件
+  @impl true
+  def handle_event("submit_form", params, socket) do
+    Logger.warning("Received submit_form event with unexpected params format: #{inspect(params)}")
+
+    # 从socket.assigns中构建表单响应数据
+    form_state = socket.assigns.form_state || %{}
+    form_id = socket.assigns.form.id
+    current_user = socket.assigns.current_user
+    user_id = if current_user, do: current_user.id, else: nil
+
+    # 使用表单状态作为响应参数，并添加必要的字段
+    response_params = %{
+      "data" => form_state,
+      "form_id" => form_id,
+      "submitted_at" => DateTime.utc_now(),
+      "user_id" => user_id
+    }
+
+    # 调用原始的submit_form处理逻辑
+    handle_event("submit_form", %{"form_response" => response_params}, socket)
   end
 
   # 表单控件事件处理

@@ -96,18 +96,13 @@ defmodule MyApp.FormLogic do
       cond do
         # 没有可见性条件，默认显示
         is_nil(form_item.visibility_condition) ->
-          Logger.debug("表单项 #{form_item.id} 没有可见性条件，默认显示")
           true
 
         # 有可见性条件，评估条件是否满足
         true ->
           try do
             condition = Jason.decode!(form_item.visibility_condition)
-            Logger.debug("评估表单项 #{form_item.id} 可见性条件: #{inspect(condition)}")
-            Logger.debug("使用表单数据: #{inspect(form_data)}")
-
             should_show = evaluate_condition(condition, form_data)
-            Logger.info("表单项 #{form_item.id} 的可见性评估结果: #{should_show}")
             should_show
           rescue
             e ->

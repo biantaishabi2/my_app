@@ -177,11 +177,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
           <% :radio -> %>
             <div class="space-y-2">
               <%= for option <- item.options || [] do %>
-                <% # --- Add Detailed Logging ---
-                Logger.debug(
-                  "[ItemRenderer :radio] Rendering Option for Item ID: #{inspect(item.id)}, Label: #{item.label}, Option Value: #{inspect(option.value)}, Current FormData: #{inspect(form_data)}"
-                )
-
+                <% 
                 current_value_for_item = Map.get(form_data, to_string(item.id))
                 # Compare as strings
                 # Ensure value exists before comparing
@@ -189,12 +185,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                   !is_preview &&
                     !is_nil(current_value_for_item) &&
                     to_string(current_value_for_item) == to_string(option.value)
-
-                Logger.debug(
-                  "[ItemRenderer :radio] Retrieved Value: #{inspect(current_value_for_item)}, Comparing with Option Value: #{inspect(to_string(option.value))}, Calculated Checked: #{inspect(is_checked_result)}"
-                )
-
-                # --- End Logging --- %>
+                %>
                 <div class="form-item-option flex items-center">
                   <input
                     type="radio"
