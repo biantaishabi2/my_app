@@ -1139,7 +1139,7 @@ defmodule MyAppWeb.FormLive.Edit do
         Task.start(fn ->
           case Upload.delete_file(old_image_id) do
             {:ok, _} -> :ok
-            {:error, reason} -> :error
+            {:error, _reason} -> :error
           end
         end)
       end
@@ -1182,7 +1182,7 @@ defmodule MyAppWeb.FormLive.Edit do
 
     # 确保索引有效
     if option_index >= 0 and option_index < length(options) do
-      option = Enum.at(options, option_index)
+      _option = Enum.at(options, option_index)
       option_ref = "option-image-#{option_index}"
 
       # 创建并配置该选项的上传引用
@@ -1251,7 +1251,7 @@ defmodule MyAppWeb.FormLive.Edit do
                 Task.start(fn ->
                   case Upload.delete_file(old_image_id) do
                     {:ok, _} -> :ok
-                    {:error, reason} -> :error
+                    {:error, _reason} -> :error
                   end
                 end)
               end
@@ -1347,11 +1347,11 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   @impl true
-  def handle_event("save_item", %{"item" => item_params} = params, socket) do
+  def handle_event("save_item", %{"item" => item_params} = _params, socket) do
 
     current_item_at_start = socket.assigns.current_item
 
-    current_item_options_at_start =
+    _current_item_options_at_start =
       if current_item_at_start,
         do: Map.get(current_item_at_start, :options),
         else: "current_item is nil"
@@ -1763,7 +1763,7 @@ defmodule MyAppWeb.FormLive.Edit do
         updated_item = Forms.get_form_item_with_options(item.id)
         updated_item
 
-      {:error, failed_operation, failed_value, _changes_so_far} ->
+      {:error, _failed_operation, _failed_value, _changes_so_far} ->
         # 返回原始 item，或者可以考虑返回错误信息
         # 或者 {:error, ...}
         item
@@ -1854,13 +1854,13 @@ defmodule MyAppWeb.FormLive.Edit do
     end
   end
 
-  # 根据ID查找页面
-  defp find_page(form, page_id) do
-    Enum.find(form.pages || [], fn p -> p.id == page_id end)
-  end
+  # 注释掉未使用的查找函数
+  # defp find_page(form, page_id) do
+  #   Enum.find(form.pages || [], fn p -> p.id == page_id end)
+  # end
 
   # 查找页面索引
-  defp find_page_index(form, page_id) do
-    Enum.find_index(form.pages || [], fn p -> p.id == page_id end) || 0
-  end
+  # defp find_page_index(form, page_id) do
+  #   Enum.find_index(form.pages || [], fn p -> p.id == page_id end) || 0
+  # end
 end
