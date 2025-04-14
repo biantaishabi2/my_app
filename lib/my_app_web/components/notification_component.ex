@@ -74,7 +74,7 @@ defmodule MyAppWeb.NotificationComponent do
      |> assign(:notification_timer, nil)}
   end
 
-  @impl true
+  # handle_info不是LiveComponent的标准回调，移除@impl标记
   def handle_info(:clear_notification, socket) do
     {:noreply,
      socket
@@ -83,7 +83,6 @@ defmodule MyAppWeb.NotificationComponent do
   end
 
   # 添加对新消息格式的处理
-  @impl true
   def handle_info({:clear_notification, _id}, socket) do
     {:noreply,
      socket

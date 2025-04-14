@@ -122,8 +122,6 @@ defmodule MyAppWeb.FormLive.Edit do
         page.items || []
       end)
 
-    IO.puts("异步加载完成: 发现#{length(all_form_items)}个表单项")
-
     # 更新socket状态
     {:noreply,
      socket
@@ -1807,14 +1805,12 @@ defmodule MyAppWeb.FormLive.Edit do
     options_to_save =
       options_list
       |> Enum.map(fn opt ->
-        # 提取字段
+        # 使用Map.get安全地获取字段，避免KeyError
         %{
-          "label" => opt.label || "",
-          "value" => opt.value || "",
-          # image_id 可能为 nil
-          "image_id" => opt.image_id,
-          # image_filename 可能为 nil
-          "image_filename" => opt.image_filename
+          "label" => Map.get(opt, :label, ""),
+          "value" => Map.get(opt, :value, ""),
+          "image_id" => Map.get(opt, :image_id, nil),
+          "image_filename" => Map.get(opt, :image_filename, nil)
         }
       end)
       |> Enum.filter(fn opt ->

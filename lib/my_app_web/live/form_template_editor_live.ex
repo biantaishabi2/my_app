@@ -3567,8 +3567,4 @@ defmodule MyAppWeb.FormTemplateEditorLive do
      |> assign(:notification_timer, nil)}
   end
 
-  @impl true
-  def handle_event("decoration_type_changed", %{"type" => type}, socket) do
-    {:noreply, assign(socket, :decoration_type, type)}
-  end
 end
