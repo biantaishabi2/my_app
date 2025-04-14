@@ -418,13 +418,14 @@ defmodule MyAppWeb.FormLive.Edit do
     # 检查是否指定了页面ID
     page_id = Map.get(params, "page_id")
     form = socket.assigns.form
-
-    # 获取默认页面ID
+    
+    # 优先使用：1. 参数中的page_id 2. 当前页面ID 3. 默认页面ID
+    current_page_id = if socket.assigns.current_page, do: socket.assigns.current_page.id, else: nil
     default_page_id =
       form.default_page_id || if length(form.pages) > 0, do: List.first(form.pages).id, else: nil
 
-    # 使用指定的页面ID或默认页面ID
-    page_id = page_id || default_page_id
+    # 使用最优先的页面ID
+    page_id = page_id || current_page_id || default_page_id
 
     # 使用当前选择的控件类型
     item_type_str = socket.assigns.item_type || "text_input"
