@@ -50,6 +50,9 @@ defmodule MyAppWeb.FormLive.Edit do
         |> assign(:available_condition_items, [])
         # 用于临时存储图片上传信息
         |> assign(:temp_image_upload, %{})
+        # 页面相关状态 - 在现有代码基础上添加这些
+        |> assign(:current_page_idx, 0)
+        |> assign(:page_items, [])
 
       # 允许Phoenix.LiveView上传图片
       socket =
@@ -122,12 +125,21 @@ defmodule MyAppWeb.FormLive.Edit do
         page.items || []
       end)
 
+    # 初始化当前页面数据 - 增加这部分代码
+    current_page = List.first(form_with_pages.pages || [])
+    current_page_idx = 0
+    page_items = get_page_items(form_with_pages, current_page)
+
     # 更新socket状态
     {:noreply,
      socket
      |> assign(:form, form_with_pages)
      |> assign(:form_items, all_form_items)
      |> assign(:all_item_types, all_types)
+     # 添加这些页面相关的状态
+     |> assign(:current_page, current_page)
+     |> assign(:current_page_idx, current_page_idx)
+     |> assign(:page_items, page_items)
      |> assign(:loading_complete, true)
      |> assign(
        :editing_form_info,
@@ -1828,4 +1840,27 @@ defmodule MyAppWeb.FormLive.Edit do
   end
 
   defp format_bytes(_), do: "未知大小"
+
+  # 获取页面的表单项
+  defp get_page_items(form, page) do
+    if page do
+      # 过滤出当前页面的表单项
+      Enum.filter(form.items || [], fn item ->
+        item.page_id == page.id
+      end)
+    else
+      # 如果没有页面，返回所有表单项
+      form.items || []
+    end
+  end
+
+  # 根据ID查找页面
+  defp find_page(form, page_id) do
+    Enum.find(form.pages || [], fn p -> p.id == page_id end)
+  end
+
+  # 查找页面索引
+  defp find_page_index(form, page_id) do
+    Enum.find_index(form.pages || [], fn p -> p.id == page_id end) || 0
+  end
 end

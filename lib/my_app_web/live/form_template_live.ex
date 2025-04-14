@@ -85,8 +85,8 @@ defmodule MyAppWeb.FormTemplateLive do
       )
 
     # 为调试目的打印数据
-    first_value = Map.get(form_data, first_field_id, "")
-    second_value = Map.get(form_data, second_field_id, "")
+    _first_value = Map.get(form_data, first_field_id, "")
+    _second_value = Map.get(form_data, second_field_id, "")
 
     # 存储更新后的表单数据
     {:noreply,
@@ -302,12 +302,12 @@ defmodule MyAppWeb.FormTemplateLive do
             # 成功解析JSON
             json_data
 
-          {:error, reason} ->
+          {:error, _reason} ->
             # JSON解析错误
             %{"structure" => %{"items" => []}}
         end
 
-      {:error, reason} ->
+      {:error, _reason} ->
         # 文件读取错误
         %{"structure" => %{"items" => []}}
     end
