@@ -1041,6 +1041,100 @@
         </div>
       <% end %>
       
+<!-- 表单分页导航 -->
+      <div style="margin-top: 1.5rem; background-color: white; border-radius: 0.5rem; border: 1px solid #e5e7eb; overflow: hidden;">
+        <!-- 表单标题和描述区域，类似提交页面的标题部分 -->
+        <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+          <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">
+            <%= @form.title || "未命名表单" %>
+          </h2>
+          <%= if @form.description do %>
+            <p style="color: #6b7280; font-size: 0.875rem;">
+              <%= @form.description %>
+            </p>
+          <% end %>
+        </div>
+        
+        <!-- 当前页面标题和进度条区域 -->
+        <div style="padding: 1.5rem; border-bottom: 1px solid #f3f4f6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.125rem; font-weight: 500;">
+              <%= if @current_page, do: @current_page.title, else: "表单内容" %>
+            </h3>
+            <div style="font-size: 0.875rem; color: #6b7280;">
+              <%= @current_page_idx + 1 %> / <%= length(@form.pages || []) %>
+            </div>
+          </div>
+          
+          <!-- 进度条 -->
+          <div style="height: 0.25rem; width: 100%; background-color: #e5e7eb; border-radius: 9999px; overflow: hidden;">
+            <div style={"width: #{(@current_page_idx + 1) * 100 / length(@form.pages || [1])}%; height: 100%; background-color: #4f46e5;"}></div>
+          </div>
+        </div>
+        
+        <!-- 页码导航区域 -->
+        <div style="display: flex; justify-content: center; padding: 1rem 1.5rem 1.5rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <%= for {page, idx} <- Enum.with_index(@form.pages || []) do %>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                <button
+                  type="button"
+                  class="form-pagination-indicator"
+                  style={"width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.875rem; cursor: pointer; border: 1px solid #{if idx == @current_page_idx, do: "#4f46e5", else: "#d1d5db"}; background-color: #{if idx == @current_page_idx, do: "#4f46e5", else: "white"}; color: #{if idx == @current_page_idx, do: "white", else: "#6b7280"}; box-shadow: #{if idx == @current_page_idx, do: "0 1px 3px rgba(0,0,0,0.1)", else: "none"};"}
+                  phx-click="switch_page"
+                  phx-value-page_id={page.id}
+                >
+                  <%= idx + 1 %>
+                </button>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                  <button
+                    phx-click="edit_page"
+                    phx-value-id={page.id}
+                    style="color: #4f46e5; background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #4f46e5;"
+                    data-test-id={"edit-page-#{page.id}"}
+                  >
+                    编辑
+                  </button>
+                  
+                  <%= if @form.default_page_id != page.id && length(@form.pages || []) > 1 do %>
+                    <button
+                      phx-click="delete_page"
+                      phx-value-id={page.id}
+                      style="color: #ef4444; background: none; border: none; cursor: pointer; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid #ef4444;"
+                      data-test-id={"delete-page-#{page.id}"}
+                    >
+                      删除
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+            
+            <!-- 添加页面按钮 -->
+            <button
+              type="button"
+              phx-click="add_page"
+              style="width: 2.5rem; height: 2.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.875rem; cursor: pointer; border: 1px dashed #4f46e5; background-color: white; color: #4f46e5; margin-left: 0.5rem;"
+              data-test-id="add-page-button"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                style="width: 1rem; height: 1rem;"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      
 <!-- 表单项区域 -->
       <div class="form-card" style="margin-top: 1.5rem;">
         <h2 style="font-size: 1.125rem; font-weight: 500; margin-bottom: 1rem;">表单项</h2>
