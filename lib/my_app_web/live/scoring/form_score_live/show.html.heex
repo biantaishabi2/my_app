@@ -1,0 +1,93 @@
+<div class="mx-auto max-w-3xl">
+  <div class="mb-6">
+    <div class="mb-6 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-900">评分配置</h1>
+        <p class="text-sm text-gray-500">表单：<%= @form.title %></p>
+      </div>
+      <div class="flex space-x-3">
+        <button
+          phx-click="go_to_rules"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <.icon name="hero-adjustments-horizontal" class="w-5 h-5 mr-1" />
+          管理评分规则
+        </button>
+        <button
+          phx-click="go_to_results"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <.icon name="hero-chart-bar" class="w-5 h-5 mr-1" />
+          查看评分结果
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white shadow rounded-lg">
+    <%= unless @has_rules do %>
+      <div class="p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg mb-6">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-yellow-400" />
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              您还没有创建评分规则。请先创建至少一条评分规则，评分系统才能生效。
+            </p>
+            <div class="mt-2">
+              <button
+                phx-click="go_to_rules"
+                class="text-sm font-medium text-yellow-700 hover:text-yellow-600 underline"
+              >
+                创建评分规则 &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="p-6">
+      <.form
+        for={@changeset}
+        id="form-score-form"
+        phx-change="validate"
+        phx-submit="save"
+      >
+        <div class="space-y-6">
+          <div class="sm:flex sm:flex-row">
+            <div class="sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
+              <.input field={@changeset[:max_score]} type="number" label="最高分值" required min="1" />
+              <p class="mt-1 text-sm text-gray-500">设置此表单的最高可能获得的分数</p>
+            </div>
+            <div class="sm:w-1/2 sm:pl-4">
+              <.input field={@changeset[:passing_score]} type="number" label="通过分数" required min="0" />
+              <p class="mt-1 text-sm text-gray-500">设置及格分数线，低于此分数将被标记为不及格</p>
+            </div>
+          </div>
+
+          <div class="sm:flex sm:flex-row items-start">
+            <div class="sm:w-1/2 sm:pr-4 mb-4 sm:mb-0">
+              <.input field={@changeset[:auto_score]} type="checkbox" label="自动评分" />
+              <p class="mt-1 text-sm text-gray-500">启用后，系统将根据评分规则自动为新提交的回答打分</p>
+            </div>
+            <div class="sm:w-1/2 sm:pl-4">
+              <.input field={@changeset[:show_score]} type="checkbox" label="显示分数给用户" />
+              <p class="mt-1 text-sm text-gray-500">启用后，用户提交表单后会看到自己获得的分数</p>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-gray-200">
+            <button
+              type="submit"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto"
+            >
+              保存配置
+            </button>
+          </div>
+        </div>
+      </.form>
+    </div>
+  </div>
+</div>

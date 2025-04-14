@@ -74,6 +74,13 @@ defmodule MyApp.Scoring do
       rule -> {:ok, rule}
     end
   end
+  
+  @doc """
+  返回一个用于创建或修改评分规则的 changeset。
+  """
+  def change_score_rule(%ScoreRule{} = score_rule, attrs \\ %{}) do
+    ScoreRule.changeset(score_rule, attrs)
+  end
 
   @doc """
   更新评分规则。
@@ -267,6 +274,43 @@ defmodule MyApp.Scoring do
   defp validate_rule_items_format(_rules), do: {:error, :invalid_rule_format}
   # --- score_response Helper Functions --- END ---
 
+  # === Response Score Queries ===
+  
+  @doc """
+  获取指定表单下所有响应的评分结果列表。
+  
+  返回包含响应信息和评分信息的列表。
+  """
+  def get_response_scores_for_form(form_id) do
+    query = from rs in ResponseScore,
+            join: r in Response, on: rs.response_id == r.id,
+            where: r.form_id == ^form_id,
+            preload: [response: r]
+            
+    Repo.all(query)
+  end
+  
+  @doc """
+  获取单个响应的评分结果。
+  
+  返回 `{:ok, response_score}` 或 `{:error, :not_found}`。
+  """
+  def get_response_score_for_response(response_id) do
+    case Repo.get_by(ResponseScore, response_id: response_id) do
+      nil -> {:error, :not_found}
+      response_score -> 
+        response_score = response_score |> Repo.preload(:response)
+        {:ok, response_score}
+    end
+  end
+  
+  @doc """
+  获取表单信息，主要用于检查权限和显示表单标题等信息。
+  """
+  def get_form(form_id) do
+    Forms.get_form(form_id)
+  end
+  
   # === Statistics ===
   # (To be implemented later)
 

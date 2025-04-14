@@ -33,7 +33,7 @@ defmodule MyApp.ChatTest do
       assert conversation.messages == "some messages"
       assert conversation.title == "some title"
       assert conversation.role == "some role"
-      assert conversation.Message == "some Message"
+      assert conversation."Message" == "some Message"
       assert conversation.content == "some content"
     end
 
@@ -58,7 +58,7 @@ defmodule MyApp.ChatTest do
       assert conversation.messages == "some updated messages"
       assert conversation.title == "some updated title"
       assert conversation.role == "some updated role"
-      assert conversation.Message == "some updated Message"
+      assert conversation."Message" == "some updated Message"
       assert conversation.content == "some updated content"
     end
 

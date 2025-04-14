@@ -1,0 +1,57 @@
+<div class="mx-auto max-w-4xl">
+  <div class="mb-6 flex justify-between items-center">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-900">评分规则管理</h1>
+      <p class="text-sm text-gray-500">表单：<%= @form.title %></p>
+    </div>
+    <div>
+      <button
+        phx-click="new_rule"
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      >
+        <.icon name="hero-plus-circle" class="w-5 h-5 mr-1" />
+        添加规则
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-6">
+    <%= if Enum.empty?(@score_rules) do %>
+      <div class="text-center py-12">
+        <.icon name="hero-clipboard-document-list" class="w-12 h-12 mx-auto text-gray-400" />
+        <h3 class="mt-2 text-lg font-medium text-gray-900">暂无评分规则</h3>
+        <p class="mt-1 text-sm text-gray-500">点击"添加规则"开始创建第一条评分规则</p>
+        <div class="mt-6">
+          <button
+            phx-click="new_rule"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            添加评分规则
+          </button>
+        </div>
+      </div>
+    <% else %>
+      <div class="space-y-4">
+        <%= for rule <- @score_rules do %>
+          <.live_component
+            module={RuleListItemComponent}
+            id={"rule-item-#{rule.id}"}
+            score_rule={rule}
+          />
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<%= if @show_modal do %>
+  <.live_component
+    module={ScoreRuleFormModalComponent}
+    id="score-rule-modal"
+    action={@modal_action}
+    score_rule={@selected_rule}
+    form_id={@form_id}
+    current_user={@current_user}
+    return_to={~p"/forms/#{@form_id}/scoring/rules"}
+  />
+<% end %>

@@ -1253,6 +1253,18 @@ defmodule MyApp.Forms do
     |> Repo.all()
     |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
   end
+  
+  @doc """
+  列出指定表单的所有表单项，用于评分系统等组件使用。
+  
+  ## 示例
+  
+      iex> list_form_items_for_form(form_id)
+      [%FormItem{}, ...]
+  """
+  def list_form_items_for_form(form_id) do
+    list_form_items_by_form_id(form_id)
+  end
 
   @doc """
   Gets a single form by its associated form_template_id.

@@ -1,0 +1,136 @@
+<div class="mx-auto max-w-4xl">
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <nav class="flex" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-2 text-sm">
+          <li>
+            <button phx-click="go_back" class="text-gray-500 hover:text-gray-700">评分结果列表</button>
+          </li>
+          <li class="flex items-center">
+            <.icon name="hero-chevron-right" class="w-4 h-4 text-gray-500" />
+            <span class="ml-2 text-gray-900">评分详情</span>
+          </li>
+        </ol>
+      </nav>
+      <h1 class="text-2xl font-semibold text-gray-900 mt-2">响应评分详情</h1>
+      <p class="text-sm text-gray-500">表单: <%= @form.title %> | 提交时间: <%= format_datetime(@response.inserted_at) %></p>
+    </div>
+    
+    <div>
+      <.live_component
+        module={ScoreDisplayComponent}
+        id="score-display-main"
+        score={@response_score.score}
+        max_score={@response_score.max_score}
+        passing_score={@form_score_config && @form_score_config.passing_score}
+        size="lg"
+      />
+    </div>
+  </div>
+  
+  <!-- 评分信息卡片 -->
+  <div class="mb-6 bg-white shadow rounded-lg p-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div>
+        <h3 class="text-sm font-medium text-gray-500">评分规则</h3>
+        <p class="mt-1 text-base font-medium text-gray-900"><%= @score_rule.name %></p>
+      </div>
+      
+      <div>
+        <h3 class="text-sm font-medium text-gray-500">评分时间</h3>
+        <p class="mt-1 text-base font-medium text-gray-900"><%= format_datetime(@response_score.scored_at) %></p>
+      </div>
+      
+      <div>
+        <h3 class="text-sm font-medium text-gray-500">评分状态</h3>
+        <%= if @form_score_config && @response_score.score >= @form_score_config.passing_score do %>
+          <span class="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            通过 (<%= @response_score.score %>/<%= @form_score_config.passing_score %>)
+          </span>
+        <% else %>
+          <span class="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            未通过 (<%= @response_score.score %>/<%= @form_score_config.passing_score %>)
+          </span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 问题和得分表格 -->
+  <div class="bg-white shadow rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-medium text-gray-900">题目得分明细</h2>
+      <p class="text-sm text-gray-500">评分规则: <%= @score_rule.name %></p>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              题目
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              用户答案
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              正确答案
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              评分方法
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              分值
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              得分
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <%= for form_item <- @response.form_items || [] do %>
+            <% 
+              rule_item = Map.get(@rule_items_map, form_item.id)
+              answer = Map.get(@answers_map, form_item.id)
+              score_detail = Map.get(@score_details, to_string(form_item.id), %{})
+              got_score = score_detail["score"] || 0
+              possible_score = rule_item && rule_item["score"] || 0
+              is_correct = got_score >= possible_score
+            %>
+            
+            <%= if rule_item do %>
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-normal text-sm text-gray-900">
+                  <%= form_item.title %>
+                </td>
+                <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
+                  <%= format_answer(answer) %>
+                </td>
+                <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
+                  <%= rule_item["correct_answer"] %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <%= format_scoring_method(rule_item["scoring_method"]) %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <%= possible_score %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <%= if is_correct do %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      <%= got_score %>
+                    </span>
+                  <% else %>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                      <%= got_score %>
+                    </span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
