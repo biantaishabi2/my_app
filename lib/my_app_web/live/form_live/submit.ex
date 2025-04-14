@@ -353,6 +353,16 @@ defmodule MyAppWeb.FormLive.Submit do
     {:noreply, updated_socket}
   end
 
+  # 处理带有_target参数的update_blank事件
+  @impl true
+  def handle_event("update_blank", %{"_target" => _target} = params, socket) do
+    Logger.debug("处理带有_target的update_blank事件: #{inspect(params)}")
+
+    # 简单地返回socket，不做任何处理
+    # 在前端JS完成初始化后，会发送正确格式的update_blank事件
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_event("validate", params, socket) do
     # 处理其他验证情况
