@@ -14,16 +14,15 @@ defmodule MyApp.Responses.Answer do
     belongs_to :response, Response
     belongs_to :form_item, FormItem
 
-    # No timestamps needed usually
-    field :inserted_at, :utc_datetime, read_after_writes: true
-    field :updated_at, :utc_datetime, read_after_writes: true
+    # Use timestamps() for automatic management
+    timestamps(type: :utc_datetime_usec)
   end
 
   @doc false
   def changeset(answer, attrs) do
     answer
-    |> cast(attrs, [:value, :response_id, :form_item_id, :inserted_at, :updated_at])
-    |> validate_required([:value, :response_id, :form_item_id])
+    |> cast(attrs, [:value, :response_id, :form_item_id])
+    |> validate_required([:value, :form_item_id])
     |> foreign_key_constraint(:response_id)
     |> foreign_key_constraint(:form_item_id)
   end

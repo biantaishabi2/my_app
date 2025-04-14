@@ -5,9 +5,12 @@ defmodule MyApp.ScoringTest do
   alias MyApp.Scoring
   alias MyApp.Scoring.ScoreRule
   alias MyApp.Scoring.FormScore
+  alias MyApp.Scoring.ResponseScore
   # Assuming schemas exist for these
   alias MyApp.Accounts.User
   alias MyApp.Forms.Form
+  alias MyApp.Forms.FormItem
+  alias MyApp.Responses.Response
   # alias MyApp.Factory # REMOVED
 
   @moduletag :scoring_context
@@ -52,6 +55,67 @@ defmodule MyApp.ScoringTest do
 
     %ScoreRule{}
     |> ScoreRule.changeset(final_attrs)
+    |> Repo.insert!()
+  end
+
+  # Helper function to insert a form item
+  defp insert_form_item(form, attrs) do
+    default_attrs = %{
+      label: "Test Item",
+      type: "text_input",
+      settings: %{},
+      position: 0,
+      order: 0,
+      form_id: form.id
+    }
+    item_attrs = Map.merge(default_attrs, attrs)
+    %FormItem{}
+    |> FormItem.changeset(item_attrs)
+    |> Repo.insert!()
+  end
+
+  # Helper function to insert a response
+  defp insert_response(user, form, form_item, attrs \\ %{}) do
+     default_attrs = %{
+       form_id: form.id,
+       answers: [%{form_item_id: form_item.id, value: %{text: "default"}}],
+       submitted_at: DateTime.utc_now() |> DateTime.truncate(:second),
+       respondent_info: %{user_id: user.id, email: user.email}
+     }
+    response_attrs = Map.merge(default_attrs, attrs)
+    %Response{}
+    |> Ecto.Changeset.cast(response_attrs, [:form_id, :submitted_at, :respondent_info])
+    |> Ecto.Changeset.cast_assoc(:answers)
+    |> Repo.insert!()
+  end
+
+  # Helper function to insert a form score config
+  defp insert_form_score(form, attrs) do
+    default_attrs = %{
+      total_score: 100,
+      passing_score: 60,
+      score_visibility: :private,
+      auto_score: true,
+      form_id: form.id
+    }
+    config_attrs = Map.merge(default_attrs, attrs)
+    %FormScore{}
+    |> FormScore.changeset(config_attrs)
+    |> Repo.insert!()
+  end
+
+  # Helper function to insert a response score
+  defp insert_response_score(response, score_rule, attrs) do
+    default_attrs = %{
+      response_id: response.id,
+      score_rule_id: score_rule.id,
+      score: 80, # Example score
+      max_score: 100, # Example max_score
+      scored_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+    score_attrs = Map.merge(default_attrs, attrs)
+    %ResponseScore{}
+    |> ResponseScore.changeset(score_attrs)
     |> Repo.insert!()
   end
 
@@ -312,6 +376,208 @@ defmodule MyApp.ScoringTest do
 
     test "owner can setup form score config", %{owner: owner, form: form, valid_config_attrs: attrs} do
       assert {:ok, _config} = Scoring.setup_form_scoring(form.id, attrs, owner)
+    end
+  end
+
+  # === Response Scoring (Calculation) Tests ===
+  describe "Response Scoring (Calculation)" do
+    setup do
+      # Common setup for scoring tests
+      user = insert_user()
+      form = insert_form(user)
+      # Use map for attributes
+      form_item1 = insert_form_item(form, %{label: "Q1"})
+      form_item2 = insert_form_item(form, %{label: "Q2"})
+      %{user: user, form: form, form_item1: form_item1, form_item2: form_item2}
+    end
+
+    # --- Success Cases (3.1) ---
+    test "成功计算并保存简单规则的得分", %{user: user, form: form, form_item1: item1} do
+      # Use map for attributes in insert_score_rule if needed (assuming it accepts Keyword list)
+      # Keyword list is fine for insert_score_rule based on its definition
+      score_rule = insert_score_rule(form, user, name: "SimpleRule", max_score: 10, rules: %{
+        "version" => 1, "type" => "automatic", "items" => [
+          %{"item_id" => item1.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "A"}, "score" => 10}
+        ]
+      })
+      # Use map for attributes in insert_form_score
+      insert_form_score(form, %{auto_score: true})
+      # Use map for attributes in insert_response
+      response = insert_response(user, form, item1, %{answers: [%{form_item_id: item1.id, value: %{text: "A"}}]})
+
+      # Perform the scoring and assert results
+      assert {:ok, %ResponseScore{} = response_score} = Scoring.score_response(response.id)
+      assert response_score.score == 10
+      assert response_score.max_score == 10
+      assert response_score.response_id == response.id
+      assert response_score.score_rule_id == score_rule.id
+      assert not is_nil(response_score.scored_at)
+
+      # Verify persistence
+      assert %ResponseScore{} = db_score = Repo.get_by!(ResponseScore, response_id: response.id)
+      assert db_score.score == 10
+    end
+
+    test "成功计算并保存涉及多个评分项的得分", %{user: user, form: form, form_item1: item1, form_item2: item2} do
+      # Rule with two items, total max_score = 15
+      score_rule = insert_score_rule(form, user, name: "MultiItemRule", max_score: 15, rules: %{
+        "version" => 1, "type" => "automatic", "items" => [
+          # Item 1: Correct answer 'A', score 10
+          %{"item_id" => item1.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "A"}, "score" => 10},
+          # Item 2: Correct answer 'B', score 5
+          %{"item_id" => item2.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "B"}, "score" => 5}
+        ]
+      })
+      insert_form_score(form, %{auto_score: true})
+      # Response: Answers 'A' for item1 (correct), 'C' for item2 (incorrect)
+      response = insert_response(user, form, item1, %{
+        answers: [
+          %{form_item_id: item1.id, value: %{text: "A"}},
+          %{form_item_id: item2.id, value: %{text: "C"}}
+        ]
+      })
+
+      # Perform the scoring and assert results
+      assert {:ok, %ResponseScore{} = response_score} = Scoring.score_response(response.id)
+      # Only item1 should score points
+      assert response_score.score == 10
+      assert response_score.max_score == 15 # Max score from the rule
+      assert response_score.response_id == response.id
+      assert response_score.score_rule_id == score_rule.id
+
+      # Verify persistence
+      assert %ResponseScore{} = db_score = Repo.get_by!(ResponseScore, response_id: response.id)
+      assert db_score.score == 10
+      assert db_score.max_score == 15
+    end
+
+    test "包含未在规则中定义的答案项 (应忽略)", %{user: user, form: form, form_item1: item1, form_item2: item2} do
+      # Rule only defines scoring for item1, max_score = 10
+      score_rule = insert_score_rule(form, user, name: "IgnoreExtraAnswersRule", max_score: 10, rules: %{
+        "version" => 1, "type" => "automatic", "items" => [
+          # Item 1: Correct answer 'A', score 10
+          %{"item_id" => item1.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "A"}, "score" => 10}
+          # No rule for item2
+        ]
+      })
+      insert_form_score(form, %{auto_score: true})
+      # Response: Answers 'A' for item1 (correct), and 'X' for item2 (should be ignored)
+      response = insert_response(user, form, item1, %{
+        answers: [
+          %{form_item_id: item1.id, value: %{text: "A"}},
+          %{form_item_id: item2.id, value: %{text: "X"}} # Answer for item not in rule
+        ]
+      })
+
+      # Perform the scoring and assert results
+      assert {:ok, %ResponseScore{} = response_score} = Scoring.score_response(response.id)
+      # Only item1 should score points, item2's answer is ignored
+      assert response_score.score == 10
+      assert response_score.max_score == 10 # Max score from the rule
+      assert response_score.response_id == response.id
+      assert response_score.score_rule_id == score_rule.id
+
+      # Verify persistence
+      assert %ResponseScore{} = db_score = Repo.get_by!(ResponseScore, response_id: response.id)
+      assert db_score.score == 10
+      assert db_score.max_score == 10
+    end
+
+    test "规则中包含未被回答的评分项 (得分按 0 计算)", %{user: user, form: form, form_item1: item1, form_item2: item2} do
+      # Rule with two items, total max_score = 15
+      score_rule = insert_score_rule(form, user, name: "MissingAnswerRule", max_score: 15, rules: %{
+        "version" => 1, "type" => "automatic", "items" => [
+          # Item 1: Correct answer 'A', score 10
+          %{"item_id" => item1.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "A"}, "score" => 10},
+          # Item 2: Correct answer 'B', score 5 (This item won't be answered)
+          %{"item_id" => item2.id, "scoring_method" => "exact_match", "correct_answer" => %{text: "B"}, "score" => 5}
+        ]
+      })
+      insert_form_score(form, %{auto_score: true})
+      # Response: Only answers 'A' for item1 (correct). No answer for item2.
+      # Note: insert_response currently requires at least one answer via form_item arg.
+      # We need to adjust insert_response or how we create the response data here.
+      # Let's create the response manually for this case.
+      response_attrs = %{
+        form_id: form.id,
+        answers: [%{form_item_id: item1.id, value: %{text: "A"}}],
+        submitted_at: DateTime.utc_now() |> DateTime.truncate(:second),
+        respondent_info: %{user_id: user.id, email: user.email}
+      }
+      {:ok, response} = %Response{}
+                       |> Ecto.Changeset.cast(response_attrs, [:form_id, :submitted_at, :respondent_info])
+                       |> Ecto.Changeset.cast_assoc(:answers)
+                       |> Repo.insert()
+
+      # Perform the scoring and assert results
+      assert {:ok, %ResponseScore{} = response_score} = Scoring.score_response(response.id)
+      # Only item1 should score points, item2 gets 0 as it wasn't answered
+      assert response_score.score == 10
+      assert response_score.max_score == 15 # Max score from the rule
+      assert response_score.response_id == response.id
+      assert response_score.score_rule_id == score_rule.id
+
+      # Verify persistence
+      assert %ResponseScore{} = db_score = Repo.get_by!(ResponseScore, response_id: response.id)
+      assert db_score.score == 10
+      assert db_score.max_score == 15
+    end
+
+    # --- Error Handling & Edge Cases (3.2) ---
+    test "响应已被评分", %{user: user, form: form, form_item1: item1} do
+      score_rule = insert_score_rule(form, user)
+      insert_form_score(form, %{auto_score: true}) # Use map
+      response = insert_response(user, form, item1) # Uses default map
+      # Pre-insert a score
+      initial_score = insert_response_score(response, score_rule, %{score: 55})
+      initial_score_count = Repo.all(ResponseScore) |> length()
+
+      # Attempt to score again
+      assert {:error, :already_scored} = Scoring.score_response(response.id)
+
+      # Verify no new score was created and the old one is unchanged
+      assert Repo.all(ResponseScore) |> length() == initial_score_count
+      db_score = Repo.get!(ResponseScore, initial_score.id)
+      assert db_score.score == 55 # Check score didn't change
+    end
+
+    test "响应不存在", %{user: _user, form: _form, form_item1: _item1} do
+      non_existent_id = Ecto.UUID.generate()
+      assert {:error, :response_not_found} = Scoring.score_response(non_existent_id)
+    end
+
+    test "表单未配置评分规则", %{user: user, form: form, form_item1: item1} do
+      # 创建表单评分配置，但不创建评分规则
+      insert_form_score(form, %{auto_score: true})
+      response = insert_response(user, form, item1)
+      # 期望返回评分规则未找到错误
+      assert {:error, :score_rule_not_found} = Scoring.score_response(response.id)
+    end
+
+    test "表单未配置评分设置 (FormScore)", %{user: user, form: form, form_item1: item1} do
+      insert_score_rule(form, user)
+      response = insert_response(user, form, item1) # Uses default map
+      # No FormScore inserted
+      assert {:error, :form_score_config_not_found} = Scoring.score_response(response.id)
+    end
+
+    test "表单评分设置中禁用了自动评分", %{user: user, form: form, form_item1: item1} do
+      insert_score_rule(form, user)
+      insert_form_score(form, %{auto_score: false}) # Use map, auto score disabled
+      response = insert_response(user, form, item1) # Uses default map
+      assert {:error, :auto_score_disabled} = Scoring.score_response(response.id)
+    end
+
+    test "评分规则格式无效或无法解析", %{user: user, form: form, form_item1: item1} do
+      # insert_score_rule takes keyword list, so this is fine
+      # Insert a rule with invalid format in 'rules' (items is not a list)
+      insert_score_rule(form, user, rules: %{"version" => 1, "items" => "not_a_list"})
+      insert_form_score(form, %{auto_score: true}) # Use map
+      response = insert_response(user, form, item1) # Uses default map
+      # Assuming the calculation logic will detect this and return a specific error
+      # The exact error might depend on implementation, :invalid_rule_format is a placeholder
+      assert {:error, _reason} = Scoring.score_response(response.id)
+      # TODO: Assert specific error like :invalid_rule_format once calculation is more robust
     end
   end
 

@@ -11,9 +11,13 @@ defmodule MyApp.Scoring do
 
   alias MyApp.Scoring.ScoreRule
   alias MyApp.Scoring.FormScore # Use the alias now
-  # alias MyApp.Scoring.ResponseScore # Will use later
+  alias MyApp.Scoring.ResponseScore # Added alias
 
   alias MyApp.Forms # Assuming Forms context exists
+  alias MyApp.Forms.Form # Added alias
+  # alias MyApp.Forms.FormItem # Added alias - REMOVE
+  alias MyApp.Responses.Response # Added alias
+  # alias MyApp.Responses.Answer # Added alias - REMOVE
   # alias MyApp.Accounts # Assuming Accounts context exists
 
   # === Score Rule Management ===
@@ -141,7 +145,127 @@ defmodule MyApp.Scoring do
   end
 
   # === Response Scoring ===
-  # (To be implemented later)
+
+  @doc """
+  Calculates the score for a given response based on the form's scoring rule
+  and saves the result as a ResponseScore record.
+
+  Returns `{:ok, response_score}` on success,
+  or `{:error, reason}` if scoring cannot be performed.
+  Reasons include: :response_not_found, :already_scored, :score_rule_not_found,
+  :form_score_config_not_found, :auto_score_disabled, :calculation_error, etc.
+  """
+  def score_response(response_id) do
+    # Preload data needed for calculation and validation, but not the non-existent response_scores assoc
+    preload_query = from r in Response, where: r.id == ^response_id
+    response = Repo.get(preload_query, response_id)
+               |> Repo.preload([:form, answers: :form_item]) # Removed response_scores preload
+
+    # Pass response_id to handle_already_scored
+    with {:ok, response} <- handle_response_found(response),
+         :ok <- handle_already_scored(response.id),
+         {:ok, form} <- handle_form_association(response),
+         {:ok, score_rule} <- find_score_rule(form.id),
+         {:ok, form_config} <- find_form_score_config(form.id),
+         :ok <- check_auto_score_enabled(form_config) do
+
+      # --- Actual calculation logic --- START ---
+      # Validate rule format before proceeding
+      with {:ok, rule_items} <- validate_rule_items_format(score_rule.rules) do
+        answers_map = Map.new(response.answers, fn answer -> {answer.form_item_id, answer} end)
+
+        calculated_score = Enum.reduce(rule_items, 0, fn item, acc ->
+          item_id = item["item_id"]
+          scoring_method = item["scoring_method"]
+          correct_answer = item["correct_answer"]
+          score_value = item["score"] || 0 # Default to 0 if score is missing
+
+          case {Map.get(answers_map, item_id), scoring_method} do
+            # Found answer and method is exact_match
+            {%{value: user_answer_value}, "exact_match"} ->
+              if user_answer_value == correct_answer do
+                acc + score_value
+              else
+                acc # No points if answer doesn't match
+              end
+            # TODO: Handle other scoring methods
+            # Answer not found for this item_id, or unknown scoring method
+            _ ->
+              acc # No points for this item
+          end
+        end)
+
+        # Use the rule's max_score as defined in the rule itself
+        calculated_max_score = score_rule.max_score
+        scored_at_time = DateTime.utc_now() |> DateTime.truncate(:second)
+        score_details_map = %{} # TODO: Populate score details later
+        # --- Actual calculation logic --- END ---
+
+        # Prepare attributes for ResponseScore
+        response_score_attrs = %{
+          response_id: response.id,
+          score_rule_id: score_rule.id,
+          score: calculated_score,
+          max_score: calculated_max_score,
+          scored_at: scored_at_time,
+          score_details: score_details_map
+        }
+
+        # Create and insert the ResponseScore
+        %ResponseScore{}
+        |> ResponseScore.changeset(response_score_attrs)
+        |> Repo.insert()
+      else
+         # Error from validate_rule_items_format
+         {:error, reason} -> {:error, reason}
+      end
+    else
+      # If any check in the outer `with` block fails, return the error
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # --- score_response Helper Functions --- START ---
+  defp handle_response_found(nil), do: {:error, :response_not_found}
+  defp handle_response_found(response), do: {:ok, response}
+
+  # Check if ResponseScore already exists by querying directly
+  defp handle_already_scored(response_id) do
+    case Repo.get_by(ResponseScore, response_id: response_id) do
+      nil -> :ok # Not scored yet
+      _ -> {:error, :already_scored}
+    end
+  end
+
+  # Check if form association is loaded (should be if response exists)
+  defp handle_form_association(%Response{form: %Form{}} = response), do: {:ok, response.form}
+  defp handle_form_association(_response), do: {:error, :form_not_found} # Or internal error
+
+  # Find the active scoring rule for the form (assuming only one for now)
+  # TODO: Add logic if multiple rules are possible
+  defp find_score_rule(form_id) do
+    case Repo.get_by(ScoreRule, form_id: form_id, is_active: true) do
+      nil -> {:error, :score_rule_not_found}
+      rule -> {:ok, rule}
+    end
+  end
+
+  # Find the form score configuration
+  defp find_form_score_config(form_id) do
+    case get_form_score_config(form_id) do # Reuse existing function
+      nil -> {:error, :form_score_config_not_found}
+      config -> {:ok, config}
+    end
+  end
+
+  # Check if auto scoring is enabled
+  defp check_auto_score_enabled(%FormScore{auto_score: true}), do: :ok
+  defp check_auto_score_enabled(_form_config), do: {:error, :auto_score_disabled}
+
+  # Validate that the 'items' key in rules exists and is a list
+  defp validate_rule_items_format(%{"items" => items}) when is_list(items), do: {:ok, items}
+  defp validate_rule_items_format(_rules), do: {:error, :invalid_rule_format}
+  # --- score_response Helper Functions --- END ---
 
   # === Statistics ===
   # (To be implemented later)

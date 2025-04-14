@@ -17,16 +17,17 @@ defmodule MyApp.Responses.Response do
     belongs_to :form, Form
     has_many :answers, Answer, on_delete: :delete_all
 
-    # No timestamps() here, submitted_at serves that purpose primarily
-    # Add inserted_at/updated_at if needed for internal tracking
-    field :inserted_at, :utc_datetime_usec, read_after_writes: true
-    field :updated_at, :utc_datetime_usec, read_after_writes: true
+    # Use timestamps() for automatic management
+    timestamps(type: :utc_datetime_usec)
+    # field :inserted_at, :utc_datetime_usec, read_after_writes: true # Replaced by timestamps()
+    # field :updated_at, :utc_datetime_usec, read_after_writes: true # Replaced by timestamps()
   end
 
   @doc false
   def changeset(response, attrs) do
     response
-    |> cast(attrs, [:form_id, :submitted_at, :respondent_info, :inserted_at, :updated_at])
+    # Remove inserted_at/updated_at from cast if they were there (they weren't in last view)
+    |> cast(attrs, [:form_id, :submitted_at, :respondent_info])
     |> validate_required([:form_id, :submitted_at])
     |> foreign_key_constraint(:form_id)
     # Basic handling for nested answers
