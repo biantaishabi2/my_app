@@ -74,7 +74,7 @@ defmodule MyApp.Scoring do
       rule -> {:ok, rule}
     end
   end
-  
+
   @doc """
   返回一个用于创建或修改评分规则的 changeset。
   """
@@ -113,33 +113,66 @@ defmodule MyApp.Scoring do
   # === Form Score Configuration ===
 
   @doc """
-  Sets up or updates the scoring configuration for a form.
+  设置表单的评分配置。创建或更新 FormScore 记录。
+  该函数支持创建新的评分设置或更新现有设置。
 
-  Requires the user to own the form.
-  Performs an upsert operation.
+  ## 参数
+  - form_id: 需要设置评分的表单 ID
+  - attrs: 包含评分配置属性的映射
+  - user: 执行操作的用户，用于权限检查
+
+  ## 返回值
+  - {:ok, %FormScore{}} - 设置成功
+  - {:error, changeset} - 验证错误
+  - {:error, :unauthorized} - 用户无权操作
   """
   def setup_form_scoring(form_id, attrs, user) do
+    require Logger
+    Logger.debug("setup_form_scoring called with form_id: #{form_id}, attrs: #{inspect(attrs)}")
+
     with true <- user_can_modify_form?(form_id, user) do
-      # Prepare attributes, ensuring form_id is set
-      prepared_attrs = Map.put(attrs, :form_id, form_id)
+      # 确保所有键都是字符串类型
+      prepared_attrs =
+        attrs
+        |> Map.put("form_id", form_id)
+        # 如果attrs中有:form_id，则删除它以避免混合键
+        |> Map.delete(:form_id)
+
+      Logger.debug("Prepared attrs: #{inspect(prepared_attrs)}")
 
       # Try to get existing config or build a new one
       case Repo.get_by(FormScore, form_id: form_id) do
         nil ->
+          Logger.debug("Creating new form score config")
           # Create new config
           %FormScore{}
           |> FormScore.changeset(prepared_attrs)
           |> Repo.insert()
+
         existing_config ->
-          # Update existing config
-          existing_config
-          |> FormScore.changeset(prepared_attrs)
-          |> Repo.update()
+          Logger.debug("Updating existing form score config: #{inspect(existing_config)}")
+
+          # 检查现有配置和新属性是否有变化
+          changeset = FormScore.changeset(existing_config, prepared_attrs)
+
+          if changeset.changes == %{} do
+            # 如果没有变化，仍然返回成功但不执行数据库更新
+            Logger.debug("No changes detected, returning existing config without update")
+            {:ok, existing_config}
+          else
+            # 有变化，执行更新
+            Logger.debug("Changes detected, updating config")
+            changeset |> Repo.update()
+          end
       end
     else
-      false -> {:error, :unauthorized}
+      false ->
+        Logger.debug("Unauthorized access to setup_form_scoring")
+        {:error, :unauthorized}
       # Handle potential {:error, reason} from user_can_modify_form?
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        Logger.debug("Error in user_can_modify_form?: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -161,7 +194,7 @@ defmodule MyApp.Scoring do
   or `{:error, reason}` if scoring cannot be performed.
   Reasons include: :response_not_found, :already_scored, :score_rule_not_found,
   :form_score_config_not_found, :calculation_error, etc.
-  
+
   注意：自动评分无需检查auto_score_enabled，因为该检查已在调用处完成。
   """
   def score_response(response_id) do
@@ -280,10 +313,10 @@ defmodule MyApp.Scoring do
   # --- score_response Helper Functions --- END ---
 
   # === Response Score Queries ===
-  
+
   @doc """
   获取指定表单下所有响应的评分结果列表。
-  
+
   返回包含响应信息和评分信息的列表。
   """
   def get_response_scores_for_form(form_id) do
@@ -291,31 +324,31 @@ defmodule MyApp.Scoring do
             join: r in Response, on: rs.response_id == r.id,
             where: r.form_id == ^form_id,
             preload: [response: r]
-            
+
     Repo.all(query)
   end
-  
+
   @doc """
   获取单个响应的评分结果。
-  
+
   返回 `{:ok, response_score}` 或 `{:error, :not_found}`。
   """
   def get_response_score_for_response(response_id) do
     case Repo.get_by(ResponseScore, response_id: response_id) do
       nil -> {:error, :not_found}
-      response_score -> 
+      response_score ->
         response_score = response_score |> Repo.preload(:response)
         {:ok, response_score}
     end
   end
-  
+
   @doc """
   获取表单信息，主要用于检查权限和显示表单标题等信息。
   """
   def get_form(form_id) do
     Forms.get_form(form_id)
   end
-  
+
   # === Statistics ===
   # (To be implemented later)
 

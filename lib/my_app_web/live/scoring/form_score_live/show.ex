@@ -1,8 +1,9 @@
 defmodule MyAppWeb.Scoring.FormScoreLive.Show do
   use MyAppWeb, :live_view
-  
+
   alias MyApp.Scoring
   alias MyApp.Scoring.FormScore
+  alias MyAppWeb.NotificationComponent
 
   @impl true
   def mount(%{"form_id" => form_id}, _session, socket) do
@@ -27,7 +28,10 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
      |> assign(:form_score, form_score)
      |> assign(:form_changeset, form_changeset)
      |> assign(:page_title, "评分配置 - #{form.title}")
-     |> assign(:has_rules, has_active_rules?(form_id))}
+     |> assign(:has_rules, has_active_rules?(form_id))
+     |> assign(:notification, nil)
+     |> assign(:notification_type, nil)
+     |> assign(:notification_timer, nil)}
   end
 
   @impl true
@@ -42,19 +46,38 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
 
   @impl true
   def handle_event("save", %{"form_score" => form_score_params}, socket) do
+    # 正确处理auto_score参数：表单提交"on"值需要转换为true
+    form_score_params = form_score_params
+    |> handle_checkbox_value("auto_score")
+
+    # 直接调用setup_form_scoring，无需预验证
     case Scoring.setup_form_scoring(socket.assigns.form_id, form_score_params, socket.assigns.current_user) do
       {:ok, form_score} ->
+        # 成功情况显示成功通知
+        socket = NotificationComponent.notify(socket, "评分配置已保存成功", :info)
         {:noreply,
          socket
          |> assign(:form_score, form_score)
-         |> assign(:form_changeset, FormScore.changeset(form_score, %{}))
-         |> put_flash(:info, "评分配置已保存")}
+         |> assign(:form_changeset, FormScore.changeset(form_score, %{}))}
 
       {:error, %Ecto.Changeset{} = form_changeset} ->
+        # 数据验证失败显示错误通知
+        socket = NotificationComponent.notify(socket, "保存失败，请检查输入", :error)
         {:noreply, assign(socket, :form_changeset, form_changeset)}
 
       {:error, :unauthorized} ->
-        {:noreply, put_flash(socket, :error, "您没有权限修改此表单的评分配置")}
+        # 权限错误显示相应通知
+        socket = NotificationComponent.notify(socket, "您没有权限修改此表单的评分配置", :error)
+        {:noreply, socket}
+    end
+  end
+
+  # 处理复选框值转换：将"on"转换为true，缺失值转换为false
+  defp handle_checkbox_value(params, field) do
+    case Map.get(params, field) do
+      "on" -> Map.put(params, field, true)
+      nil -> Map.put(params, field, false)
+      val -> Map.put(params, field, val)
     end
   end
 
@@ -73,5 +96,14 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
     form_id
     |> Scoring.get_score_rules_for_form()
     |> Enum.any?(& &1.is_active)
+  end
+
+  # 处理通知组件的清除消息
+  @impl true
+  def handle_info(:clear_notification, socket) do
+    {:noreply,
+     socket
+     |> assign(:notification, nil)
+     |> assign(:notification_timer, nil)}
   end
 end

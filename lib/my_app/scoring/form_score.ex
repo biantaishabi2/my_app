@@ -25,8 +25,25 @@ defmodule MyApp.Scoring.FormScore do
 
   @doc false
   def changeset(form_score, attrs) do
+    # 确保attrs只使用字符串键，如果包含原子键就强制转换为字符串键
+    normalized_attrs =
+      case attrs do
+        %{__struct__: _} -> attrs  # 如果是结构体（如Ecto.Schema），直接使用
+        attrs when is_map(attrs) ->
+          # 将所有原子键转换为字符串键，防止混合键问题
+          Enum.reduce(attrs, %{}, fn
+            # 如果键已经是字符串，直接添加到累积的map中
+            {key, val}, acc when is_binary(key) -> Map.put(acc, key, val)
+            # 如果键是原子，转换为字符串后添加到累积的map中
+            {key, val}, acc when is_atom(key) -> Map.put(acc, Atom.to_string(key), val)
+            # 其他情况（不太可能）保持不变
+            _, acc -> acc
+          end)
+        _ -> attrs  # 非map情况，直接返回
+      end
+
     form_score
-    |> cast(attrs, [:total_score, :passing_score, :score_visibility, :auto_score, :form_id])
+    |> cast(normalized_attrs, [:total_score, :passing_score, :score_visibility, :auto_score, :form_id])
     |> validate_required([:total_score, :form_id])
     |> validate_number(:total_score, greater_than: 0)
     |> validate_number(:passing_score, greater_than: 0)

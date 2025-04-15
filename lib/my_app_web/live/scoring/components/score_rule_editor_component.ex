@@ -3,35 +3,35 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
 
   @doc """
   提供交互式界面编辑评分规则的 rules JSON 结构。
-  
+
   ## 参数
-  
+
   * `:rules` - 当前规则JSON数据
   * `:form_id` - 表单ID，用于加载表单项
   * `:id` - 组件ID
   * `:on_change` - 规则变更时调用的函数
   """
-  
+
   def mount(socket) do
     {:ok, assign(socket, :rule_items, [])}
   end
-  
+
   def update(assigns, socket) do
     socket = assign(socket, assigns)
-    
+
     rule_items = case socket.assigns.rules do
       %{"items" => items} when is_list(items) -> items
       _ -> []
     end
-    
+
     {:ok, assign(socket, :rule_items, rule_items)}
   end
-  
+
   def render(assigns) do
     ~H"""
     <div id={@id} class="border rounded-lg p-4 bg-gray-50">
       <h3 class="text-lg font-medium mb-4">评分规则项</h3>
-      
+
       <div class="mb-4">
         <button
           type="button"
@@ -43,7 +43,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
           添加规则项
         </button>
       </div>
-      
+
       <%= if Enum.empty?(@rule_items) do %>
         <div class="text-sm text-gray-500 text-center py-4">
           暂无规则项，请点击"添加规则项"按钮添加
@@ -64,7 +64,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                   <.icon name="hero-trash" class="w-4 h-4" />
                 </button>
               </div>
-              
+
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-medium text-gray-700">问题</label>
@@ -84,7 +84,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                     </select>
                   </form>
                 </div>
-                
+
                 <div>
                   <label class="block text-xs font-medium text-gray-700">评分方法</label>
                   <form phx-change="update_rule_item" phx-target={@myself}>
@@ -100,7 +100,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                     </select>
                   </form>
                 </div>
-                
+
                 <div>
                   <label class="block text-xs font-medium text-gray-700">正确答案</label>
                   <form phx-change="update_rule_item" phx-target={@myself}>
@@ -114,7 +114,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                     />
                   </form>
                 </div>
-                
+
                 <div>
                   <label class="block text-xs font-medium text-gray-700">分值</label>
                   <form phx-change="update_rule_item" phx-target={@myself}>
@@ -137,7 +137,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     </div>
     """
   end
-  
+
   def handle_event("add_rule_item", _, socket) do
     new_item = %{
       "item_id" => nil,
@@ -145,46 +145,46 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
       "correct_answer" => "",
       "score" => 1
     }
-    
+
     rule_items = socket.assigns.rule_items ++ [new_item]
-    rules = %{"items" => rule_items}
-    
+    _rules = %{"items" => rule_items}
+
     # 不需要任何父组件通信
-    
+
     {:noreply, assign(socket, rule_items: rule_items)}
   end
-  
+
   def handle_event("remove_rule_item", %{"index" => index}, socket) do
     index = String.to_integer(index)
     rule_items = List.delete_at(socket.assigns.rule_items, index)
-    rules = %{"items" => rule_items}
-    
+    _rules = %{"items" => rule_items}
+
     # 不需要任何父组件通信
-    
+
     {:noreply, assign(socket, rule_items: rule_items)}
   end
-  
+
   # 处理下拉菜单选择事件，使用phx-change
   def handle_event("update_rule_item", %{"index" => index, "field" => field, "value" => value}, socket) do
     index = String.to_integer(index)
-    
+
     rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
       Map.put(item, field, value)
     end)
-    
-    rules = %{"items" => rule_items}
-    
+
+    _rules = %{"items" => rule_items}
+
     # 移除不必要的父组件通信
-    
+
     {:noreply, assign(socket, rule_items: rule_items)}
   end
-  
+
   # 处理表单控件事件的一般情况，包括select下拉菜单
   def handle_event("update_rule_item", params, socket) do
     # 从params中提取索引和字段信息
     index = params["index"]
     field = params["field"]
-    
+
     # 提取表单值
     value = cond do
       # 检查问题选择
@@ -196,7 +196,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
       # 其他情况
       true -> nil
     end
-    
+
     if is_nil(index) or is_nil(field) or is_nil(value) do
       # 记录错误但不中断会话
       IO.puts("无效的更新参数 - index: #{index}, field: #{field}, value: #{inspect(value)}, params: #{inspect(params)}")
@@ -204,20 +204,20 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     else
       # 转换索引为整数
       index = String.to_integer(index)
-      
+
       # 更新rule_items
       rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
         Map.put(item, field, value)
       end)
-      
+
       # 更新socket状态，不需要任何组件间通信
       {:noreply, assign(socket, rule_items: rule_items)}
     end
   end
-  
-    
+
+
   # 移除不必要的父组件通信函数
-  
+
   defp get_form_items(form_id) do
     # 获取表单所有题目项
     form = MyApp.Forms.get_form(form_id)
