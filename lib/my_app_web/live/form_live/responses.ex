@@ -177,9 +177,9 @@ defmodule MyAppWeb.FormLive.Responses do
         </div>
 
         <div class="flex gap-2">
-          <div class="relative" phx-click-away={JS.remove_class("flex", to: "#export-dropdown")} phx-click-away={JS.add_class("hidden", to: "#export-dropdown")}>
+          <div class="relative" phx-click-away={JS.hide(to: "#export-dropdown")}>
             <button
-              phx-click={JS.add_class("flex", to: "#export-dropdown") |> JS.remove_class("hidden", to: "#export-dropdown")}
+              phx-click={JS.toggle(to: "#export-dropdown")}
               class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -187,22 +187,22 @@ defmodule MyAppWeb.FormLive.Responses do
               </svg>
               导出数据
             </button>
-            <div id="export-dropdown" class="absolute hidden flex-col top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[200px]">
-              <button phx-click="export_responses" phx-value-include-scores="true" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+            <div id="export-dropdown" class="absolute hidden flex-col top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 w-[200px]">
+              <button phx-click="export_responses" phx-value-include-scores="true" class="w-full px-4 py-2 text-left hover:bg-gray-100 transition">
                 导出所有回复和评分
               </button>
-              <button phx-click="export_responses" phx-value-include-scores="false" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+              <button phx-click="export_responses" phx-value-include-scores="false" class="w-full px-4 py-2 text-left hover:bg-gray-100 transition">
                 仅导出回复数据
               </button>
-              <button phx-click="export_statistics" class="px-4 py-2 text-left hover:bg-gray-100 transition">
+              <button phx-click="export_statistics" class="w-full px-4 py-2 text-left hover:bg-gray-100 transition">
                 导出统计数据
               </button>
             </div>
           </div>
 
-          <div class="relative" phx-click-away={JS.remove_class("flex", to: "#scoring-dropdown")} phx-click-away={JS.add_class("hidden", to: "#scoring-dropdown")}>
+          <div class="relative" phx-click-away={JS.hide(to: "#scoring-dropdown")}>
             <button
-              phx-click={JS.add_class("flex", to: "#scoring-dropdown") |> JS.remove_class("hidden", to: "#scoring-dropdown")}
+              phx-click={JS.toggle(to: "#scoring-dropdown")}
               class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition flex items-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -211,14 +211,14 @@ defmodule MyAppWeb.FormLive.Responses do
               </svg>
               评分系统
             </button>
-            <div id="scoring-dropdown" class="absolute hidden flex-col top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[180px]">
-              <a href={~p"/forms/#{@form.id}/scoring/config"} class="px-4 py-2 text-left hover:bg-gray-100 transition">
+            <div id="scoring-dropdown" class="absolute hidden flex-col top-full right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 w-[200px]">
+              <a href={~p"/forms/#{@form.id}/scoring/config"} class="w-full px-4 py-2 text-left hover:bg-gray-100 transition block">
                 评分配置
               </a>
-              <a href={~p"/forms/#{@form.id}/scoring/rules"} class="px-4 py-2 text-left hover:bg-gray-100 transition">
+              <a href={~p"/forms/#{@form.id}/scoring/rules"} class="w-full px-4 py-2 text-left hover:bg-gray-100 transition block">
                 评分规则管理
               </a>
-              <a href={~p"/forms/#{@form.id}/scoring/results"} class="px-4 py-2 text-left hover:bg-gray-100 transition">
+              <a href={~p"/forms/#{@form.id}/scoring/results"} class="w-full px-4 py-2 text-left hover:bg-gray-100 transition block">
                 评分结果统计
               </a>
             </div>
@@ -389,6 +389,8 @@ defmodule MyAppWeb.FormLive.Responses do
         </div>
       <% end %>
     </div>
+
+    <div id="download-hook" phx-hook="DownloadHook" class="hidden"></div>
     """
   end
 
