@@ -36,27 +36,31 @@
       <h2 class="text-lg font-medium mb-4">回复内容</h2>
 
       <div class="space-y-6">
-        <%= for answer <- @response.answers do %>
-          <% item = Map.get(@items_map, answer.form_item_id) %>
-          <%= if item do %>
-            <div class="border border-gray-200 rounded-lg p-4">
-              <div class="font-medium mb-2">
-                {item.label}
-                <%= if item.required do %>
-                  <span class="text-red-500">*</span>
-                <% end %>
-              </div>
+        <%= for item <- @form.items do %>
+          <% 
+            # Find the answer for the current item from the answers_map
+            answer = Map.get(@answers_map, item.id)
+          %>
+          <div class="border border-gray-200 rounded-lg p-4">
+            <div class="font-medium mb-2">
+              <%= item.label %>
+              <%= if item.required do %>
+                <span class="text-red-500">*</span>
+              <% end %>
+            </div>
 
-              <div class="bg-gray-50 p-3 rounded mt-2">
+            <div class="bg-gray-50 p-3 rounded mt-2">
+              <%= if answer do %>
+                <%# Answer exists, display based on item type %>
                 <%= case item.type do %>
-                  <% :text_input -> %>
+                  <% "text_input" -> %>
                     <div class="text-gray-800"><%= Map.get(answer.value, "value", "") %></div>
-                  <% :textarea -> %>
+                  <% "textarea" -> %>
                     <div class="text-gray-800 whitespace-pre-wrap"><%= Map.get(answer.value, "value", "") %></div>
-                  <% :radio -> %>
+                  <% "radio" -> %>
                     <% raw_value = Map.get(answer.value, "value") %>
                     <% selected_option =
-                       Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
+                        Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -67,10 +71,10 @@
                     <% else %>
                       <div class="text-gray-800"><%= raw_value %></div>
                     <% end %>
-                  <% :dropdown -> %>
+                  <% "dropdown" -> %>
                     <% raw_value = Map.get(answer.value, "value") %>
                     <% selected_option =
-                       Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
+                        Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -81,10 +85,10 @@
                     <% else %>
                       <div class="text-gray-800"><%= raw_value %></div>
                     <% end %>
-                  <% :checkbox -> %>
+                  <% "checkbox" -> %>
                     <% values = Map.get(answer.value, "value", []) |> List.wrap() #确保是列表 %>
                     <% selected_options =
-                       Enum.filter(item.options || [], fn opt -> opt.value in values end) %>
+                        Enum.filter(item.options || [], fn opt -> opt.value in values end) %>
                     <div class="text-gray-800">
                       <%= if selected_options != [] do %>
                         <div class="flex flex-wrap gap-2">
@@ -101,9 +105,9 @@
                         <div class="text-gray-500 italic">未选择任何选项</div>
                       <% end %>
                     </div>
-                  <% type when type in [:number, :date, :time, :rating, :region] -> %>
+                  <% type when type in ["number", "date", "time", "rating", "region"] -> %>
                     <div class="text-gray-800"><%= Map.get(answer.value, "value", "") %></div>
-                  <% :blank -> %>
+                  <% "blank" -> %>
                     <% blanks = Map.get(answer.value, "value", []) %>
                     <div class="text-gray-800">
                       <%= for {blank_value, idx} <- Enum.with_index(blanks) do %>
@@ -113,26 +117,29 @@
                         </span>
                       <% end %>
                     </div>
-                  <% :file_upload -> %>
+                  <% "file_upload" -> %>
                     <% files = Map.get(answer.value, "value", []) |> List.wrap() %>
                     <div class="text-gray-800">
                       <%= for file <- files do %>
-                         <%= if is_map(file) && file["path"] do %>
-                           <a href={file["path"]} target="_blank" class="text-blue-600 hover:underline mr-2">
-                             <%= file["name"] || "查看文件" %>
-                           </a>
-                         <% else %>
-                           <span class="text-gray-500">无效文件数据</span>
-                         <% end %>
+                          <%= if is_map(file) && file["path"] do %>
+                          <a href={file["path"]} target="_blank" class="text-blue-600 hover:underline mr-2">
+                            <%= file["name"] || "查看文件" %>
+                          </a>
+                          <% else %>
+                          <span class="text-gray-500">无效文件数据</span>
+                          <% end %>
                       <% end %>
                       <%= if files == [], do: "未上传文件" %>
                     </div>
                   <% _ -> %> <%# 其他所有类型，先用 inspect 显示 %>
-                    <div class="text-gray-800"><%= inspect(answer.value) %></div>
+                    <div class="text-gray-800">类型: <%= item.type %>, 值: <%= inspect(answer.value) %></div>
                 <% end %>
-              </div>
+              <% else %>
+                <%# Answer does not exist for this item %>
+                <div class="text-gray-500 italic">未作答</div>
+              <% end %>
             </div>
-          <% end %>
+          </div>
         <% end %>
       </div>
     </div>

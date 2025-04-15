@@ -53,29 +53,32 @@ defmodule MyAppWeb.FormLive.Responses do
           <h2 class="text-lg font-medium mb-4">回复内容</h2>
 
           <div class="space-y-6">
-            <%= for answer <- @response.answers do %>
-              <% item = Map.get(@items_map, answer.form_item_id) %>
-              <%= if item do %>
-                <div class="border border-gray-200 rounded-lg p-4 answer-item">
-                  <div class="font-medium mb-2 question">
-                    {item.label}
-                    <%= if item.required do %>
-                      <span class="text-red-500">*</span>
-                    <% end %>
-                  </div>
+            <%= for item <- @form.items do %>
+              <%
+                # Find the answer for the current item using the answers_map
+                answer = Map.get(@answers_map, item.id)
+              %>
+              <div class="border border-gray-200 rounded-lg p-4 answer-item">
+                <div class="font-medium mb-2 question">
+                  {item.label}
+                  <%= if item.required do %>
+                    <span class="text-red-500">*</span>
+                  <% end %>
+                </div>
 
-                  <div class="bg-gray-50 p-3 rounded mt-2">
-                    <%= cond do %>
-                      <% item.type == :text_input || item.type == :textarea -> %>
+                <div class="bg-gray-50 p-3 rounded mt-2">
+                  <%= if answer do %>
+                    <%# Answer exists, display based on item type %>
+                    <%= case item.type do %>
+                      <% :text_input -> %>
                         <div class="text-gray-800 answer">
-                          <%= if is_map(answer.value) && Map.has_key?(answer.value, "value") do %>
-                            {answer.value["value"]}
-                          <% else %>
-                            {inspect(answer.value)}
-                          <% end %>
+                          <%= if is_map(answer.value) && Map.has_key?(answer.value, "value"), do: answer.value["value"], else: inspect(answer.value) %>
                         </div>
-
-                      <% item.type == :radio -> %>
+                      <% :textarea -> %>
+                        <div class="text-gray-800 whitespace-pre-wrap answer">
+                          <%= if is_map(answer.value) && Map.has_key?(answer.value, "value"), do: answer.value["value"], else: inspect(answer.value) %>
+                        </div>
+                      <% :radio -> %>
                         <%
                           option_value = if is_map(answer.value) && Map.has_key?(answer.value, "value"), do: answer.value["value"], else: answer.value
                           selected_option = Enum.find(item.options || [], fn opt -> "#{opt.id}" == "#{option_value}" end)
@@ -88,22 +91,37 @@ defmodule MyAppWeb.FormLive.Responses do
                             <span class="text-gray-500 text-xs ml-2">(值: {option_value})</span>
                           </div>
                         <% else %>
-                          <div class="text-gray-800 answer">{inspect(answer.value)}</div>
+                           <!-- Display raw value if option mapping fails -->
+                          <div class="text-gray-800 answer">原始值: {inspect(answer.value)}</div>
                         <% end %>
-
-                      <% item.type == :checkbox -> %>
+                      <% :dropdown -> %> <!-- Added Dropdown Handling -->
+                        <%
+                          option_value = if is_map(answer.value) && Map.has_key?(answer.value, "value"), do: answer.value["value"], else: answer.value
+                          selected_option = Enum.find(item.options || [], fn opt -> "#{opt.id}" == "#{option_value}" end)
+                        %>
+                        <%= if selected_option do %>
+                          <div class="text-gray-800 answer">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              {selected_option.label}
+                            </span>
+                            <span class="text-gray-500 text-xs ml-2">(值: {option_value})</span>
+                          </div>
+                        <% else %>
+                           <!-- Display raw value if option mapping fails -->
+                          <div class="text-gray-800 answer">原始值: {inspect(answer.value)}</div>
+                        <% end %>
+                      <% :checkbox -> %>
                         <%
                           values = cond do
-                            is_map(answer.value) && Map.has_key?(answer.value, "value") && is_list(answer.value["value"]) ->
-                              answer.value["value"]
-                            is_list(answer.value) ->
-                              answer.value
-                            true ->
-                              [answer.value]
+                            is_map(answer.value) && Map.has_key?(answer.value, "value") && is_list(answer.value["value"]) -> answer.value["value"]
+                            is_list(answer.value) -> answer.value
+                            true -> List.wrap(answer.value) # Wrap single values
                           end
+                          # Ensure values are strings for comparison
+                          string_values = Enum.map(values, &to_string/1)
 
                           selected_options = Enum.filter(item.options || [], fn opt ->
-                            Enum.any?(values, fn v -> "#{opt.id}" == "#{v}" end)
+                            to_string(opt.id) in string_values
                           end)
                         %>
                         <%= if selected_options != [] do %>
@@ -116,19 +134,29 @@ defmodule MyAppWeb.FormLive.Responses do
                               <% end %>
                             </div>
                             <div class="text-gray-500 text-xs mt-1">
-                              (值: {Enum.map(selected_options, & &1.id) |> Enum.join(", ")})
+                              (值: {Enum.map(selected_options, &to_string(&1.id)) |> Enum.join(", ")})
                             </div>
                           </div>
                         <% else %>
-                          <div class="text-gray-500 italic">未选择任何选项或无效选择</div>
+                          <div class="text-gray-500 italic">未选择任何选项或无效选择: {inspect(answer.value)}</div>
                         <% end %>
-
-                      <% true -> %>
-                        <div class="text-gray-800 answer">{inspect(answer.value)}</div>
+                      <% type when type in [:number, :date, :time, :rating, :region, :file_upload, :image_choice, :blank] -> %> <!-- Simplified handling for other types -->
+                         <div class="text-gray-800 answer">
+                           <%= if is_map(answer.value) && Map.has_key?(answer.value, "value") do %>
+                             {inspect(answer.value["value"])}
+                           <% else %>
+                             {inspect(answer.value)}
+                           <% end %>
+                         </div>
+                      <% _ -> %> <!-- Fallback for unknown types -->
+                        <div class="text-gray-500 italic">未知类型 ({item.type}): {inspect(answer.value)}</div>
                     <% end %>
-                  </div>
+                  <% else %>
+                    <%# Answer does not exist for this item %>
+                    <div class="text-gray-500 italic">未作答</div>
+                  <% end %>
                 </div>
-              <% end %>
+              </div>
             <% end %>
           </div>
         </div>
@@ -429,14 +457,19 @@ defmodule MyAppWeb.FormLive.Responses do
               if response.form_id == form.id do
                 # 确保表单加载了所有表单项和它们的选项
                 form_with_items = Forms.get_form(form_id)
-                |> Forms.preload_form_items_and_options()
 
                 # 构建表单项映射，以便于查找和显示
                 items_map = build_items_map(form_with_items.items)
 
+                # 构建答案映射，以 form_item_id 为键
+                answers_map =
+                  Enum.reduce(response.answers, %{}, fn answer, acc ->
+                    Map.put(acc, answer.form_item_id, answer)
+                  end)
+
                 # 调试信息
-                IO.inspect(form_with_items.items, label: "Form Items")
-                IO.inspect(response.answers, label: "Response Answers")
+                IO.inspect(length(form_with_items.items), label: "Loaded Form Items Count")
+                IO.inspect(Enum.map(Enum.take(form_with_items.items, 5), &{&1.label, &1.type}), label: "First 5 Item Types")
 
                 {:ok,
                  socket
@@ -444,6 +477,7 @@ defmodule MyAppWeb.FormLive.Responses do
                  |> assign(:form, form_with_items)
                  |> assign(:response, response)
                  |> assign(:items_map, items_map)
+                 |> assign(:answers_map, answers_map)
                  |> assign(:live_action, :show)}
               else
                 # 如果响应不属于当前表单，重定向到表单响应列表

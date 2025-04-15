@@ -110,8 +110,11 @@ defmodule MyApp.Forms do
 
   """
   def get_form(id) do
-    Repo.get(Form, id)
-    |> preload_form_items_and_options()
+    # 直接使用 Repo.preload 加载关联数据，确保 items 和 options 都加载
+    Form
+    |> Repo.get(id)
+    |> Repo.preload(items: [:options]) # 确保加载 items 及其 options
+    # |> preload_form_items_and_options() # 暂时注释掉可能不存在的函数调用
   end
 
   @doc """
@@ -1253,12 +1256,12 @@ defmodule MyApp.Forms do
     |> Repo.all()
     |> Repo.preload(options: from(o in ItemOption, order_by: o.order))
   end
-  
+
   @doc """
   列出指定表单的所有表单项，用于评分系统等组件使用。
-  
+
   ## 示例
-  
+
       iex> list_form_items_for_form(form_id)
       [%FormItem{}, ...]
   """
