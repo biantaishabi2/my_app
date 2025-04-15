@@ -1,5 +1,6 @@
 defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
   use MyAppWeb, :live_component
+  alias MyApp.Scoring
 
   @doc """
   提供交互式界面编辑评分规则的 rules JSON 结构。
@@ -9,7 +10,8 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
   * `:rules` - 当前规则JSON数据
   * `:form_id` - 表单ID，用于加载表单项
   * `:id` - 组件ID
-  * `:on_change` - 规则变更时调用的函数
+  * `:score_rule_id` - 评分规则ID，用于直接保存规则
+  * `:current_user` - 当前用户，用于权限检查
   """
 
   def mount(socket) do
@@ -24,7 +26,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
       _ -> []
     end
 
-    {:ok, assign(socket, :rule_items, rule_items)}
+    {:ok, assign(socket, rule_items: rule_items, rules: socket.assigns.rules)}
   end
 
   def render(assigns) do
@@ -147,21 +149,23 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     }
 
     rule_items = socket.assigns.rule_items ++ [new_item]
-    _rules = %{"items" => rule_items}
+    rules = %{"items" => rule_items}
 
-    # 不需要任何父组件通信
+    # 直接保存规则到数据库
+    save_rules_to_database(socket, rules)
 
-    {:noreply, assign(socket, rule_items: rule_items)}
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
   end
 
   def handle_event("remove_rule_item", %{"index" => index}, socket) do
     index = String.to_integer(index)
     rule_items = List.delete_at(socket.assigns.rule_items, index)
-    _rules = %{"items" => rule_items}
+    rules = %{"items" => rule_items}
 
-    # 不需要任何父组件通信
+    # 直接保存规则到数据库
+    save_rules_to_database(socket, rules)
 
-    {:noreply, assign(socket, rule_items: rule_items)}
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
   end
 
   # 处理下拉菜单选择事件，使用phx-change
@@ -172,11 +176,12 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
       Map.put(item, field, value)
     end)
 
-    _rules = %{"items" => rule_items}
+    rules = %{"items" => rule_items}
 
-    # 移除不必要的父组件通信
+    # 直接保存规则到数据库
+    save_rules_to_database(socket, rules)
 
-    {:noreply, assign(socket, rule_items: rule_items)}
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
   end
 
   # 处理表单控件事件的一般情况，包括select下拉菜单
@@ -210,13 +215,45 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
         Map.put(item, field, value)
       end)
 
-      # 更新socket状态，不需要任何组件间通信
-      {:noreply, assign(socket, rule_items: rule_items)}
+      # 创建规则数据并更新socket
+      rules = %{"items" => rule_items}
+
+      # 直接保存规则到数据库
+      save_rules_to_database(socket, rules)
+
+      {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
     end
   end
 
+  # 直接保存规则到数据库
+  defp save_rules_to_database(socket, rules) do
+    if Map.has_key?(socket.assigns, :score_rule_id) &&
+       Map.has_key?(socket.assigns, :current_user) &&
+       !is_nil(socket.assigns.score_rule_id) do
 
-  # 移除不必要的父组件通信函数
+      # 获取评分规则
+      case Scoring.get_score_rule(socket.assigns.score_rule_id) do
+        {:ok, score_rule} ->
+          # 更新规则
+          Scoring.update_score_rule(
+            score_rule,
+            %{"rules" => rules},
+            socket.assigns.current_user
+          )
+          |> case do
+            {:ok, _updated_rule} ->
+              IO.puts("规则已成功直接保存到数据库 - 规则项数量: #{length(rules["items"] || [])}")
+            {:error, reason} ->
+              IO.puts("保存规则失败: #{inspect(reason)}")
+          end
+        {:error, reason} ->
+          IO.puts("获取评分规则失败: #{inspect(reason)}")
+      end
+    else
+      # 没有score_rule_id或current_user，不能保存
+      IO.puts("无法直接保存规则：未提供score_rule_id或current_user")
+    end
+  end
 
   defp get_form_items(form_id) do
     # 获取表单所有题目项

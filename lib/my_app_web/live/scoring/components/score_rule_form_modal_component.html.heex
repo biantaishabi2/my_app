@@ -6,6 +6,7 @@
         phx-click-away={JS.dispatch("click", to: "#close-modal-button")}
         phx-window-keydown={JS.dispatch("click", to: "#close-modal-button")}
         phx-key="escape"
+        id="score-rule-form-modal"
       >
         <div class="absolute right-0 top-0 pr-4 pt-4 sm:block">
           <button
@@ -47,6 +48,7 @@
             
             <div>
               <.input value={@changeset.params["max_score"] || @changeset.data.max_score} name="score_rule[max_score]" type="number" label="最高分值" required min="1" />
+              <p class="mt-1 text-sm text-gray-500">建议使用表单配置中设置的总分值（已自动填入）</p>
             </div>
             
             <div>
@@ -59,6 +61,8 @@
                 id="rule-editor"
                 rules={@rules}
                 form_id={@score_rule.form_id}
+                score_rule_id={@score_rule.id}
+                current_user={@current_user}
               />
             </div>
             

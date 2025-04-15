@@ -22,6 +22,14 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent do
      |> assign(:rules, score_rule.rules || %{"items" => []})}
   end
 
+  # 处理来自编辑器组件的规则更新
+  @impl true
+  def update(%{rules: rules} = _assigns, socket) do
+    # 这里我们只接收并更新rules
+    IO.puts("接收到规则更新 - 规则项数量: #{length(rules["items"] || [])}")
+    {:ok, assign(socket, :rules, rules)}
+  end
+
   @impl true
   def handle_event("validate", %{"score_rule" => score_rule_params}, socket) do
     changeset =
@@ -34,27 +42,32 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent do
 
   @impl true
   def handle_event("save", %{"score_rule" => score_rule_params}, socket) do
-    # 在保存时，从编辑器组件中获取的规则数据已经在socket.assigns.rules中
-    # 确保使用正确的规则数据结构
-    rules = socket.assigns.rules
+    # 从socket获取当前编辑器组件的规则
+    # 这比从隐藏字段获取更可靠
+    current_rules = socket.assigns.rules || %{"items" => []}
 
-    # 合并规则数据和用户ID
+    # 输出调试信息，帮助确认规则数据是否正确获取
+    IO.puts("保存规则 - 规则项数量: #{length(current_rules["items"] || [])}")
+    IO.inspect(current_rules, label: "当前规则数据")
+
+    # 使用字符串键，避免混合键类型错误
     score_rule_params = Map.merge(score_rule_params, %{
-      "rules" => rules,
+      "rules" => current_rules,
       "user_id" => socket.assigns.current_user.id
     })
 
-    # 将所有键转换为字符串类型
-    score_rule_params = for {k, v} <- score_rule_params, into: %{} do
-      {to_string(k), v}
-    end
-
+    # 不需要再次转换键，确保所有键都是字符串类型
     save_score_rule(socket, socket.assigns.action, score_rule_params)
   end
 
   @impl true
   def handle_event("update_rules", %{"rules" => rules}, socket) do
     {:noreply, assign(socket, :rules, rules)}
+  end
+
+  @impl true
+  def handle_event("close_modal", _params, socket) do
+    {:noreply, push_navigate(socket, to: socket.assigns.return_to)}
   end
 
   defp save_score_rule(socket, :edit, score_rule_params) do
