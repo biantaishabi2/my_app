@@ -109,6 +109,27 @@ defmodule MyApp.Responses do
     # Get the form with its items
     form = Forms.get_form_with_items(form_id)
 
+    # 添加日志，记录传入的答案格式
+    Logger.info("Creating response for form #{form_id} with #{map_size(answers_map)} answers")
+    
+    # 检查数据格式，确保answers_map中的值是包装后的格式 %{"value" => value}
+    answers_map = 
+      answers_map
+      |> Enum.map(fn {key, value} ->
+        cond do
+          # 如果答案已经是包装格式，保持不变
+          is_map(value) && Map.has_key?(value, "value") -> 
+            {key, value}
+          # 如果是Map但没有value字段，添加value包装
+          is_map(value) -> 
+            {key, %{"value" => value}}
+          # 其他情况都包装成 %{"value" => value} 格式
+          true -> 
+            {key, %{"value" => value}}
+        end
+      end)
+      |> Enum.into(%{})
+
     # Insert the response and then insert answers
     # 确保同时设置submitted_at、inserted_at和updated_at
     now = DateTime.utc_now()
@@ -127,7 +148,10 @@ defmodule MyApp.Responses do
       {:ok, response} ->
         # Insert answers - get form items from pages
         form_items = form.pages |> Enum.flat_map(& &1.items)
+        Logger.info("Form #{form_id} has #{length(form_items)} items")
+        
         answers = create_answers(response.id, form_items, answers_map)
+        Logger.info("Created #{length(answers)} answers for response #{response.id}")
 
         # 添加自动评分功能
         maybe_auto_score_response(response)
@@ -135,6 +159,7 @@ defmodule MyApp.Responses do
         {:ok, %{response | answers: answers}}
 
       error ->
+        Logger.error("Failed to create response: #{inspect(error)}")
         error
     end
   end
@@ -157,17 +182,31 @@ defmodule MyApp.Responses do
     # Create answers for each form item
     form_items
     |> Enum.map(fn item ->
-      # 从 answers_map 获取原始值
-      raw_answer_value = Map.get(answers_map, item.id)
+      # 从 answers_map 获取值，应该已经是包装后的格式 %{"value" => value}
+      answer_value = Map.get(answers_map, item.id)
 
       # Skip if no answer provided
-      if is_nil(raw_answer_value) do
+      if is_nil(answer_value) do
         nil
       else
-        # 将原始值包装成 Map 结构
-        # 这里假设所有答案都简单地存储在 "value" 键下
-        # 未来可以根据 item.type 调整包装方式
-        wrapped_answer_value = %{value: raw_answer_value}
+        # 添加日志检查值类型
+        Logger.debug("Processing answer for item #{item.id}. Value type: #{inspect(answer_value)}")
+        
+        # 确保值是Map格式，如果不是则包装
+        wrapped_answer_value = 
+          cond do
+            # 已经是预期的格式
+            is_map(answer_value) && Map.has_key?(answer_value, "value") ->
+              answer_value
+              
+            # 是Atom键的Map
+            is_map(answer_value) && Map.has_key?(answer_value, :value) ->
+              %{"value" => answer_value.value}
+              
+            # 需要重新包装
+            true ->
+              %{"value" => answer_value}
+          end
 
         # 确保设置时间戳
         now = DateTime.utc_now()
@@ -178,7 +217,7 @@ defmodule MyApp.Responses do
           |> Answer.changeset(%{
             response_id: response_id,
             form_item_id: item.id,
-            value: wrapped_answer_value, # <--- 使用包装后的值
+            value: wrapped_answer_value,
             inserted_at: now,
             updated_at: now
           })
@@ -191,7 +230,7 @@ defmodule MyApp.Responses do
           {:error, changeset} ->
             Logger.error("""
             Failed to insert answer for item #{item.id} and response #{response_id}.
-            Value: #{inspect(raw_answer_value)}
+            Original Value: #{inspect(answer_value)}
             Wrapped Value: #{inspect(wrapped_answer_value)}
             Changeset errors: #{inspect(changeset.errors)}
             """)

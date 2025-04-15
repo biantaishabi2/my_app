@@ -160,14 +160,26 @@ defmodule MyApp.Forms do
 
   @doc """
   Alias for get_form that ensures backward compatibility.
-  Gets a single form with preloaded items.
+  Gets a single form with preloaded items and pages.
 
   ## Examples
 
       iex> get_form_with_items(123)
-      %Form{items: [%FormItem{}, ...]}
+      %Form{items: [%FormItem{}, ...], pages: [%FormPage{}, ...]}
   """
-  def get_form_with_items(id), do: get_form(id)
+  def get_form_with_items(id) do
+    Form
+    |> Repo.get(id)
+    |> Repo.preload([
+      # 预加载页面
+      pages: {from(p in FormPage, order_by: p.order), 
+        [items: {from(i in FormItem, order_by: i.order), 
+          [options: from(o in ItemOption, order_by: o.order)]}]},
+      # 预加载表单项及选项
+      items: {from(i in FormItem, order_by: i.order), 
+        [options: from(o in ItemOption, order_by: o.order)]}
+    ])
+  end
 
   @doc """
   Returns a changeset for a form.

@@ -151,6 +151,12 @@ defmodule MyAppWeb.FormLive.Submit do
   # ===========================================
   # 表单验证事件处理
   # ===========================================
+  
+  @impl true
+  def handle_event("highlight_errors", %{"errors" => _errors}, socket) do
+    # 直接传递错误信息到前端 (暂时未使用errors变量，添加下划线前缀)
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_event("handle_province_change", params, socket) do
@@ -276,32 +282,6 @@ defmodule MyAppWeb.FormLive.Submit do
     {:noreply, assign(socket, changeset: changeset)}
   end
 
-  @impl true
-  def handle_event("validate", %{"form_data" => form_data} = params, socket) do
-    # 更新表单状态
-    updated_form_state =
-      socket.assigns.form_state
-      |> Map.merge(form_data)
-
-    # 当用户与表单交互时，检查变更的字段
-    changed_field_id =
-      case params["_target"] do
-        ["form_data", field_id] -> field_id
-        _ -> nil
-      end
-
-    if changed_field_id do
-      # 处理字段变更 - 特殊处理
-      _field_value = Map.get(form_data, changed_field_id)
-
-      # 可以在这里添加特定字段的特殊处理逻辑
-    end
-
-    # 更新状态并应用验证逻辑
-    updated_socket = socket |> maybe_validate_form(updated_form_state)
-
-    {:noreply, updated_socket}
-  end
 
   @impl true
   def handle_event(
@@ -362,9 +342,45 @@ defmodule MyAppWeb.FormLive.Submit do
 
   @impl true
   def handle_event("validate", params, socket) do
-    # 处理其他验证情况
-    Logger.warning("Received validate event with unexpected params format: #{inspect(params)}")
-    {:noreply, socket}
+    # 通用验证处理
+    Logger.info("Received validate event: #{inspect(params)}")
+    
+    # 获取当前表单状态 - 已存在的数据
+    current_form_state = socket.assigns.form_state || %{}
+    
+    # 提取表单数据 - 支持不同格式的参数
+    form_data = params["form_data"] || %{}
+    
+    # 合并到当前表单状态
+    updated_form_state = Map.merge(current_form_state, form_data)
+    socket = assign(socket, :form_state, updated_form_state)
+    
+    # 查找目标字段ID (如果有)
+    target_field_id = 
+      case params["_target"] do
+        ["form_data", item_id] when is_binary(item_id) -> item_id
+        _ -> nil
+      end
+    
+    if target_field_id do
+      # 如果有特定字段，验证该字段
+      item = Map.get(socket.assigns.items_map, target_field_id)
+      
+      if item && item.required && is_field_empty?(updated_form_state, item) do
+        # 如果字段为必填且为空，显示错误
+        Logger.info("Required field #{target_field_id} is empty, adding error")
+        errors = Map.put(socket.assigns.errors || %{}, target_field_id, "此字段为必填项")
+        {:noreply, assign(socket, :errors, errors)}
+      else
+        # 如果字段已填写或不是必填项，清除该字段的错误
+        Logger.info("Field #{target_field_id} validated, clearing error")
+        updated_errors = Map.drop(socket.assigns.errors || %{}, [target_field_id])
+        {:noreply, assign(socket, :errors, updated_errors)}
+      end
+    else
+      # 没有特定字段，只更新表单状态
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -422,109 +438,153 @@ defmodule MyAppWeb.FormLive.Submit do
     {:noreply, assign(socket, :existing_files_map, updated_files_map)}
   end
 
-  @impl true
-  def handle_event("submit_form", %{"form_response" => response_params}, socket) do
-    Logger.info("Handling submit_form event")
-    form_id = socket.assigns.form.id
-    _form_items = socket.assigns.form_items
 
-    # 检查当前用户是否存在
+  # 处理表单提交事件 - 完全依赖后端验证
+  @impl true
+  def handle_event("submit_form", params, socket) do
+    Logger.info("Handling submit_form event: #{inspect(params)}")
+
+    # 从socket.assigns中构建表单响应数据
+    form_state = socket.assigns.form_state || %{}
+    
+    # 合并params中可能的表单数据
+    form_data = params["form_data"] || %{}
+    updated_form_state = Map.merge(form_state, form_data)
+    
+    # 更新socket以保留表单状态
+    socket = assign(socket, :form_state, updated_form_state)
+    
+    form_id = socket.assigns.form.id
     current_user = socket.assigns.current_user
     user_id = if current_user, do: current_user.id, else: nil
 
-    # 确保表单响应参数包含所有必需字段
-    response_params = Map.merge(response_params, %{
-      "form_id" => form_id,
-      "submitted_at" => DateTime.utc_now()
-    })
+    # 执行全面验证 - 检查所有必填项
+    required_items = 
+      socket.assigns.form_items
+      |> Enum.filter(fn item -> item.required end)
+    
+    # 检查是否有必填项未填
+    missing_items = Enum.filter(required_items, fn item ->
+      is_field_empty?(updated_form_state, item)
+    end)
+    
+    if Enum.empty?(missing_items) do
+      # 所有必填项都已填写，构造完整的响应参数并继续提交
+      Logger.info("All required fields filled, proceeding with submission")
+      
+      # 将表单状态转换为Responses模块期望的格式
+      # 每个答案需要包装成 %{"value" => value} 格式
+      wrapped_answers = 
+        updated_form_state
+        |> Enum.map(fn {key, value} -> 
+          {key, %{"value" => value}}
+        end)
+        |> Enum.into(%{})
+      
+      # 添加基本响应信息
+      response_params = Map.merge(wrapped_answers, %{
+        "form_id" => form_id,
+        "submitted_at" => DateTime.utc_now(),
+        "user_id" => user_id
+      })
 
-    # 1. 处理文件上传 (在验证和保存之前)
-    {socket, files_data, upload_errors} = handle_file_uploads(socket)
+      Logger.info("Prepared response params: #{inspect(Map.keys(response_params))}")
 
-    # 如果上传出错, 直接返回错误
-    if !Enum.empty?(upload_errors) do
-      Logger.error("Upload errors encountered: #{inspect(upload_errors)}")
-      # 可以考虑将错误添加到 changeset 或 flash 中显示给用户
-      # 这里暂时只记录日志
-      {:noreply,
-       assign(socket,
-         changeset:
-           MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, response_params)
-       )}
-    else
-      # 2. 合并文件数据和表单数据
-      all_data = Map.merge(response_params, files_data)
-
-      # 3. 验证表单 (包含上传的文件信息)
-      changeset =
-        MyApp.Responses.Response.changeset(%MyApp.Responses.Response{}, all_data)
-        |> Map.put(:action, :validate)
-
-      if changeset.valid? do
-        Logger.info("Form is valid, attempting to save.")
-        # 4. 保存数据
-        case Responses.create_response(form_id, all_data, %{"user_id" => user_id}) do
+      # 处理文件上传(如果有)
+      {socket, _files_data, upload_errors} = handle_file_uploads(socket)
+      
+      # 检查上传错误
+      if !Enum.empty?(upload_errors) do
+        # 有文件上传错误
+        Logger.error("Upload errors encountered: #{inspect(upload_errors)}")
+        errors = Enum.reduce(upload_errors, %{}, fn %{item_id: id, error: msg}, acc ->
+          Map.put(acc, id, "文件上传失败: #{msg}")
+        end)
+        
+        {:noreply, 
+          socket
+          |> assign(:errors, errors)
+          |> put_flash(:error, "文件上传失败，请检查错误信息")}
+      else
+        # 正常提交处理流程
+        case Responses.create_response(form_id, wrapped_answers, %{"user_id" => user_id}) do
           {:ok, response} ->
             Logger.info("Response created successfully: #{response.id}")
 
             # 关联文件到响应
-            Enum.each(files_data, fn {item_id, file_entries} ->
-              # 对于每个文件上传字段，关联其文件到响应
-              if !Enum.empty?(file_entries) do
-                Logger.info(
-                  "Associating #{length(file_entries)} files for item #{item_id} with response #{response.id}"
-                )
-
-                Upload.associate_files_with_response(form_id, item_id, response.id)
-              end
-            end)
-
-            # 清理上传的文件信息
-            socket = clear_uploaded_files_info(socket)
-
+            associate_files_with_response(updated_form_state, form_id, response.id)
+            
+            # 成功提交 - 使用重定向避免页面重置
             {:noreply,
              socket
              |> assign(submitted: true)
+             |> push_navigate(to: ~p"/forms/#{form_id}/responses")
              |> put_flash(:info, "表单提交成功!")}
 
           {:error, error_changeset} ->
             Logger.error("Error creating response: #{inspect(error_changeset)}")
-            {:noreply, assign(socket, changeset: error_changeset)}
+            
+            # 提取changeset中的错误信息
+            errors = format_changeset_errors(error_changeset)
+            
+            # 返回错误信息，但保留表单状态
+            {:noreply, 
+              socket 
+              |> assign(:errors, errors)
+              |> put_flash(:error, "表单提交失败，请检查错误信息")}
         end
-      else
-        Logger.warning("Form validation failed: #{inspect(changeset.errors)}")
-        {:noreply, assign(socket, changeset: changeset)}
       end
+    else
+      # 有必填项未填写，生成错误信息并阻止提交
+      errors = Enum.reduce(missing_items, %{}, fn item, acc ->
+        Map.put(acc, item.id, "此字段为必填项")
+      end)
+      
+      # 返回错误信息，阻止提交，但保留表单状态
+      Logger.warning("Form submission blocked due to missing required fields: #{inspect(Enum.map(missing_items, & &1.id))}")
+      
+      # 更新错误状态并显示消息
+      {:noreply, 
+        socket
+        |> assign(:errors, errors)
+        |> put_flash(:error, "请完成所有必填项后再提交表单")}
     end
   end
-
-  # 处理空参数或其他形式的submit_form事件
-  @impl true
-  def handle_event("submit_form", params, socket) do
-    Logger.warning("Received submit_form event with unexpected params format: #{inspect(params)}")
-
-    # 从socket.assigns中构建表单响应数据
-    form_state = socket.assigns.form_state || %{}
-    form_id = socket.assigns.form.id
-    current_user = socket.assigns.current_user
-    user_id = if current_user, do: current_user.id, else: nil
-
-    # 修改这里：直接使用 form_state 的内容，并添加其他必要字段
-    response_params =
+  
+  # 辅助函数：从changeset中格式化错误信息
+  defp format_changeset_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+  end
+  
+  # 辅助函数：关联文件到响应
+  defp associate_files_with_response(form_state, form_id, response_id) do
+    # 提取文件数据（如果有）
+    file_items = 
       form_state
-      |> Map.merge(%{
-        "form_id" => form_id,
-        "submitted_at" => DateTime.utc_now(),
-        "user_id" => user_id
-        # 注意：这里假设 form_state 的键已经是字符串形式的 item_id
-        # 如果 form_state 的键是原子，可能需要转换
-      })
-
-    # 调用原始的submit_form处理逻辑
-    handle_event("submit_form", %{"form_response" => response_params}, socket)
+      |> Enum.filter(fn {_key, value} -> 
+        is_list(value) && Enum.any?(value, &(is_map(&1) && Map.has_key?(&1, "id")))
+      end)
+    
+    # 关联每个表单项的文件到响应
+    Enum.each(file_items, fn {item_id, file_entries} ->
+      if !Enum.empty?(file_entries) do
+        Logger.info(
+          "Associating #{length(file_entries)} files for item #{item_id} with response #{response_id}"
+        )
+        
+        Upload.associate_files_with_response(form_id, item_id, response_id)
+      end
+    end)
   end
 
+  # ===========================================
   # 表单控件事件处理
+  # ===========================================
+  
   @impl true
   def handle_event("select_files", %{"field-id" => field_id}, socket) do
     # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
