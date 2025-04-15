@@ -312,6 +312,7 @@ defmodule MyAppWeb.FormLive.Submit do
   end
 
 
+  # 保留此处理器作为后备，以确保兼容性
   @impl true
   def handle_event(
         "update_blank",
@@ -321,7 +322,10 @@ defmodule MyAppWeb.FormLive.Submit do
     blank_idx = String.to_integer(blank_idx)
 
     # 获取当前表单状态
-    form_state = socket.assigns.form_state
+    form_state = socket.assigns.form_state || %{}
+
+    # 记录操作到日志
+    Logger.info("通过旧方式更新填空题 #{field_id} 的第#{blank_idx}个空，值: #{value}")
 
     # 从表单状态中获取当前字段的值（应该是JSON格式的数组）
     current_values =
@@ -353,19 +357,22 @@ defmodule MyAppWeb.FormLive.Submit do
     updated_json = Jason.encode!(updated_list)
 
     # 更新表单状态
-    updated_form_state = Map.put(form_state, field_id, updated_json)
+    form_state = Map.put(form_state, field_id, updated_json)
+    
+    # 记录更新后的状态
+    Logger.info("填空题 #{field_id} 更新后的值: #{updated_json}")
 
-    # 更新状态并应用验证逻辑
-    updated_socket = socket |> maybe_validate_form(updated_form_state)
+    # 直接更新socket状态
+    socket = assign(socket, :form_state, form_state)
 
-    {:noreply, updated_socket}
+    {:noreply, socket}
   end
 
   # 处理带有_target参数的update_blank事件
   @impl true
-  def handle_event("update_blank", %{"_target" => _target} = _params, socket) do
-    # 简单地返回socket，不做任何处理
-    # 在前端JS完成初始化后，会发送正确格式的update_blank事件
+  def handle_event("update_blank", %{"_target" => _target} = params, socket) do
+    Logger.info("收到不完整的update_blank事件: #{inspect(params)}")
+    # 简单地返回socket，不做处理
     {:noreply, socket}
   end
 
@@ -380,8 +387,11 @@ defmodule MyAppWeb.FormLive.Submit do
     # 提取表单数据 - 支持不同格式的参数
     form_data = params["form_data"] || %{}
     
+    # 处理填空题的特殊数据格式（每个空位单独提交的情况）
+    updated_form_data = handle_fill_in_blank_values(form_data, current_form_state)
+    
     # 合并到当前表单状态
-    updated_form_state = Map.merge(current_form_state, form_data)
+    updated_form_state = Map.merge(current_form_state, updated_form_data)
     socket = assign(socket, :form_state, updated_form_state)
     
     # 查找目标字段ID (如果有)
@@ -409,6 +419,69 @@ defmodule MyAppWeb.FormLive.Submit do
     else
       # 没有特定字段，只更新表单状态
       {:noreply, socket}
+    end
+  end
+  
+  # 处理填空题的值，将各个空位的值整合成JSON数组格式
+  defp handle_fill_in_blank_values(form_data, current_form_state) do
+    # 先找出所有是填空题空位的字段（形如：id_blank_0, id_blank_1, ...）
+    blank_fields = form_data 
+      |> Enum.filter(fn {key, _} -> 
+        String.match?(key, ~r/^[a-f0-9-]+_blank_\d+$/)
+      end)
+    
+    if Enum.empty?(blank_fields) do
+      # 如果没有填空题字段，直接返回原始数据
+      form_data
+    else
+      # 按主字段ID分组，整理成map结构： %{field_id => %{index => value}}
+      blanks_by_field = Enum.reduce(blank_fields, %{}, fn {key, value}, acc ->
+        [field_id, _blank, index_str] = String.split(key, "_", parts: 3)
+        index = String.to_integer(index_str)
+        
+        field_blanks = Map.get(acc, field_id, %{})
+        updated_field_blanks = Map.put(field_blanks, index, value)
+        Map.put(acc, field_id, updated_field_blanks)
+      end)
+      
+      # 为每个填空题字段创建或更新JSON数组
+      updated_data = Enum.reduce(blanks_by_field, form_data, fn {field_id, blanks_map}, acc ->
+        # 获取当前字段已有的JSON数据
+        current_json = Map.get(current_form_state, field_id, "[]")
+        
+        # 解析现有的值数组
+        current_values = case Jason.decode(current_json) do
+          {:ok, list} when is_list(list) -> list
+          _ -> []
+        end
+        
+        # 更新数组，确保长度足够
+        max_index = Enum.max(Map.keys(blanks_map))
+        padded_list = if length(current_values) <= max_index do
+          current_values ++ List.duplicate("", max_index - length(current_values) + 1)
+        else
+          current_values
+        end
+        
+        # 用新值更新数组
+        updated_list = Enum.reduce(blanks_map, padded_list, fn {index, value}, list ->
+          List.replace_at(list, index, value)
+        end)
+        
+        # 转换回JSON并放入结果
+        updated_json = Jason.encode!(updated_list)
+        Logger.info("Updated fill-in-blank field #{field_id} value: #{updated_json}")
+        
+        # 移除个别空位的键，只保留主字段JSON数据
+        acc = Enum.reduce(blanks_map, acc, fn {index, _}, map ->
+          Map.delete(map, "#{field_id}_blank_#{index}")
+        end)
+        
+        # 添加整合后的JSON数据
+        Map.put(acc, field_id, updated_json)
+      end)
+      
+      updated_data
     end
   end
 
@@ -512,17 +585,33 @@ defmodule MyAppWeb.FormLive.Submit do
 
       # 保存表单状态以确保数据在页面导航时保留
       form_state = socket.assigns.form_state || %{}
+      
+      # 记录当前表单状态到日志以便调试
+      Logger.info("[下一页] 保留表单状态: #{inspect(Map.keys(form_state))}, 当前页面项目: #{length(page_items)}")
+      
+      # 查找是否有填空题
+      fill_in_blank_items = Enum.filter(page_items, fn item -> item.type == :fill_in_blank end)
+      
+      if !Enum.empty?(fill_in_blank_items) do
+        Logger.info("[下一页] 当前页面包含#{length(fill_in_blank_items)}个填空题")
+        Enum.each(fill_in_blank_items, fn item ->
+          value = Map.get(form_state, item.id, "[]")
+          Logger.info("[下一页] 填空题 #{item.id} 值: #{inspect(value)}")
+        end)
+      end
 
-      {:noreply,
-       socket
-       |> assign(:current_page_idx, next_idx)
-       |> assign(:current_page, next_page)
-       |> assign(:page_items, next_page_items)
-       |> assign(:pages_status, updated_status)
-       # 确保表单状态被保留
-       |> assign(:form_state, form_state)
-       # 清除错误信息
-       |> assign(:errors, %{})}
+      # 先更新socket以保留表单状态
+      socket = socket
+        |> assign(:current_page_idx, next_idx)
+        |> assign(:current_page, next_page)
+        |> assign(:page_items, next_page_items)
+        |> assign(:pages_status, updated_status)
+        # 确保表单状态被保留 - 直接使用当前的表单状态
+        |> assign(:form_state, form_state)
+        # 清除错误信息
+        |> assign(:errors, %{})
+      
+      {:noreply, socket}
     else
       # 如果有错误，保持在当前页面并显示错误
       {:noreply,
@@ -547,14 +636,42 @@ defmodule MyAppWeb.FormLive.Submit do
 
     # 保存表单状态以确保数据在页面导航时保留
     form_state = socket.assigns.form_state || %{}
+    
+    # 记录当前表单状态到日志以便调试
+    Logger.info("[上一页] 保留表单状态: #{inspect(Map.keys(form_state))}")
+    
+    # 获取填空题状态
+    current_page = Enum.at(pages, current_idx)
+    current_page_items = get_page_items(form, current_page)
+    fill_in_blank_items = Enum.filter(current_page_items, fn item -> item.type == :fill_in_blank end)
+    
+    if !Enum.empty?(fill_in_blank_items) do
+      Logger.info("[上一页] 当前页面包含#{length(fill_in_blank_items)}个填空题")
+      Enum.each(fill_in_blank_items, fn item ->
+        value = Map.get(form_state, item.id, "[]")
+        Logger.info("[上一页] 离开填空题 #{item.id} 值: #{inspect(value)}")
+      end)
+    end
+    
+    # 检查上一页是否含填空题
+    prev_fill_in_blank_items = Enum.filter(prev_page_items, fn item -> item.type == :fill_in_blank end)
+    if !Enum.empty?(prev_fill_in_blank_items) do
+      Logger.info("[上一页] 目标页面包含#{length(prev_fill_in_blank_items)}个填空题")
+      Enum.each(prev_fill_in_blank_items, fn item ->
+        value = Map.get(form_state, item.id, "[]")
+        Logger.info("[上一页] 返回到填空题 #{item.id} 值: #{inspect(value)}")
+      end)
+    end
 
-    {:noreply,
-     socket
-     |> assign(:current_page_idx, prev_idx)
-     |> assign(:current_page, prev_page)
-     |> assign(:page_items, prev_page_items)
-     # 确保表单状态被保留
-     |> assign(:form_state, form_state)}
+    # 先构建新socket以便保留表单状态
+    socket = socket
+      |> assign(:current_page_idx, prev_idx)
+      |> assign(:current_page, prev_page)
+      |> assign(:page_items, prev_page_items)
+      # 确保表单状态被保留 - 直接使用现有的表单状态
+      |> assign(:form_state, form_state)
+      
+    {:noreply, socket}
   end
 
   @impl true
@@ -816,19 +933,24 @@ defmodule MyAppWeb.FormLive.Submit do
         socket.assigns.pages_status
       end
 
-    # 保存表单状态以确保数据在页面导航时保留
+    # 确保当前表单状态被完全保留 - 直接使用socket中的form_state
     form_state = socket.assigns.form_state || %{}
+    
+    # 记录当前表单状态到日志以便调试
+    Logger.info("[页面跳转] 保留表单状态: #{inspect(Map.keys(form_state))}")
 
-    {:noreply,
-     socket
-     |> assign(:current_page_idx, target_idx)
-     |> assign(:current_page, target_page)
-     |> assign(:page_items, target_page_items)
-     |> assign(:pages_status, updated_status)
-     # 确保表单状态被保留
-     |> assign(:form_state, form_state)
-     # 清除错误信息
-     |> assign(:errors, %{})}
+    # 先更新socket的基本属性
+    socket = socket
+      |> assign(:current_page_idx, target_idx)
+      |> assign(:current_page, target_page)
+      |> assign(:page_items, target_page_items)
+      |> assign(:pages_status, updated_status)
+      # 确保表单状态被保留 - 直接赋值而不是创建新对象
+      |> assign(:form_state, form_state)
+      # 清除错误信息
+      |> assign(:errors, %{})
+    
+    {:noreply, socket}
   end
 
   # 辅助函数：在表单状态更新后进行验证和跳转逻辑评估
@@ -841,6 +963,19 @@ defmodule MyAppWeb.FormLive.Submit do
     # 计算跳转状态 - 从模板获取逻辑
     form_template = socket.assigns.form_template
     template_structure = if form_template, do: form_template.structure || [], else: []
+
+    # 检查处理的数据中是否有填空题
+    current_page = socket.assigns.current_page
+    page_items = get_page_items(socket.assigns.form, current_page)
+    fill_in_blank_items = Enum.filter(page_items, fn item -> item.type == :fill_in_blank end)
+    
+    if !Enum.empty?(fill_in_blank_items) do
+      Logger.info("[验证] 页面包含#{length(fill_in_blank_items)}个填空题")
+      Enum.each(fill_in_blank_items, fn item ->
+        value = Map.get(current_form_data, item.id, "[]")
+        Logger.info("[验证] 填空题 #{item.id} 值: #{inspect(value)}")
+      end)
+    end
 
     # 评估跳转条件，确定是否激活跳转
     active_jump =
@@ -892,9 +1027,12 @@ defmodule MyAppWeb.FormLive.Submit do
         end
       end)
 
-    # 更新视图状态 - 使用form_state作为唯一数据源
+    # 确保直接更新:form_state，而不是让它被中间步骤覆盖
+    # 这是修复保留填空题答案的关键一步
+    socket = socket |> assign(:form_state, current_form_data)
+    
+    # 更新视图状态
     socket
-    |> assign(:form_state, current_form_data)
     |> assign(:errors, errors)
     |> assign(:jump_state, active_jump)
   end

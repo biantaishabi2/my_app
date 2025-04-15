@@ -667,14 +667,25 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
 
                         # 获取当前值（只在实际表单中）
                         blank_value =
-                          if !is_preview && is_map(form_data) && Map.has_key?(form_data, item.id) do
-                            values =
-                              case Jason.decode(Map.get(form_data, item.id, "[]")) do
+                          if !is_preview && is_map(form_data) do
+                            # 首先尝试获取单个空位的值
+                            individual_key = "#{item.id}_blank_#{blank_index}"
+                            individual_value = Map.get(form_data, individual_key)
+                            
+                            if individual_value do
+                              individual_value
+                            else
+                              # 回退到从JSON数组中获取
+                              json_value = Map.get(form_data, item.id, "[]")
+                              
+                              values = case Jason.decode(json_value) do
                                 {:ok, list} when is_list(list) -> list
                                 _ -> []
                               end
-
-                            Enum.at(values, blank_index, "")
+                              
+                              # 安全获取指定索引的值或空字符串
+                              Enum.at(values, blank_index, "")
+                            end
                           else
                             ""
                           end
@@ -691,14 +702,13 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                           <input
                             type="text"
                             id={blank_id}
+                            name={"form_data[#{item.id}_blank_#{blank_index}]"}
                             placeholder={placeholder}
                             value={blank_value}
                             style={"width: #{width}em;"}
                             class={"inline-block px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 #{if has_error, do: "border-red-500", else: "border-gray-300"}"}
                             phx-debounce="blur"
-                            phx-change="update_blank"
-                            phx-value-field={item.id}
-                            phx-value-blank={blank_index}
+                            phx-change="validate"
                             minlength={item.blank_min_length}
                             maxlength={item.blank_max_length}
                           />
@@ -720,6 +730,7 @@ defmodule MyAppWeb.FormLive.ItemRendererComponent do
                       id={item.id}
                       name={"form_data[#{item.id}]"}
                       value={Map.get(form_data, item.id) || "[]"}
+                      phx-update="ignore"
                     />
                   <% end %>
                 </div>
