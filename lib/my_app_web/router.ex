@@ -111,7 +111,10 @@ defmodule MyAppWeb.Router do
       live "/forms/:id", FormLive.Show, :show
       live "/forms/:id/edit", FormLive.Edit, :edit
       live "/forms/:id/responses", FormLive.Responses, :index
-      live "/forms/:form_id/responses/:id", FormLive.Responses, :show
+
+      # 修改响应详情页路由，确保使用正确的参数
+      live "/forms/:form_id/responses/:response_id", FormLive.Responses, :show
+
       live "/forms/:id/statistics", FormLive.Statistics, :index
       live "/forms/:id/show/edit", FormLive.Show, :edit
 
@@ -121,14 +124,14 @@ defmodule MyAppWeb.Router do
       live "/form-structures/demo", FormStructureDemoLive, :index
       # 新：模板结构编辑器页面
       live "/form-templates/:id/edit", FormTemplateEditorLive, :edit
-      
+
       # 评分系统路由
       scope "/forms/:form_id/scoring", Scoring do
         live "/rules", ScoreRuleLive.Index, :index
         live "/config", FormScoreLive.Show, :show
         live "/results", ResponseScoreLive.Index, :index
       end
-      
+
       # 单个响应评分结果路由
       live "/responses/:response_id/scoring/result", Scoring.ResponseScoreLive.Show, :show
     end

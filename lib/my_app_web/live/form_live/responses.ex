@@ -67,20 +67,22 @@ defmodule MyAppWeb.FormLive.Responses do
                   <div class="bg-gray-50 p-3 rounded mt-2">
                     <%= case item.type do %>
                       <% :text_input -> %>
-                        <div class="text-gray-800 answer">{answer.value}</div>
+                        <div class="text-gray-800 answer">{answer.value["value"]}</div>
                       <% :radio -> %>
                         <% selected_option =
-                          Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                          Enum.find(item.options || [], fn opt -> opt.id == answer.value["value"] end) %>
                         <%= if selected_option do %>
                           <div class="text-gray-800 answer">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                               {selected_option.label}
                             </span>
-                            <span class="text-gray-500 text-xs ml-2">(值: {answer.value})</span>
+                            <span class="text-gray-500 text-xs ml-2">(值: {answer.value["value"]})</span>
                           </div>
                         <% else %>
-                          <div class="text-gray-800 answer">{answer.value}</div>
+                          <div class="text-gray-800 answer">{answer.value["value"]}</div>
                         <% end %>
+                      <% _ -> %>
+                        <div class="text-gray-800 answer">{inspect(answer.value)}</div>
                     <% end %>
                   </div>
                 </div>
@@ -106,7 +108,7 @@ defmodule MyAppWeb.FormLive.Responses do
 
         <div class="flex gap-2">
           <div class="relative" phx-click-away={JS.remove_class("flex", to: "#export-dropdown")} phx-click-away={JS.add_class("hidden", to: "#export-dropdown")}>
-            <button 
+            <button
               phx-click={JS.add_class("flex", to: "#export-dropdown") |> JS.remove_class("hidden", to: "#export-dropdown")}
               class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition flex items-center"
             >
@@ -127,9 +129,9 @@ defmodule MyAppWeb.FormLive.Responses do
               </button>
             </div>
           </div>
-          
+
           <div class="relative" phx-click-away={JS.remove_class("flex", to: "#scoring-dropdown")} phx-click-away={JS.add_class("hidden", to: "#scoring-dropdown")}>
-            <button 
+            <button
               phx-click={JS.add_class("flex", to: "#scoring-dropdown") |> JS.remove_class("hidden", to: "#scoring-dropdown")}
               class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition flex items-center"
             >
@@ -151,7 +153,7 @@ defmodule MyAppWeb.FormLive.Responses do
               </a>
             </div>
           </div>
-          
+
           <a
             href={~p"/forms/#{@form.id}/statistics"}
             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
@@ -335,7 +337,7 @@ defmodule MyAppWeb.FormLive.Responses do
       form ->
         if form.user_id == current_user.id do
           # 获取响应并加载评分数据
-          responses = 
+          responses =
             Responses.list_responses_for_form(form_id)
             |> load_response_scores()
 
@@ -357,12 +359,13 @@ defmodule MyAppWeb.FormLive.Responses do
   end
 
   # 显示单个回复
-  def mount(%{"form_id" => form_id, "id" => response_id}, _session, socket) do
+  def mount(%{"form_id" => form_id, "response_id" => response_id}, _session, socket) do
     current_user = socket.assigns.current_user
 
+    # 先加载表单，确保表单存在并且用户有权限访问
     case Forms.get_form(form_id) do
       nil ->
-        # 重定向到表单列表页面
+        # 如果表单不存在，重定向到表单列表
         {:ok,
          socket
          |> put_flash(:error, "表单不存在")
@@ -370,16 +373,19 @@ defmodule MyAppWeb.FormLive.Responses do
 
       form ->
         if form.user_id == current_user.id do
+          # 再加载响应
           case Responses.get_response(response_id) do
             nil ->
-              # 重定向到响应列表页面
+              # 如果响应不存在，重定向到表单响应列表
               {:ok,
                socket
                |> put_flash(:error, "回复不存在")
                |> push_navigate(to: ~p"/forms/#{form_id}/responses")}
 
             response ->
+              # 检查响应是否属于当前表单
               if response.form_id == form.id do
+                # 加载表单项和预加载表单
                 items_map = build_items_map(form.items)
 
                 {:ok,
@@ -390,7 +396,7 @@ defmodule MyAppWeb.FormLive.Responses do
                  |> assign(:items_map, items_map)
                  |> assign(:live_action, :show)}
               else
-                # 重定向到响应列表页面
+                # 如果响应不属于当前表单，重定向到表单响应列表
                 {:ok,
                  socket
                  |> put_flash(:error, "回复与表单不匹配")
@@ -456,21 +462,21 @@ defmodule MyAppWeb.FormLive.Responses do
     form = socket.assigns.form
     {:noreply, push_navigate(socket, to: ~p"/forms/#{form.id}/responses")}
   end
-  
+
   @impl true
   def handle_event("export_responses", %{"include-scores" => include_scores}, socket) do
     form_id = socket.assigns.form.id
-    
+
     # 转换参数为布尔值
     include_scores_bool = include_scores == "true"
-    
+
     # 导出响应数据
     case Responses.export_responses(form_id, %{include_scores: include_scores_bool}) do
       {:ok, csv_data} ->
-        filename = if include_scores_bool, 
-          do: "responses_with_scores_#{form_id}.csv", 
+        filename = if include_scores_bool,
+          do: "responses_with_scores_#{form_id}.csv",
           else: "responses_#{form_id}.csv"
-          
+
         {:noreply,
          socket
          |> put_flash(:info, "导出成功")
@@ -478,16 +484,16 @@ defmodule MyAppWeb.FormLive.Responses do
            filename: filename,
            content: csv_data
          })}
-         
+
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "导出失败: #{reason}")}
     end
   end
-  
+
   @impl true
   def handle_event("export_statistics", _params, socket) do
     form_id = socket.assigns.form.id
-    
+
     # 导出统计数据
     case Responses.export_statistics(form_id) do
       {:ok, csv_data} ->
@@ -498,7 +504,7 @@ defmodule MyAppWeb.FormLive.Responses do
            filename: "statistics_#{form_id}.csv",
            content: csv_data
          })}
-         
+
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "导出失败: #{reason}")}
     end
@@ -512,25 +518,25 @@ defmodule MyAppWeb.FormLive.Responses do
       Map.put(acc, item.id, item)
     end)
   end
-  
+
   # 加载响应的评分数据
   defp load_response_scores(responses) do
     # 构建响应ID到响应的映射，以便后续高效更新
     responses_map = Map.new(responses, fn r -> {r.id, r} end)
     response_ids = Map.keys(responses_map)
-    
+
     if Enum.empty?(response_ids) do
       responses
     else
       # 查询所有相关响应的评分数据
-      scores_query = 
+      scores_query =
         from rs in MyApp.Scoring.ResponseScore,
         where: rs.response_id in ^response_ids
-      
+
       scores = MyApp.Repo.all(scores_query)
-      
+
       # 将评分数据添加到对应的响应中
-      updated_responses_map = 
+      updated_responses_map =
         Enum.reduce(scores, responses_map, fn score, acc ->
           response = Map.get(acc, score.response_id)
           if response do
@@ -540,7 +546,7 @@ defmodule MyAppWeb.FormLive.Responses do
             acc
           end
         end)
-      
+
       # 返回更新后的响应列表，保持原顺序
       Enum.map(responses, fn r -> Map.get(updated_responses_map, r.id) end)
     end

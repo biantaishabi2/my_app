@@ -72,15 +72,6 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
     end
   end
 
-  # 处理复选框值转换：将"on"转换为true，缺失值转换为false
-  defp handle_checkbox_value(params, field) do
-    case Map.get(params, field) do
-      "on" -> Map.put(params, field, true)
-      nil -> Map.put(params, field, false)
-      val -> Map.put(params, field, val)
-    end
-  end
-
   @impl true
   def handle_event("go_to_rules", _, socket) do
     {:noreply, push_navigate(socket, to: ~p"/forms/#{socket.assigns.form_id}/scoring/rules")}
@@ -89,6 +80,15 @@ defmodule MyAppWeb.Scoring.FormScoreLive.Show do
   @impl true
   def handle_event("go_to_results", _, socket) do
     {:noreply, push_navigate(socket, to: ~p"/forms/#{socket.assigns.form_id}/scoring/results")}
+  end
+
+  # 处理复选框值转换：将"on"转换为true，缺失值转换为false
+  defp handle_checkbox_value(params, field) do
+    case Map.get(params, field) do
+      "on" -> Map.put(params, field, true)
+      nil -> Map.put(params, field, false)
+      val -> Map.put(params, field, val)
+    end
   end
 
   # 检查表单是否有活跃的评分规则

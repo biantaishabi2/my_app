@@ -88,7 +88,7 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <%= for form_item <- @response.form_items || [] do %>
+          <%= for form_item <- @form.items || [] do %>
             <% 
               rule_item = Map.get(@rule_items_map, form_item.id)
               answer = Map.get(@answers_map, form_item.id)
@@ -101,7 +101,7 @@
             <%= if rule_item do %>
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-normal text-sm text-gray-900">
-                  <%= form_item.title %>
+                  <%= form_item.label %>
                 </td>
                 <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
                   <%= format_answer(answer) %>
