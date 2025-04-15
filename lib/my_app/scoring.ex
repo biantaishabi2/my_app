@@ -241,17 +241,29 @@ defmodule MyApp.Scoring do
           correct_answer = item["correct_answer"]
           score_value = item["score"] || 0 # Default to 0 if score is missing
 
-          case {Map.get(answers_map, item_id), scoring_method} do
-            # Found answer and method is exact_match
-            {%{value: user_answer_value}, "exact_match"} ->
-              if user_answer_value == correct_answer do
-                acc + score_value
-              else
-                acc # No points if answer doesn't match
-              end
-            # Answer not found for this item_id
-            _ ->
-              acc # No points for this item
+          user_answer_struct = Map.get(answers_map, item_id)
+
+          # 检查答案是否存在并且是 map 结构
+          if user_answer_struct && is_map(user_answer_struct.value) do
+            user_answer_value = Map.get(user_answer_struct.value, "value")
+
+            case {user_answer_value, scoring_method} do
+              # 答案不为 nil 且方法是 exact_match
+              {actual_value, "exact_match"} when not is_nil(actual_value) ->
+                # 进行比较，注意类型可能需要转换
+                # 假设 correct_answer 也是字符串
+                if to_string(actual_value) == to_string(correct_answer) do
+                  acc + score_value
+                else
+                  acc
+                end
+              # TODO: 添加对其他 scoring_method (contains, regex 等) 的处理
+              _ ->
+                acc # 其他情况不得分
+            end
+          else
+            # 答案不存在或格式不正确
+            acc
           end
         end)
 

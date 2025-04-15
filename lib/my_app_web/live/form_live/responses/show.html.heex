@@ -50,56 +50,85 @@
               <div class="bg-gray-50 p-3 rounded mt-2">
                 <%= case item.type do %>
                   <% :text_input -> %>
-                    <div class="text-gray-800">{answer.value}</div>
+                    <div class="text-gray-800"><%= Map.get(answer.value, "value", "") %></div>
                   <% :textarea -> %>
-                    <div class="text-gray-800 whitespace-pre-wrap">{answer.value}</div>
+                    <div class="text-gray-800 whitespace-pre-wrap"><%= Map.get(answer.value, "value", "") %></div>
                   <% :radio -> %>
+                    <% raw_value = Map.get(answer.value, "value") %>
                     <% selected_option =
-                      Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                       Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                          {selected_option.label}
+                          <%= selected_option.label %>
                         </span>
-                        <span class="text-gray-500 text-xs ml-2">(值: {answer.value})</span>
+                        <span class="text-gray-500 text-xs ml-2">(值: <%= raw_value %>)</span>
                       </div>
                     <% else %>
-                      <div class="text-gray-800">{answer.value}</div>
+                      <div class="text-gray-800"><%= raw_value %></div>
                     <% end %>
                   <% :dropdown -> %>
+                    <% raw_value = Map.get(answer.value, "value") %>
                     <% selected_option =
-                      Enum.find(item.options || [], fn opt -> opt.value == answer.value end) %>
+                       Enum.find(item.options || [], fn opt -> opt.value == raw_value end) %>
                     <%= if selected_option do %>
                       <div class="text-gray-800">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {selected_option.label}
+                          <%= selected_option.label %>
                         </span>
-                        <span class="text-gray-500 text-xs ml-2">(值: {answer.value})</span>
+                        <span class="text-gray-500 text-xs ml-2">(值: <%= raw_value %>)</span>
                       </div>
                     <% else %>
-                      <div class="text-gray-800">{answer.value}</div>
+                      <div class="text-gray-800"><%= raw_value %></div>
                     <% end %>
                   <% :checkbox -> %>
-                    <% values = if is_list(answer.value), do: answer.value, else: [answer.value]
-
-                    selected_options =
-                      Enum.filter(item.options || [], fn opt -> opt.value in values end) %>
+                    <% values = Map.get(answer.value, "value", []) |> List.wrap() #确保是列表 %>
+                    <% selected_options =
+                       Enum.filter(item.options || [], fn opt -> opt.value in values end) %>
                     <div class="text-gray-800">
                       <%= if selected_options != [] do %>
                         <div class="flex flex-wrap gap-2">
                           <%= for option <- selected_options do %>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              {option.label}
+                              <%= option.label %>
                             </span>
                           <% end %>
                         </div>
                         <div class="text-gray-500 text-xs mt-1">
-                          (值: {Enum.map(selected_options, & &1.value) |> Enum.join(", ")})
+                          (值: <%= values |> Enum.join(", ") %>)
                         </div>
                       <% else %>
                         <div class="text-gray-500 italic">未选择任何选项</div>
                       <% end %>
                     </div>
+                  <% type when type in [:number, :date, :time, :rating, :region] -> %>
+                    <div class="text-gray-800"><%= Map.get(answer.value, "value", "") %></div>
+                  <% :blank -> %>
+                    <% blanks = Map.get(answer.value, "value", []) %>
+                    <div class="text-gray-800">
+                      <%= for {blank_value, idx} <- Enum.with_index(blanks) do %>
+                        <span class="mr-2">空<%= idx + 1 %>:</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mr-4">
+                          <%= blank_value %>
+                        </span>
+                      <% end %>
+                    </div>
+                  <% :file_upload -> %>
+                    <% files = Map.get(answer.value, "value", []) |> List.wrap() %>
+                    <div class="text-gray-800">
+                      <%= for file <- files do %>
+                         <%= if is_map(file) && file["path"] do %>
+                           <a href={file["path"]} target="_blank" class="text-blue-600 hover:underline mr-2">
+                             <%= file["name"] || "查看文件" %>
+                           </a>
+                         <% else %>
+                           <span class="text-gray-500">无效文件数据</span>
+                         <% end %>
+                      <% end %>
+                      <%= if files == [], do: "未上传文件" %>
+                    </div>
+                  <% _ -> %> <%# 其他所有类型，先用 inspect 显示 %>
+                    <div class="text-gray-800"><%= inspect(answer.value) %></div>
                 <% end %>
               </div>
             </div>

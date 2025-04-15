@@ -3,14 +3,14 @@ defmodule MyAppWeb.Scoring.Helpers do
   评分系统前端辅助函数模块。
   提供各评分相关LiveView共享的辅助函数。
   """
-  
+
   @doc """
   格式化日期时间。
   """
   def format_datetime(datetime) do
     Calendar.strftime(datetime, "%Y-%m-%d %H:%M:%S")
   end
-  
+
   @doc """
   获取填表人姓名。
   """
@@ -26,7 +26,7 @@ defmodule MyAppWeb.Scoring.Helpers do
         "匿名"
     end
   end
-  
+
   @doc """
   格式化评分方法。
   """
@@ -38,7 +38,7 @@ defmodule MyAppWeb.Scoring.Helpers do
       _ -> method
     end
   end
-  
+
   @doc """
   格式化用户答案。
   """
@@ -47,9 +47,13 @@ defmodule MyAppWeb.Scoring.Helpers do
       is_nil(answer) ->
         "未作答"
       is_map(answer) ->
-        answer.value || "空"
+        case Map.get(answer, "value") do
+          nil -> "空 Map"
+          [] -> "空列表"
+          value -> to_string(value)
+        end
       true ->
-        "未知"
+        "未知格式: #{inspect(answer)}"
     end
   end
 end
