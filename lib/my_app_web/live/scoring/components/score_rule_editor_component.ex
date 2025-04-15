@@ -251,7 +251,11 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                                     type="number"
                                     min="0"
                                     id={"blank_score_#{index}_#{i-1}"}
-                                    value={get_blank_score(item["blank_scores"], i-1) || item["score"] && div(String.to_integer(item["score"]), blank_count)}
+                                    value={get_blank_score(item["blank_scores"], i-1) || (
+                                      if is_binary(item["score"]), 
+                                      do: div(String.to_integer(item["score"] || "0"), blank_count),
+                                      else: 0
+                                    )}
                                     phx-blur="update_blank_score"
                                     phx-target={@myself}
                                     phx-value-index={index}
