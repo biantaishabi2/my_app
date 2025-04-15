@@ -48,12 +48,12 @@ defmodule MyAppWeb.Scoring.Helpers do
         "未作答"
         
       answer == "" ->
-        # 明确处理空字符串
-        ""
+        # 空字符串也显示为未作答
+        "未作答"
         
       is_map(answer) && map_size(answer) == 0 ->
-        # 明确处理空Map
-        "空数据"
+        # 空Map也显示为未作答
+        "未作答"
         
       is_map(answer) ->
         case Map.get(answer, "value") do
@@ -62,9 +62,9 @@ defmodule MyAppWeb.Scoring.Helpers do
             if map_size(answer) > 0 do
               format_raw_answer(answer)
             else
-              "空 Map"
+              "未作答"
             end
-          [] -> "空列表"
+          [] -> "未作答"
           value when is_list(value) -> format_list_value(value)
           value when is_binary(value) ->
             # 检查是否为JSON列表并尝试解析
@@ -81,19 +81,24 @@ defmodule MyAppWeb.Scoring.Helpers do
         
       is_list(answer) ->
         if answer == [] do
-          ""  # 空列表显示为空白，区别于"未作答"
+          "未作答"  # 空列表显示为未作答
         else
           format_list_value(answer)
         end
         
       is_binary(answer) ->
         if answer == "" do
-          ""  # 明确处理空字符串
+          "未作答"  # 空字符串显示为未作答
         else
           # 检查是否为JSON列表并尝试解析
           if String.starts_with?(answer, "[") do
             case Jason.decode(answer) do
-              {:ok, list} when is_list(list) -> format_list_value(list)
+              {:ok, list} when is_list(list) -> 
+                if list == [] do
+                  "未作答"  # 空JSON数组显示为未作答
+                else
+                  format_list_value(list)
+                end
               _ -> answer
             end
           else
