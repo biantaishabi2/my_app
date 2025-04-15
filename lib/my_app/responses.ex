@@ -6,6 +6,9 @@ defmodule MyApp.Responses do
   import Ecto.Query, warn: false
   alias MyApp.Repo
 
+  # Require Logger for error logging
+  require Logger
+
   alias MyApp.Responses.Response
   alias MyApp.Responses.Answer
   alias MyApp.Forms
@@ -125,7 +128,7 @@ defmodule MyApp.Responses do
         # Insert answers - get form items from pages
         form_items = form.pages |> Enum.flat_map(& &1.items)
         answers = create_answers(response.id, form_items, answers_map)
-        
+
         # 添加自动评分功能
         maybe_auto_score_response(response)
 
@@ -135,14 +138,14 @@ defmodule MyApp.Responses do
         error
     end
   end
-  
+
   # 自动评分辅助函数
   defp maybe_auto_score_response(response) do
     # 开启异步任务进行评分，不阻塞响应创建流程
     Task.start(fn ->
       # 获取表单评分配置
       form_score = MyApp.Scoring.get_form_score_config(response.form_id)
-      
+
       # 如果存在配置且启用了自动评分(默认为true)，则对响应进行评分
       if form_score && form_score.auto_score do
         MyApp.Scoring.score_response(response.id)
@@ -154,28 +157,46 @@ defmodule MyApp.Responses do
     # Create answers for each form item
     form_items
     |> Enum.map(fn item ->
-      answer_value = answers_map[item.id]
+      # 从 answers_map 获取原始值
+      raw_answer_value = Map.get(answers_map, item.id)
 
       # Skip if no answer provided
-      if is_nil(answer_value) do
+      if is_nil(raw_answer_value) do
         nil
       else
+        # 将原始值包装成 Map 结构
+        # 这里假设所有答案都简单地存储在 "value" 键下
+        # 未来可以根据 item.type 调整包装方式
+        wrapped_answer_value = %{value: raw_answer_value}
+
         # 确保设置时间戳
         now = DateTime.utc_now()
 
         # Insert answer
-        {:ok, answer} =
+        result =
           %Answer{}
           |> Answer.changeset(%{
             response_id: response_id,
             form_item_id: item.id,
-            value: answer_value,
+            value: wrapped_answer_value, # <--- 使用包装后的值
             inserted_at: now,
             updated_at: now
           })
           |> Repo.insert()
 
-        answer
+        # 添加错误处理
+        case result do
+          {:ok, answer} ->
+            answer
+          {:error, changeset} ->
+            Logger.error("""
+            Failed to insert answer for item #{item.id} and response #{response_id}.
+            Value: #{inspect(raw_answer_value)}
+            Wrapped Value: #{inspect(wrapped_answer_value)}
+            Changeset errors: #{inspect(changeset.errors)}
+            """)
+            nil # 返回 nil 表示插入失败
+        end
       end
     end)
     |> Enum.reject(&is_nil/1)
@@ -393,10 +414,10 @@ defmodule MyApp.Responses do
     * `:include_scores` - Whether to include scoring data. Defaults to true.
 
   ## Examples
-      
+
       iex> export_responses(123, %{format: "csv"})
       {:ok, binary_data}
-      
+
       iex> export_responses(999, %{format: "csv"})
       {:error, :not_found}
   """
@@ -422,9 +443,9 @@ defmodule MyApp.Responses do
               "csv" ->
                 # 获取响应并过滤
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 如果包含评分数据，加载评分
-                responses = 
+                responses =
                   if options[:include_scores] != false do
                     load_responses_with_scores(responses)
                   else
@@ -437,9 +458,9 @@ defmodule MyApp.Responses do
               nil ->
                 # 默认CSV格式
                 responses = get_filtered_responses(form_id, options)
-                
+
                 # 如果包含评分数据，加载评分
-                responses = 
+                responses =
                   if options[:include_scores] != false do
                     load_responses_with_scores(responses)
                   else
@@ -547,16 +568,16 @@ defmodule MyApp.Responses do
     # 构建响应ID到响应的映射，以便后续高效更新
     responses_map = Map.new(responses, fn r -> {r.id, r} end)
     response_ids = Map.keys(responses_map)
-    
+
     # 查询所有相关响应的评分数据
-    scores_query = 
+    scores_query =
       from rs in MyApp.Scoring.ResponseScore,
       where: rs.response_id in ^response_ids
-    
+
     scores = MyApp.Repo.all(scores_query)
-    
+
     # 将评分数据添加到对应的响应中
-    updated_responses_map = 
+    updated_responses_map =
       Enum.reduce(scores, responses_map, fn score, acc ->
         response = Map.get(acc, score.response_id)
         if response do
@@ -566,7 +587,7 @@ defmodule MyApp.Responses do
           acc
         end
       end)
-    
+
     # 返回更新后的响应列表，保持原顺序
     Enum.map(responses, fn r -> Map.get(updated_responses_map, r.id) end)
   end
@@ -580,15 +601,15 @@ defmodule MyApp.Responses do
     headers =
       ["回答ID", "提交时间"] ++
         if options[:include_respondent_info] != false, do: ["回答者信息"], else: []
-        
+
     # 添加评分相关的表头
-    headers = 
+    headers =
       if options[:include_scores] != false do
         headers ++ ["评分", "满分", "是否通过", "评分时间"]
       else
         headers
       end
-        
+
     # 添加表单项标题
     headers = headers ++ Enum.map(form_items, & &1.label)
 
@@ -609,9 +630,9 @@ defmodule MyApp.Responses do
           else
             base_info
           end
-          
+
         # Add score info if requested and available
-        base_info = 
+        base_info =
           if options[:include_scores] != false do
             score_data = Map.get(response, :score)
             if score_data do
@@ -692,10 +713,10 @@ defmodule MyApp.Responses do
     * `:end_date` - Optional filter to include responses before this date.
 
   ## Examples
-      
+
       iex> export_statistics(123, %{format: "csv"})
       {:ok, binary_data}
-      
+
       iex> export_statistics(999, %{format: "csv"})
       {:error, :not_found}
   """

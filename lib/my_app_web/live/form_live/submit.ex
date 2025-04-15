@@ -509,13 +509,16 @@ defmodule MyAppWeb.FormLive.Submit do
     current_user = socket.assigns.current_user
     user_id = if current_user, do: current_user.id, else: nil
 
-    # 使用表单状态作为响应参数，并添加必要的字段
-    response_params = %{
-      "data" => form_state,
-      "form_id" => form_id,
-      "submitted_at" => DateTime.utc_now(),
-      "user_id" => user_id
-    }
+    # 修改这里：直接使用 form_state 的内容，并添加其他必要字段
+    response_params =
+      form_state
+      |> Map.merge(%{
+        "form_id" => form_id,
+        "submitted_at" => DateTime.utc_now(),
+        "user_id" => user_id
+        # 注意：这里假设 form_state 的键已经是字符串形式的 item_id
+        # 如果 form_state 的键是原子，可能需要转换
+      })
 
     # 调用原始的submit_form处理逻辑
     handle_event("submit_form", %{"form_response" => response_params}, socket)
