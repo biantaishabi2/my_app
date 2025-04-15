@@ -485,7 +485,7 @@ defmodule MyApp.Scoring do
           else
             # 用户未回答此题目，记录为零分
             Map.put(details_acc, to_string(item_id), %{
-              "score" => score_value,
+              "score" => 0,
               "max_score" => score_value,
               "correct" => false
             })
