@@ -2,11 +2,11 @@
 
 ## 实施进度更新
 
-**更新日期**: 2025-04-14
+**更新日期**: 2025-04-15
 
-**实施状态**: ✅ 已全部完成
+**实施状态**: ⚠️ 基础功能已实现，评分规则编辑器需改进
 
-所有测试已全部实现并通过，共计 57 个测试：
+评分系统的基础功能已实现并通过所有基本测试，共计 57 个测试：
 - `test/my_app/scoring_test.exs` 中的集成测试: 35 个测试
 - `test/my_app/scoring/response_score_test.exs` 中的模型测试: 5 个测试
 - `test/my_app/scoring/score_rule_test.exs` 中的模型测试: 6 个测试
@@ -43,9 +43,9 @@
    - 导出带评分数据的回答记录
    - 自定义导出选项（包含或不包含评分数据）
 
-### 最近改进
+### 最近改进与待实施功能
 
-最近完成的功能和改进：
+最近完成的功能：
 
 1. **自动评分功能**
    - 响应提交后自动触发评分
@@ -55,10 +55,14 @@
    - 实现了响应数据导出功能
    - 集成评分数据导出选项
 
-3. **代码优化**
-   - 修复所有编译警告
-   - 改善函数签名和参数名称
-   - 优化错误处理流程
+3. **前端组件间通信优化**
+   - 修复了评分规则编辑器组件在添加规则项后的页面重置问题
+   - 移除了不必要的组件间通信代码
+
+**待实施功能**：
+- 根据所选表单项的类型，动态显示合适的答案输入控件
+- 扩展评分规则数据结构，支持不同控件类型的答案格式
+- 增强评分计算逻辑，支持不同控件类型的专门评分算法
 
 ## 概述
 
@@ -799,19 +803,193 @@ defp create_responses_with_item_scores(form, rule, item_id, scores) do
 end
 ```
 
+## 7. 评分规则编辑器改进测试
+
+本节描述评分规则编辑器改进所需的测试，关注于支持不同类型表单控件的评分规则创建。
+
+### 7.1 ScoreRule 模型新数据结构验证
+
+**测试用例**: 验证扩展的规则数据结构有效性
+* **行为**: 使用包含新版本格式的规则数据结构创建 `ScoreRule.changeset/2`，包含 `item_type` 字段和各种控件类型专用字段。
+* **预期**: 返回有效的 `changeset`。
+
+```elixir
+test "支持扩展版本规则结构的有效 changeset" do
+  form = insert(:form)
+  rule_attrs = %{
+    name: "扩展规则测试",
+    form_id: form.id,
+    max_score: 100,
+    rules: %{
+      "version" => 2,
+      "type" => "automatic",
+      "items" => [
+        %{
+          "item_id" => Ecto.UUID.generate(),
+          "item_type" => "radio",
+          "max_score" => 10,
+          "scoring_method" => "exact_match",
+          "correct_answer" => "option-123"
+        },
+        %{
+          "item_id" => Ecto.UUID.generate(),
+          "item_type" => "checkbox",
+          "max_score" => 20,
+          "scoring_method" => "multi_choice_match",
+          "correct_answers" => ["option-1", "option-2"],
+          "require_all" => true,
+          "partial_credit" => true
+        }
+      ]
+    }
+  }
+  
+  changeset = ScoreRule.changeset(%ScoreRule{}, rule_attrs)
+  assert changeset.valid?
+end
+```
+
+**测试用例**: 验证不同控件类型的规则项结构验证
+* **行为**: 分别测试各种控件类型(`radio`, `checkbox`, `date`, `rating`等)的规则项结构。
+* **预期**: 每种控件类型的有效结构返回有效的 `changeset`，无效结构返回带有相应错误的 `changeset`。
+
+```elixir
+test "控件类型与评分方法不匹配时返回无效 changeset" do
+  form = insert(:form)
+  invalid_rule_attrs = %{
+    name: "无效控件类型匹配",
+    form_id: form.id,
+    max_score: 100,
+    rules: %{
+      "version" => 2,
+      "type" => "automatic",
+      "items" => [
+        %{
+          "item_id" => Ecto.UUID.generate(),
+          "item_type" => "radio",
+          "max_score" => 10,
+          # 多选评分方法用于单选题 - 不匹配
+          "scoring_method" => "multi_choice_match",
+          "correct_answers" => ["option-1", "option-2"]
+        }
+      ]
+    }
+  }
+  
+  changeset = ScoreRule.changeset(%ScoreRule{}, invalid_rule_attrs)
+  refute changeset.valid?
+  assert errors_on(changeset) |> Map.has_key?(:rules)
+end
+```
+
+### 7.2 评分计算逻辑扩展测试
+
+**测试用例**: 单选题评分计算
+* **行为**: 使用单选题控件类型的规则和包含单选答案的响应调用 `Scoring.score_response/1`。
+* **预期**: 返回 `{:ok, response_score}`，单选题答案匹配时得满分，不匹配时得0分。
+
+```elixir
+test "单选题评分计算 - 正确答案匹配" do
+  form = insert(:form)
+  item = insert(:form_item, form: form, type: "radio") 
+  
+  # 创建单选题评分规则
+  rule = insert(:score_rule, 
+    form: form, 
+    rules: %{
+      "version" => 2,
+      "items" => [
+        %{
+          "item_id" => item.id,
+          "item_type" => "radio",
+          "max_score" => 10,
+          "scoring_method" => "exact_match",
+          "correct_answer" => "option-A"
+        }
+      ]
+    }
+  )
+  
+  # 创建正确答案的响应
+  correct_response = insert(:response, 
+    form: form, 
+    answers: [%{
+      form_item_id: item.id, 
+      value: %{"selected_option" => "option-A"}
+    }]
+  )
+  
+  # 创建错误答案的响应
+  wrong_response = insert(:response, 
+    form: form, 
+    answers: [%{
+      form_item_id: item.id, 
+      value: %{"selected_option" => "option-B"}
+    }]
+  )
+  
+  # 测试正确答案评分
+  assert {:ok, correct_score} = Scoring.score_response(correct_response.id)
+  assert correct_score.score == 10
+  
+  # 测试错误答案评分
+  assert {:ok, wrong_score} = Scoring.score_response(wrong_response.id)
+  assert wrong_score.score == 0
+end
+```
+
+**测试用例**: 多选题评分计算 (支持部分得分)
+* **行为**: 使用多选题控件类型的规则和包含多选答案的响应调用 `Scoring.score_response/1`。
+* **预期**: 返回 `{:ok, response_score}`，完全匹配时得满分，部分匹配时按比例得分。
+
+```elixir
+test "多选题评分计算 - 支持部分得分" do
+  # 创建多选题规则和不同匹配程度的响应
+  # 测试完全匹配、部分匹配和完全不匹配的得分情况
+end
+```
+
+**测试用例**: 日期题评分计算
+* **行为**: 使用日期控件类型的规则和包含日期答案的响应调用 `Scoring.score_response/1`。
+* **预期**: 返回 `{:ok, response_score}`，日期完全匹配或在允许范围内时得分。
+
+**测试用例**: 评分题评分计算
+* **行为**: 使用评分控件类型的规则和包含评分答案的响应调用 `Scoring.score_response/1`。
+* **预期**: 返回 `{:ok, response_score}`，评分在正确范围内时得分。
+
+**测试用例**: 填空题评分计算 (多空位独立评分)
+* **行为**: 使用填空题控件类型的规则和包含填空答案的响应调用 `Scoring.score_response/1`。
+* **预期**: 返回 `{:ok, response_score}`，每个空位独立计分并合计。
+
+### 7.3 系统兼容性测试
+
+**测试用例**: 旧版本规则结构的兼容性
+* **行为**: 使用旧版本格式的规则数据结构调用评分函数。
+* **预期**: 系统能正确处理旧格式规则，产生正确的评分结果。
+
+**测试用例**: 规则版本混合使用情况
+* **行为**: 在同一表单中同时使用新旧版本格式的规则。
+* **预期**: 系统能识别规则版本并正确应用相应的评分逻辑。
+
 ## 开发顺序建议
 
 根据TDD原则，建议按以下顺序开发评分系统功能:
 
-1. 评分规则基础管理 (创建、获取、更新)
-2. 表单评分配置
-3. 单个响应评分功能
-4. 批量评分功能
-5. 评分统计功能
-6. 权限控制与安全特性
-7. 高级功能与优化
+1. 评分规则基础管理 (创建、获取、更新) - ✅ 已完成
+2. 表单评分配置 - ✅ 已完成
+3. 单个响应评分功能 - ✅ 已完成
+4. 批量评分功能 - ✅ 已完成
+5. 评分统计功能 - ✅ 已完成
+6. 权限控制与安全特性 - ✅ 已完成
 
-每个阶段应先完成测试编写，然后实现功能直到测试通过，再进入下一个阶段的开发。 
+**评分规则编辑器改进优先级顺序**：
+1. 数据结构扩展和模型验证
+2. 基础控件类型 (单选、多选、文本) 的动态输入界面
+3. 这些控件类型的评分计算逻辑
+4. 高级控件类型 (评分、日期、填空题) 支持
+5. 界面优化和帮助文本
+
+每个阶段应先完成测试编写，然后实现功能直到测试通过，再进入下一个阶段的开发。
 
 ## 2. 表单评分配置 (FormScore Configuration)
 
