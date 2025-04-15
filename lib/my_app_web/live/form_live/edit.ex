@@ -15,44 +15,73 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    form = Forms.get_form(id)
+    # 使用 get_form_with_full_preload 来确保 :pages 关联被加载
+    form_with_pages = Forms.get_form_with_full_preload(id)
 
-    if form do
-      # 设置表单和默认值
+    if form_with_pages do
+      # 确保表单有默认页面并处理未关联页面的表单项
+      {:ok, _} = Forms.assign_default_page(form_with_pages)
+
+      # 重新加载一次以获取最新状态（如果 assign_default_page 改变了状态）
+      form_with_pages = Forms.get_form_with_full_preload(id)
+
+      all_form_items =
+        Enum.flat_map(form_with_pages.pages, fn page ->
+          page.items || []
+        end)
+
+      # 检查是否需要迁移（应该在 assign_default_page 后不再需要，但保留检查以防万一）
+      form_with_pages =
+        if length(form_with_pages.items) > length(all_form_items) do
+          {:ok, updated_form} = Forms.migrate_items_to_default_page_optimized(form_with_pages)
+          updated_form
+        else
+          form_with_pages
+        end
+
+      # 重新收集所有表单项
+      all_form_items =
+        Enum.flat_map(form_with_pages.pages, fn page ->
+          page.items || []
+        end)
+
+      # 初始化当前页面数据
+      current_page = List.first(form_with_pages.pages || [])
+      current_page_idx = 0
+      page_items = get_page_items(form_with_pages, current_page)
+
+      # 获取所有控件类型
+      all_types = Forms.list_available_form_item_types()
+
       socket =
         socket
-        |> assign(:form, form)
-        # 确保不会是nil
-        |> assign(:form_items, form.items || [])
+        # 直接在 mount 中 assign 所有数据
+        |> assign(:form, form_with_pages)
+        |> assign(:form_items, all_form_items)
+        |> assign(:all_item_types, all_types)
         |> assign(:active_category, :basic)
-        # 默认类型
         |> assign(:item_type, "text_input")
         |> assign(:editing_item, false)
-        # 用于直接在列表中编辑
         |> assign(:editing_item_id, nil)
         |> assign(:current_item, nil)
-        |> assign(:loading_complete, false)
+        |> assign(:loading_complete, true) # 数据已加载完成
         |> assign(:item_options, [])
-        |> assign(:editing_form_info, false)
+        |> assign(:editing_form_info, Enum.empty?(all_form_items) && (form_with_pages.title == nil || form_with_pages.title == ""))
         |> assign(:editing_respondent_attributes, false)
         |> assign(:search_term, nil)
         |> assign(:delete_item_id, nil)
         |> assign(:editing_page, false)
-        |> assign(:current_page, nil)
+        |> assign(:current_page, current_page)
         |> assign(:delete_page_id, nil)
-        # 用于发布确认
         |> assign(:show_publish_confirm, false)
         |> assign(:editing_conditions, false)
         |> assign(:current_condition_item, nil)
-        # 用于追踪当前正在编辑的选项的索引
         |> assign(:current_option_index, nil)
         |> assign(:current_condition_type, nil)
         |> assign(:available_condition_items, [])
-        # 用于临时存储图片上传信息
         |> assign(:temp_image_upload, %{})
-        # 页面相关状态 - 在现有代码基础上添加这些
-        |> assign(:current_page_idx, 0)
-        |> assign(:page_items, [])
+        |> assign(:current_page_idx, current_page_idx)
+        |> assign(:page_items, page_items)
 
       # 允许Phoenix.LiveView上传图片
       socket =
@@ -60,12 +89,13 @@ defmodule MyAppWeb.FormLive.Edit do
         |> allow_upload(:image,
           accept: ~w(.jpg .jpeg .png .gif),
           max_entries: 1,
-          # 5MB
           max_file_size: 5_000_000,
           auto_upload: false
         )
 
-      {:ok, socket}
+      {:ok,
+       socket
+       |> assign(:page_title, "编辑表单 - #{form_with_pages.title}")}
     else
       {:ok,
        socket
@@ -76,77 +106,25 @@ defmodule MyAppWeb.FormLive.Edit do
 
   @impl true
   def handle_params(params, _url, socket) do
-    if socket.assigns[:loading_complete] do
-      # 已经加载过数据的情况下不重复加载
-      {:noreply, apply_action(socket, socket.assigns.live_action, params)}
-    else
-      # 开始异步加载表单完整数据
-      send(self(), {:load_form_data, socket.assigns.form.id})
-
-      # 先返回正在加载的状态
-      {:noreply,
-       socket
-       |> assign(:loading_complete, false)
-       |> apply_action(socket.assigns.live_action, params)}
-    end
+    # 移除异步加载逻辑，因为数据已在 mount 中加载
+    # if socket.assigns[:loading_complete] do
+    #   {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+    # else
+    #   send(self(), {:load_form_data, socket.assigns.form.id})
+    #   {:noreply,
+    #    socket
+    #    |> assign(:loading_complete, false)
+    #    |> apply_action(socket.assigns.live_action, params)}
+    # end
+    # 直接应用 action
+    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
-  # 异步加载表单数据
-  @impl true
-  def handle_info({:load_form_data, form_id}, socket) do
-    # 并行获取需要的数据（控件类型和表单数据）
-    all_types = Forms.list_available_form_item_types()
-    form_with_pages = Forms.get_form_with_full_preload(form_id)
-
-    # 确保表单有默认页面并处理未关联页面的表单项
-    {:ok, _} = Forms.assign_default_page(form_with_pages)
-
-    # 预先收集现有表单项，检查是否需要迁移
-    all_form_items =
-      Enum.flat_map(form_with_pages.pages, fn page ->
-        # 提取每个页面的表单项
-        page.items || []
-      end)
-
-    # 只有在确实需要迁移的情况下执行迁移操作
-    form_with_pages =
-      if length(form_with_pages.items) > length(all_form_items) do
-        # 迁移未关联页面的表单项到默认页面
-        {:ok, updated_form} = Forms.migrate_items_to_default_page_optimized(form_with_pages)
-        updated_form
-      else
-        # 不需要迁移，直接使用现有表单
-        form_with_pages
-      end
-
-    # 重新收集所有表单项
-    all_form_items =
-      Enum.flat_map(form_with_pages.pages, fn page ->
-        page.items || []
-      end)
-
-    # 初始化当前页面数据 - 增加这部分代码
-    current_page = List.first(form_with_pages.pages || [])
-    current_page_idx = 0
-    page_items = get_page_items(form_with_pages, current_page)
-
-    # 更新socket状态
-    {:noreply,
-     socket
-     |> assign(:form, form_with_pages)
-     |> assign(:form_items, all_form_items)
-     |> assign(:all_item_types, all_types)
-     # 添加这些页面相关的状态
-     |> assign(:current_page, current_page)
-     |> assign(:current_page_idx, current_page_idx)
-     |> assign(:page_items, page_items)
-     |> assign(:loading_complete, true)
-     |> assign(
-       :editing_form_info,
-       Enum.empty?(all_form_items) &&
-         (form_with_pages.title == nil || form_with_pages.title == "")
-     )}
-  end
+  # 异步加载表单数据 - 移除此函数
+  # @impl true
+  # def handle_info({:load_form_data, form_id}, socket) do
+  #   ...
+  # end
 
   @impl true
   # 处理异步表单项添加后的事件，确保界面正确更新
