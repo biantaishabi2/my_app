@@ -292,6 +292,15 @@ defmodule MyApp.Scoring do
                       [correct_answer]
                   end
                   
+                # 对正确答案进行同样的标准化处理
+                correct_values = Enum.map(correct_values, fn value ->
+                  cond do
+                    is_nil(value) -> ""
+                    is_binary(value) -> String.trim(value)
+                    true -> value
+                  end
+                end)
+                  
                 # 解析用户答案（统一数据格式，支持多种输入格式）
                 user_values = 
                   cond do
@@ -304,10 +313,23 @@ defmodule MyApp.Scoring do
                         {:ok, values} when is_list(values) -> values
                         _ -> [user_answer_value]
                       end
-                    # 其他情况，作为单个答案处理
+                    # 记录格式检测，辅助调试
                     true -> 
+                      require Logger
+                      Logger.debug("填空题数据格式: #{inspect(user_answer_value)}")
+                      
+                      # 其他情况，作为单个答案处理
                       [user_answer_value]
                   end
+                  
+                # 对填空题答案进行额外的标准化处理，确保空字符串和nil值的一致性
+                user_values = Enum.map(user_values, fn value ->
+                  cond do
+                    is_nil(value) -> ""
+                    is_binary(value) -> String.trim(value)
+                    true -> value
+                  end
+                end)
                   
                 # 检查是否有单独的空位分值
                 individual_scores = 
@@ -327,7 +349,14 @@ defmodule MyApp.Scoring do
                   Enum.zip([correct_values, user_values, individual_scores])
                   |> Enum.reduce(0, fn
                     {correct, user, blank_score}, acc when is_number(blank_score) ->
-                      if safe_to_string(correct) == safe_to_string(user), do: acc + blank_score, else: acc
+                      require Logger
+                      correct_str = safe_to_string(correct)
+                      user_str = safe_to_string(user)
+                      
+                      # 记录比较过程，辅助调试
+                      Logger.debug("填空题评分比较: 正确答案=\"#{correct_str}\" 用户答案=\"#{user_str}\"")
+                      
+                      if correct_str == user_str, do: acc + blank_score, else: acc
                     _, acc -> acc
                   end)
                 else
@@ -335,7 +364,14 @@ defmodule MyApp.Scoring do
                   correct_count = 
                     Enum.zip(correct_values, user_values)
                     |> Enum.count(fn {correct, user} -> 
-                         safe_to_string(correct) == safe_to_string(user) 
+                         require Logger
+                         correct_str = safe_to_string(correct)
+                         user_str = safe_to_string(user)
+                         
+                         # 记录比较过程，辅助调试
+                         Logger.debug("填空题比例评分比较: 正确答案=\"#{correct_str}\" 用户答案=\"#{user_str}\"")
+                         
+                         correct_str == user_str 
                        end)
                        
                   total_blanks = max(length(correct_values), 1)
@@ -453,7 +489,14 @@ defmodule MyApp.Scoring do
                   Enum.zip([correct_values, user_values, individual_scores])
                   |> Enum.reduce(0, fn
                     {correct, user, blank_score}, acc when is_number(blank_score) ->
-                      if safe_to_string(correct) == safe_to_string(user), do: acc + blank_score, else: acc
+                      require Logger
+                      correct_str = safe_to_string(correct)
+                      user_str = safe_to_string(user)
+                      
+                      # 记录比较过程，辅助调试
+                      Logger.debug("填空题评分比较: 正确答案=\"#{correct_str}\" 用户答案=\"#{user_str}\"")
+                      
+                      if correct_str == user_str, do: acc + blank_score, else: acc
                     _, acc -> acc
                   end)
                 else
@@ -461,7 +504,14 @@ defmodule MyApp.Scoring do
                   correct_count = 
                     Enum.zip(correct_values, user_values)
                     |> Enum.count(fn {correct, user} -> 
-                         safe_to_string(correct) == safe_to_string(user) 
+                         require Logger
+                         correct_str = safe_to_string(correct)
+                         user_str = safe_to_string(user)
+                         
+                         # 记录比较过程，辅助调试
+                         Logger.debug("填空题比例评分比较: 正确答案=\"#{correct_str}\" 用户答案=\"#{user_str}\"")
+                         
+                         correct_str == user_str 
                        end)
                        
                   total_blanks = max(length(correct_values), 1)
@@ -603,7 +653,7 @@ defmodule MyApp.Scoring do
   defp safe_to_string(value) do
     cond do
       is_nil(value) -> ""
-      is_binary(value) -> value
+      is_binary(value) -> String.trim(value)  # 确保字符串前后没有空格
       is_integer(value) || is_float(value) || is_atom(value) -> 
         to_string(value)
       # 处理以 atom 或 string 为键的 Map
@@ -616,7 +666,20 @@ defmodule MyApp.Scoring do
       is_map(value) -> 
         inspect(value)  # 为其他Map类型生成字符串表示
       is_list(value) -> 
-        Enum.map_join(value, ",", &safe_to_string/1)  # 递归处理列表元素
+        # 如果是空列表，返回空字符串
+        if value == [] do
+          ""
+        else
+          # 为列表元素添加标准化处理
+          normalized_values = Enum.map(value, fn v -> 
+            cond do
+              is_nil(v) -> ""
+              is_binary(v) -> String.trim(v)
+              true -> safe_to_string(v)
+            end
+          end)
+          Enum.map_join(normalized_values, ",", &safe_to_string/1)
+        end
       true -> 
         inspect(value)  # 为未知类型生成字符串表示
     end
