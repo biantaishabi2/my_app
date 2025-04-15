@@ -34,8 +34,15 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent do
 
   @impl true
   def handle_event("save", %{"score_rule" => score_rule_params}, socket) do
-    # 合并规则数据
-    score_rule_params = Map.merge(score_rule_params, %{"rules" => socket.assigns.rules, "user_id" => socket.assigns.current_user.id})
+    # 在保存时，从编辑器组件中获取的规则数据已经在socket.assigns.rules中
+    # 确保使用正确的规则数据结构
+    rules = socket.assigns.rules
+    
+    # 合并规则数据和用户ID
+    score_rule_params = Map.merge(score_rule_params, %{
+      "rules" => rules, 
+      "user_id" => socket.assigns.current_user.id
+    })
     
     # 将所有键转换为字符串类型
     score_rule_params = for {k, v} <- score_rule_params, into: %{} do
@@ -50,16 +57,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent do
     {:noreply, assign(socket, :rules, rules)}
   end
 
-  # 添加处理来自子组件的事件
-  def update(%{event: "update_rules", rules: rules} = _assigns, socket) do
-    # 仅应用有效的更新
-    if is_map(rules) do
-      socket = assign(socket, :rules, rules)
-      {:ok, socket}
-    else
-      {:ok, socket}
-    end
-  end
+  # 移除处理来自子组件的事件
   
   # 保留原始update方法，覆盖上面的方法
   @impl true
@@ -111,8 +109,5 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent do
     end
   end
   
-  # 接收规则编辑器组件传来的规则更新
-  def handle_info({:update_rules, rules}, socket) do
-    {:noreply, assign(socket, :rules, rules)}
-  end
+  # 移除接收规则编辑器组件传来的规则更新
 end
