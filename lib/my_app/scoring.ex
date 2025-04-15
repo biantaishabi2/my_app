@@ -244,7 +244,7 @@ defmodule MyApp.Scoring do
 
           user_answer_struct = Map.get(answers_map, item_id)
 
-          if user_answer_struct && is_map(user_answer_struct.value) do
+          if user_answer_struct && user_answer_struct.value != nil do
             # 直接使用 value 字段的值而不是尝试从中读取 "value" 键
             user_answer_value = user_answer_struct.value
             
@@ -370,7 +370,7 @@ defmodule MyApp.Scoring do
           
           user_answer_struct = Map.get(answers_map, item_id)
           
-          if user_answer_struct && is_map(user_answer_struct.value) do
+          if user_answer_struct && user_answer_struct.value != nil do
             # 直接使用 value 字段的值而不是尝试从中读取 "value" 键
             user_answer_value = user_answer_struct.value
             
