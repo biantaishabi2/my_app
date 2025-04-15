@@ -287,16 +287,38 @@ defmodule MyApp.Scoring do
                     _ -> [user_answer_value]
                   end
                   
-                # 计算正确的空位数量
-                correct_count = 
-                  Enum.zip(correct_values, user_values)
-                  |> Enum.count(fn {correct, user} -> 
-                       to_string(correct) == to_string(user) 
-                     end)
-                     
-                # 按比例计算得分
-                total_blanks = max(length(correct_values), 1)
-                round(score_value * correct_count / total_blanks)
+                # 检查是否有单独的空位分值
+                individual_scores = 
+                  case item["blank_scores"] do
+                    nil -> nil # 没有单独分值设置
+                    scores when is_binary(scores) ->
+                      case Jason.decode(scores) do
+                        {:ok, values} when is_list(values) -> values
+                        _ -> nil
+                      end
+                    _ -> nil
+                  end
+                
+                # 根据空位单独分值或总分计算
+                if is_list(individual_scores) && length(individual_scores) > 0 do
+                  # 使用单独分值
+                  Enum.zip([correct_values, user_values, individual_scores])
+                  |> Enum.reduce(0, fn
+                    {correct, user, blank_score}, acc when is_number(blank_score) ->
+                      if to_string(correct) == to_string(user), do: acc + blank_score, else: acc
+                    _, acc -> acc
+                  end)
+                else
+                  # 按比例计算得分
+                  correct_count = 
+                    Enum.zip(correct_values, user_values)
+                    |> Enum.count(fn {correct, user} -> 
+                         to_string(correct) == to_string(user) 
+                       end)
+                       
+                  total_blanks = max(length(correct_values), 1)
+                  round(score_value * correct_count / total_blanks)
+                end
                 
               # 默认情况 - 简单文本匹配
               {_, "exact_match"} ->

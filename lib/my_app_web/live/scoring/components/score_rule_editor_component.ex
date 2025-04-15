@@ -205,23 +205,74 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                       
                     <% :fill_in_blank -> %>
                       <% blank_count = form_item && form_item.blank_count || 1 %>
-                      <div class="mt-1 space-y-2 border p-2 rounded-md">
+                      <div class="mt-1 space-y-4 border p-2 rounded-md">
                         <p class="text-xs text-gray-500">填空题答案设置（共<%= blank_count %>个空位）：</p>
                         
-                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <%= if form_item && form_item.blank_text do %>
+                          <!-- 显示填空题原文，带有空位标记 -->
+                          <div class="bg-gray-50 p-3 rounded border text-sm mb-3">
+                            <% 
+                              # 提取填空位置和文本
+                              parts = String.split(form_item.blank_text, ~r/\{\{(\d+)\}\}/, include_captures: true)
+                              
+                              # 解析每个部分
+                              processed_parts =
+                                Enum.map(parts, fn part ->
+                                  case Regex.run(~r/\{\{(\d+)\}\}/, part) do
+                                    [_, index] ->
+                                      %{type: :blank, index: String.to_integer(index)}
+                                    nil ->
+                                      %{type: :text, content: part}
+                                  end
+                                end) 
+                            %>
+                            
+                            <%= for part <- processed_parts do %>
+                              <%= case part.type do %>
+                                <% :text -> %>
+                                  <span><%= part.content %></span>
+                                <% :blank -> %>
+                                  <span class="inline-block px-2 py-1 mx-1 border-b-2 border-indigo-300 bg-indigo-50 rounded text-center">
+                                    [空位<%= part.index %>]
+                                  </span>
+                              <% end %>
+                            <% end %>
+                          </div>
+                        <% end %>
+                        
+                        <div class="space-y-4 max-h-60 overflow-y-auto divide-y divide-gray-200">
                           <%= for i <- 1..blank_count do %>
-                            <div class="flex items-center gap-2">
-                              <span class="text-sm font-medium text-gray-700 min-w-[60px]">空位<%= i %>:</span>
-                              <input
-                                type="text"
-                                id={"blank_#{index}_#{i-1}"}
-                                value={get_blank_answer(item["correct_answer"], i-1)}
-                                phx-blur="update_blank_answer"
-                                phx-target={@myself}
-                                phx-value-index={index}
-                                phx-value-blank={i-1}
-                                class="flex-1 px-3 py-1 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                              />
+                            <div class="flex flex-col pt-3">
+                              <div class="flex justify-between items-center mb-1">
+                                <span class="text-sm font-medium text-gray-700">空位<%= i %>:</span>
+                                <div class="flex items-center">
+                                  <span class="text-xs text-gray-500 mr-2">分值:</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    id={"blank_score_#{index}_#{i-1}"}
+                                    value={get_blank_score(item["blank_scores"], i-1) || item["score"] && div(String.to_integer(item["score"]), blank_count)}
+                                    phx-blur="update_blank_score"
+                                    phx-target={@myself}
+                                    phx-value-index={index}
+                                    phx-value-blank={i-1}
+                                    class="w-16 px-2 py-1 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
+                                  />
+                                </div>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-500 min-w-[60px]">正确答案:</span>
+                                <input
+                                  type="text"
+                                  id={"blank_#{index}_#{i-1}"}
+                                  value={get_blank_answer(item["correct_answer"], i-1)}
+                                  phx-blur="update_blank_answer"
+                                  phx-target={@myself}
+                                  phx-value-index={index}
+                                  phx-value-blank={i-1}
+                                  class="flex-1 px-3 py-1 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                />
+                              </div>
                             </div>
                           <% end %>
                         </div>
@@ -448,6 +499,61 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     
     {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
   end
+  
+  # 处理填空题分值更新
+  def handle_event("update_blank_score", %{"index" => index, "blank" => blank_index, "value" => value}, socket) do
+    index = String.to_integer(index)
+    blank_index = String.to_integer(blank_index)
+    
+    # 解析为整数分值
+    score_value = 
+      case Integer.parse(value) do
+        {num, _} -> num
+        :error -> 0
+      end
+    
+    # 获取当前规则项
+    rule_item = Enum.at(socket.assigns.rule_items, index)
+    current_scores = rule_item["blank_scores"] || "[]"
+    
+    # 解析当前分值
+    current_values = 
+      case Jason.decode(current_scores) do
+        {:ok, values} when is_list(values) -> values
+        _ -> []
+      end
+    
+    # 确保数组足够长
+    padded_values = 
+      if length(current_values) <= blank_index do
+        current_values ++ List.duplicate(0, blank_index - length(current_values) + 1)
+      else
+        current_values
+      end
+    
+    # 更新指定空位分值
+    new_values = List.replace_at(padded_values, blank_index, score_value)
+    
+    # 更新为JSON格式
+    new_scores = Jason.encode!(new_values)
+    
+    # 计算总分
+    total_score = Enum.sum(new_values)
+    
+    # 更新规则项
+    rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
+      item 
+      |> Map.put("blank_scores", new_scores)
+      |> Map.put("score", to_string(total_score))
+    end)
+    
+    rules = %{"items" => rule_items}
+    
+    # 保存规则
+    save_rules_to_database(socket, rules)
+    
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
+  end
 
   # 直接保存规则到数据库
   defp save_rules_to_database(socket, rules) do
@@ -529,6 +635,26 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
         
       # 其他情况
       true -> ""
+    end
+  end
+  
+  # 获取填空题特定空位的分值
+  defp get_blank_score(blank_scores, blank_index) do
+    cond do
+      # 空值或非字符串
+      is_nil(blank_scores) || !is_binary(blank_scores) -> 
+        nil
+        
+      # JSON数组格式
+      String.starts_with?(blank_scores, "[") ->
+        case Jason.decode(blank_scores) do
+          {:ok, values} when is_list(values) -> 
+            Enum.at(values, blank_index)
+          _ -> nil
+        end
+        
+      # 其他情况
+      true -> nil
     end
   end
 end
