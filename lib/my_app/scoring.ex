@@ -307,6 +307,24 @@ defmodule MyApp.Scoring do
                     # 已经是列表，直接使用
                     is_list(user_answer_value) -> 
                       user_answer_value
+                    # 如果是嵌套的Map结构 %{"value" => ...}
+                    is_map(user_answer_value) && Map.has_key?(user_answer_value, "value") ->
+                      nested_value = Map.get(user_answer_value, "value")
+                      require Logger
+                      Logger.debug("嵌套填空题数据格式: #{inspect(nested_value)}")
+                      
+                      # 递归处理嵌套的值
+                      cond do
+                        is_list(nested_value) -> 
+                          nested_value
+                        is_binary(nested_value) && String.starts_with?(nested_value, "[") ->
+                          case Jason.decode(nested_value) do
+                            {:ok, values} when is_list(values) -> values
+                            _ -> [nested_value]
+                          end
+                        true ->
+                          [nested_value]
+                      end
                     # JSON格式的字符串
                     is_binary(user_answer_value) && String.starts_with?(user_answer_value, "[") ->
                       case Jason.decode(user_answer_value) do
@@ -460,6 +478,24 @@ defmodule MyApp.Scoring do
                     # 已经是列表，直接使用
                     is_list(user_answer_value) -> 
                       user_answer_value
+                    # 如果是嵌套的Map结构 %{"value" => ...}
+                    is_map(user_answer_value) && Map.has_key?(user_answer_value, "value") ->
+                      nested_value = Map.get(user_answer_value, "value")
+                      require Logger
+                      Logger.debug("嵌套填空题数据格式: #{inspect(nested_value)}")
+                      
+                      # 递归处理嵌套的值
+                      cond do
+                        is_list(nested_value) -> 
+                          nested_value
+                        is_binary(nested_value) && String.starts_with?(nested_value, "[") ->
+                          case Jason.decode(nested_value) do
+                            {:ok, values} when is_list(values) -> values
+                            _ -> [nested_value]
+                          end
+                        true ->
+                          [nested_value]
+                      end
                     # JSON格式的字符串
                     is_binary(user_answer_value) && String.starts_with?(user_answer_value, "[") ->
                       case Jason.decode(user_answer_value) do
@@ -468,6 +504,8 @@ defmodule MyApp.Scoring do
                       end
                     # 其他情况，作为单个答案处理
                     true -> 
+                      require Logger
+                      Logger.debug("填空题数据格式: #{inspect(user_answer_value)}")
                       [user_answer_value]
                   end
                   
