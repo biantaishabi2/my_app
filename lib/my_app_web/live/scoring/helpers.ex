@@ -46,14 +46,48 @@ defmodule MyAppWeb.Scoring.Helpers do
     cond do
       is_nil(answer) ->
         "未作答"
+        
       is_map(answer) ->
         case Map.get(answer, "value") do
           nil -> "空 Map"
           [] -> "空列表"
+          value when is_list(value) -> format_list_value(value)
+          value when is_binary(value) ->
+            # 检查是否为JSON列表并尝试解析
+            if String.starts_with?(value, "[") do
+              case Jason.decode(value) do
+                {:ok, list} when is_list(list) -> format_list_value(list)
+                _ -> to_string(value)
+              end
+            else
+              to_string(value)
+            end
           value -> to_string(value)
         end
+        
+      is_list(answer) ->
+        format_list_value(answer)
+        
+      is_binary(answer) ->
+        # 检查是否为JSON列表并尝试解析
+        if String.starts_with?(answer, "[") do
+          case Jason.decode(answer) do
+            {:ok, list} when is_list(list) -> format_list_value(list)
+            _ -> answer
+          end
+        else
+          answer
+        end
+        
       true ->
         "未知格式: #{inspect(answer)}"
     end
+  end
+  
+  # 辅助函数：格式化列表值为可读字符串
+  defp format_list_value(list) do
+    list
+    |> Enum.map(&to_string/1)
+    |> Enum.join(", ")
   end
 end

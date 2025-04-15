@@ -218,17 +218,18 @@ defmodule MyApp.Scoring do
   注意：自动评分无需检查auto_score_enabled，因为该检查已在调用处完成。
   """
   def score_response(response_id) do
-    # Preload data needed for calculation and validation, but not the non-existent response_scores assoc
+    # Preload data needed for calculation and validation, including form items
     preload_query = from r in Response, where: r.id == ^response_id
     response = Repo.get(preload_query, response_id)
-               |> Repo.preload([:form, answers: :form_item]) # Removed response_scores preload
+               |> Repo.preload([{:form, :items}, answers: :form_item]) # Preload form items
 
     # Pass response_id to handle_already_scored
     with {:ok, response} <- handle_response_found(response),
          :ok <- handle_already_scored(response.id),
          {:ok, form} <- handle_form_association(response),
          {:ok, score_rule} <- find_score_rule(form.id),
-         {:ok, _form_config} <- find_form_score_config(form.id) do
+         {:ok, form_config} <- find_form_score_config(form.id),
+         :ok <- check_auto_score_enabled(form_config) do
 
       # --- Actual calculation logic --- START ---
       # Validate rule format before proceeding
@@ -239,12 +240,13 @@ defmodule MyApp.Scoring do
           item_id = item["item_id"]
           scoring_method = item["scoring_method"]
           correct_answer = item["correct_answer"]
-          score_value = String.to_integer(item["score"] || "0") # 确保是整数
+          score_value = parse_score_value(item["score"]) # 使用安全解析函数
 
           user_answer_struct = Map.get(answers_map, item_id)
 
           if user_answer_struct && is_map(user_answer_struct.value) do
-            user_answer_value = Map.get(user_answer_struct.value, "value")
+            # 直接使用 value 字段的值而不是尝试从中读取 "value" 键
+            user_answer_value = user_answer_struct.value
             
             # 找到对应的form_item以获取类型信息
             form_item = Enum.find(response.form.items || [], fn fi -> fi.id == item_id end)
@@ -253,7 +255,7 @@ defmodule MyApp.Scoring do
             points = case {item_type, scoring_method} do
               # 单选题和下拉菜单
               {type, "exact_match"} when type in [:radio, :dropdown] ->
-                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                if safe_to_string(user_answer_value) == safe_to_string(correct_answer), do: score_value, else: 0
                 
               # 多选题
               {:checkbox, "exact_match"} ->
@@ -265,26 +267,46 @@ defmodule MyApp.Scoring do
                     else: [user_answer_value]
                     
                 # 转换为字符串进行比较
-                correct_set = MapSet.new(correct_values, &to_string/1)
-                user_set = MapSet.new(user_values, &to_string/1)
+                correct_set = MapSet.new(correct_values, &safe_to_string/1)
+                user_set = MapSet.new(user_values, &safe_to_string/1)
                 
                 # 完全匹配才得分
                 if MapSet.equal?(correct_set, user_set), do: score_value, else: 0
                 
               # 填空题
               {:fill_in_blank, "exact_match"} ->
-                # 解析正确答案
+                # 解析正确答案（统一数据格式，支持多种输入格式）
                 correct_values = 
-                  case Jason.decode(correct_answer) do
-                    {:ok, values} when is_list(values) -> values
-                    _ -> [correct_answer]
+                  cond do
+                    # 已经是列表，直接使用
+                    is_list(correct_answer) -> 
+                      correct_answer
+                    # JSON格式的字符串
+                    is_binary(correct_answer) && String.starts_with?(correct_answer, "[") ->
+                      case Jason.decode(correct_answer) do
+                        {:ok, values} when is_list(values) -> values
+                        _ -> [correct_answer]
+                      end
+                    # 其他情况，作为单个答案处理
+                    true -> 
+                      [correct_answer]
                   end
                   
-                # 解析用户答案
+                # 解析用户答案（统一数据格式，支持多种输入格式）
                 user_values = 
-                  case Jason.decode(user_answer_value) do
-                    {:ok, values} when is_list(values) -> values
-                    _ -> [user_answer_value]
+                  cond do
+                    # 已经是列表，直接使用
+                    is_list(user_answer_value) -> 
+                      user_answer_value
+                    # JSON格式的字符串
+                    is_binary(user_answer_value) && String.starts_with?(user_answer_value, "[") ->
+                      case Jason.decode(user_answer_value) do
+                        {:ok, values} when is_list(values) -> values
+                        _ -> [user_answer_value]
+                      end
+                    # 其他情况，作为单个答案处理
+                    true -> 
+                      [user_answer_value]
                   end
                   
                 # 检查是否有单独的空位分值
@@ -305,7 +327,7 @@ defmodule MyApp.Scoring do
                   Enum.zip([correct_values, user_values, individual_scores])
                   |> Enum.reduce(0, fn
                     {correct, user, blank_score}, acc when is_number(blank_score) ->
-                      if to_string(correct) == to_string(user), do: acc + blank_score, else: acc
+                      if safe_to_string(correct) == safe_to_string(user), do: acc + blank_score, else: acc
                     _, acc -> acc
                   end)
                 else
@@ -313,7 +335,7 @@ defmodule MyApp.Scoring do
                   correct_count = 
                     Enum.zip(correct_values, user_values)
                     |> Enum.count(fn {correct, user} -> 
-                         to_string(correct) == to_string(user) 
+                         safe_to_string(correct) == safe_to_string(user) 
                        end)
                        
                   total_blanks = max(length(correct_values), 1)
@@ -322,7 +344,7 @@ defmodule MyApp.Scoring do
                 
               # 默认情况 - 简单文本匹配
               {_, "exact_match"} ->
-                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                if safe_to_string(user_answer_value) == safe_to_string(correct_answer), do: score_value, else: 0
                 
               # 其他评分方法（尚未实现）
               _ -> 0
@@ -344,12 +366,13 @@ defmodule MyApp.Scoring do
           item_id = item["item_id"]
           scoring_method = item["scoring_method"]
           correct_answer = item["correct_answer"]
-          score_value = String.to_integer(item["score"] || "0") # 确保是整数
+          score_value = parse_score_value(item["score"]) # 使用安全解析函数
           
           user_answer_struct = Map.get(answers_map, item_id)
           
           if user_answer_struct && is_map(user_answer_struct.value) do
-            user_answer_value = Map.get(user_answer_struct.value, "value")
+            # 直接使用 value 字段的值而不是尝试从中读取 "value" 键
+            user_answer_value = user_answer_struct.value
             
             # 找到对应的form_item以获取类型信息
             form_item = Enum.find(response.form.items || [], fn fi -> fi.id == item_id end)
@@ -358,7 +381,7 @@ defmodule MyApp.Scoring do
             points = case {item_type, scoring_method} do
               # 单选题和下拉菜单
               {type, "exact_match"} when type in [:radio, :dropdown] ->
-                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                if safe_to_string(user_answer_value) == safe_to_string(correct_answer), do: score_value, else: 0
                 
               # 多选题
               {:checkbox, "exact_match"} ->
@@ -370,8 +393,8 @@ defmodule MyApp.Scoring do
                     else: [user_answer_value]
                     
                 # 转换为字符串进行比较
-                correct_set = MapSet.new(correct_values, &to_string/1)
-                user_set = MapSet.new(user_values, &to_string/1)
+                correct_set = MapSet.new(correct_values, &safe_to_string/1)
+                user_set = MapSet.new(user_values, &safe_to_string/1)
                 
                 # 完全匹配才得分
                 if MapSet.equal?(correct_set, user_set), do: score_value, else: 0
@@ -380,16 +403,36 @@ defmodule MyApp.Scoring do
               {:fill_in_blank, "exact_match"} ->
                 # 解析正确答案
                 correct_values = 
-                  case Jason.decode(correct_answer) do
-                    {:ok, values} when is_list(values) -> values
-                    _ -> [correct_answer]
+                  cond do
+                    # 已经是列表，直接使用
+                    is_list(correct_answer) -> 
+                      correct_answer
+                    # JSON格式的字符串
+                    is_binary(correct_answer) && String.starts_with?(correct_answer, "[") ->
+                      case Jason.decode(correct_answer) do
+                        {:ok, values} when is_list(values) -> values
+                        _ -> [correct_answer]
+                      end
+                    # 其他情况，作为单个答案处理
+                    true -> 
+                      [correct_answer]
                   end
                   
                 # 解析用户答案
                 user_values = 
-                  case Jason.decode(user_answer_value) do
-                    {:ok, values} when is_list(values) -> values
-                    _ -> [user_answer_value]
+                  cond do
+                    # 已经是列表，直接使用
+                    is_list(user_answer_value) -> 
+                      user_answer_value
+                    # JSON格式的字符串
+                    is_binary(user_answer_value) && String.starts_with?(user_answer_value, "[") ->
+                      case Jason.decode(user_answer_value) do
+                        {:ok, values} when is_list(values) -> values
+                        _ -> [user_answer_value]
+                      end
+                    # 其他情况，作为单个答案处理
+                    true -> 
+                      [user_answer_value]
                   end
                   
                 # 检查是否有单独的空位分值
@@ -410,7 +453,7 @@ defmodule MyApp.Scoring do
                   Enum.zip([correct_values, user_values, individual_scores])
                   |> Enum.reduce(0, fn
                     {correct, user, blank_score}, acc when is_number(blank_score) ->
-                      if to_string(correct) == to_string(user), do: acc + blank_score, else: acc
+                      if safe_to_string(correct) == safe_to_string(user), do: acc + blank_score, else: acc
                     _, acc -> acc
                   end)
                 else
@@ -418,7 +461,7 @@ defmodule MyApp.Scoring do
                   correct_count = 
                     Enum.zip(correct_values, user_values)
                     |> Enum.count(fn {correct, user} -> 
-                         to_string(correct) == to_string(user) 
+                         safe_to_string(correct) == safe_to_string(user) 
                        end)
                        
                   total_blanks = max(length(correct_values), 1)
@@ -427,7 +470,7 @@ defmodule MyApp.Scoring do
                 
               # 默认情况 - 简单文本匹配
               {_, "exact_match"} ->
-                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                if safe_to_string(user_answer_value) == safe_to_string(correct_answer), do: score_value, else: 0
                 
               # 其他评分方法（尚未实现）
               _ -> 0
@@ -519,6 +562,20 @@ defmodule MyApp.Scoring do
   defp validate_rule_items_format(%{"items" => items}) when is_list(items), do: {:ok, items}
   defp validate_rule_items_format(_rules), do: {:error, :invalid_rule_format}
   
+  # 安全解析分数值，支持字符串或整数格式
+  defp parse_score_value(value) do
+    cond do
+      is_nil(value) -> 0
+      is_binary(value) -> 
+        case Integer.parse(value) do
+          {num, _} -> num
+          :error -> 0
+        end
+      is_integer(value) -> value
+      true -> 0
+    end
+  end
+  
   # 解析多选题答案格式
   defp parse_checkbox_values(value) do
     cond do
@@ -541,6 +598,29 @@ defmodule MyApp.Scoring do
     end
   end
   # --- score_response Helper Functions --- END ---
+  
+  # 安全的字符串转换函数，处理各种类型的输入
+  defp safe_to_string(value) do
+    cond do
+      is_nil(value) -> ""
+      is_binary(value) -> value
+      is_integer(value) || is_float(value) || is_atom(value) -> 
+        to_string(value)
+      # 处理以 atom 或 string 为键的 Map
+      is_map(value) && (Map.has_key?(value, "text") || Map.has_key?(value, :text)) -> 
+        text_value = Map.get(value, "text", Map.get(value, :text, ""))
+        safe_to_string(text_value)
+      is_map(value) && (Map.has_key?(value, "value") || Map.has_key?(value, :value)) -> 
+        value_field = Map.get(value, "value", Map.get(value, :value, ""))
+        safe_to_string(value_field)  # 递归处理value字段
+      is_map(value) -> 
+        inspect(value)  # 为其他Map类型生成字符串表示
+      is_list(value) -> 
+        Enum.map_join(value, ",", &safe_to_string/1)  # 递归处理列表元素
+      true -> 
+        inspect(value)  # 为未知类型生成字符串表示
+    end
+  end
 
   # === Response Score Queries ===
 

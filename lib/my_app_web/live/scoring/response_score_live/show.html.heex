@@ -107,7 +107,32 @@
                   <%= format_answer(answer && answer.value) %>
                 </td>
                 <td class="px-6 py-4 whitespace-normal text-sm text-gray-500">
-                  <%= rule_item["correct_answer"] %>
+                  <%= if form_item.type == :fill_in_blank do %>
+                    <% 
+                      # 处理填空题的正确答案显示
+                      correct_answer = rule_item["correct_answer"]
+                      correct_values = cond do
+                        is_list(correct_answer) -> 
+                          correct_answer
+                        is_binary(correct_answer) && String.starts_with?(correct_answer, "[") ->
+                          case Jason.decode(correct_answer) do
+                            {:ok, values} when is_list(values) -> values
+                            _ -> [correct_answer]
+                          end
+                        true -> 
+                          [correct_answer]
+                      end
+                    %>
+                    <div class="flex flex-col space-y-1">
+                      <%= for {value, idx} <- Enum.with_index(correct_values) do %>
+                        <div class="text-xs">
+                          <span class="font-medium">空位<%= idx + 1 %>:</span> <%= value %>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <%= rule_item["correct_answer"] %>
+                  <% end %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   <%= format_scoring_method(rule_item["scoring_method"]) %>
