@@ -134,7 +134,11 @@ defmodule MyAppWeb.FormLive.Submit do
         submitted: false,
         existing_files_map: existing_files_map,
         # 初始化跳转状态
-        jump_state: %{active: false, target_id: nil}
+        jump_state: %{active: false, target_id: nil},
+        # 初始化通知组件状态
+        notification: nil,
+        notification_type: nil,
+        notification_timer: nil
       })
 
     # Keep temporary assign as is
@@ -145,7 +149,32 @@ defmodule MyAppWeb.FormLive.Submit do
   def handle_params(_params, _url, socket) do
     # 不再需要处理URL参数中的文件信息
     # 文件信息已经通过Upload上下文直接从数据库获取
+    
+    # 订阅表单相关的PubSub主题
+    if connected?(socket) do
+      form_id = socket.assigns.form.id
+      Phoenix.PubSub.subscribe(MyApp.PubSub, "form:#{form_id}")
+    end
+    
     {:noreply, socket}
+  end
+  
+  # 处理PubSub通知消息
+  @impl true
+  def handle_info({:form_submitted, response_id}, socket) do
+    # 可以在这里处理表单提交成功的通知
+    # 例如更新页面状态或显示新的通知
+    Logger.info("Received form submission notification for response: #{response_id}")
+    {:noreply, socket}
+  end
+  
+  # 处理通知组件的消息
+  @impl true
+  def handle_info(:clear_notification, socket) do
+    {:noreply,
+     socket
+     |> assign(:notification, nil)
+     |> assign(:notification_timer, nil)}
   end
 
   # ===========================================
@@ -391,6 +420,16 @@ defmodule MyAppWeb.FormLive.Submit do
     # 验证上传
     {:noreply, socket}
   end
+  
+  @impl true
+  def handle_event("select_files", %{"field-id" => field_id}, socket) do
+    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
+    _upload_ref = get_upload_ref(socket, field_id)
+
+    # 触发文件选择对话框
+    # 实际上，这个空实现会导致使用JS hooks中的代码来处理
+    {:noreply, socket}
+  end
 
   @impl true
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
@@ -501,10 +540,12 @@ defmodule MyAppWeb.FormLive.Submit do
           Map.put(acc, id, "文件上传失败: #{msg}")
         end)
         
+        # 使用通知组件显示错误
+        socket = MyAppWeb.NotificationComponent.notify(socket, "文件上传失败，请检查错误信息", :error)
+        
         {:noreply, 
           socket
-          |> assign(:errors, errors)
-          |> put_flash(:error, "文件上传失败，请检查错误信息")}
+          |> assign(:errors, errors)}
       else
         # 正常提交处理流程
         case Responses.create_response(form_id, wrapped_answers, %{"user_id" => user_id}) do
@@ -514,12 +555,18 @@ defmodule MyAppWeb.FormLive.Submit do
             # 关联文件到响应
             associate_files_with_response(updated_form_state, form_id, response.id)
             
-            # 成功提交 - 使用重定向避免页面重置
+            # 使用PubSub通知其他组件表单已提交
+            Phoenix.PubSub.broadcast(
+              MyApp.PubSub,
+              "form:#{form_id}",
+              {:form_submitted, response.id}
+            )
+            
+            # 成功提交 - 重定向到专门的成功页面
             {:noreply,
              socket
              |> assign(submitted: true)
-             |> push_navigate(to: ~p"/forms/#{form_id}/responses")
-             |> put_flash(:info, "表单提交成功!")}
+             |> push_navigate(to: ~p"/forms/#{form_id}/success")}
 
           {:error, error_changeset} ->
             Logger.error("Error creating response: #{inspect(error_changeset)}")
@@ -527,11 +574,13 @@ defmodule MyAppWeb.FormLive.Submit do
             # 提取changeset中的错误信息
             errors = format_changeset_errors(error_changeset)
             
+            # 使用通知组件显示错误
+            socket = MyAppWeb.NotificationComponent.notify(socket, "表单提交失败，请检查错误信息", :error)
+            
             # 返回错误信息，但保留表单状态
             {:noreply, 
               socket 
-              |> assign(:errors, errors)
-              |> put_flash(:error, "表单提交失败，请检查错误信息")}
+              |> assign(:errors, errors)}
         end
       end
     else
@@ -543,11 +592,13 @@ defmodule MyAppWeb.FormLive.Submit do
       # 返回错误信息，阻止提交，但保留表单状态
       Logger.warning("Form submission blocked due to missing required fields: #{inspect(Enum.map(missing_items, & &1.id))}")
       
+      # 使用通知组件显示错误
+      socket = MyAppWeb.NotificationComponent.notify(socket, "请完成所有必填项后再提交表单", :error)
+      
       # 更新错误状态并显示消息
       {:noreply, 
         socket
-        |> assign(:errors, errors)
-        |> put_flash(:error, "请完成所有必填项后再提交表单")}
+        |> assign(:errors, errors)}
     end
   end
   
@@ -583,17 +634,7 @@ defmodule MyAppWeb.FormLive.Submit do
 
   # ===========================================
   # 表单控件事件处理
-  # ===========================================
-  
-  @impl true
-  def handle_event("select_files", %{"field-id" => field_id}, socket) do
-    # 从映射中获取上传引用，虽然这里不直接使用，但在前端JS中会用到
-    _upload_ref = get_upload_ref(socket, field_id)
-
-    # 触发文件选择对话框
-    # 实际上，这个空实现会导致使用JS hooks中的代码来处理
-    {:noreply, socket}
-  end
+  # ==========================================
 
   @impl true
   def handle_event("set_rating", %{"field-id" => field_id, "rating" => rating}, socket) do
@@ -1098,11 +1139,6 @@ defmodule MyAppWeb.FormLive.Submit do
     {updated_socket, files_data, errors}
   end
 
-  # 清理上传的文件信息
-  defp clear_uploaded_files_info(socket) do
-    # 清空 uploads 状态
-    socket
-  end
 
   # 通过引用查找上传名称
   defp find_upload_name_by_ref(uploads, ref) do

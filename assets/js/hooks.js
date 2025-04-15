@@ -179,10 +179,10 @@ Hooks.RegionSelectProvince = {
   },
   
   // 处理服务器响应
-  handleEvent: function(event, payload) {
-    if (event == "update_cities") {
-      var field_id = payload.field_id;
-      var cities = payload.cities;
+  handleEvent(event, payload) {
+    if (event === "update_cities") {
+      const field_id = payload.field_id;
+      const cities = payload.cities;
       const citySelect = document.getElementById(`${field_id}_city`);
       if (!citySelect) return;
       
@@ -281,10 +281,10 @@ Hooks.RegionSelectCity = {
   },
   
   // 处理服务器响应
-  handleEvent: function(event, payload) {
-    if (event == "update_districts") {
-      var field_id = payload.field_id; 
-      var districts = payload.districts;
+  handleEvent(event, payload) {
+    if (event === "update_districts") {
+      const field_id = payload.field_id; 
+      const districts = payload.districts;
       const districtSelect = document.getElementById(`${field_id}_district`);
       if (!districtSelect) return;
       

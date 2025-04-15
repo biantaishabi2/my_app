@@ -52,6 +52,9 @@ defmodule MyAppWeb.PublicFormLive.Submit do
           |> assign(:errors, %{})
           |> assign(:page_title, "填写表单 - #{form.title}")
           |> assign(:respondent_info, %{"name" => "", "email" => ""})
+          |> assign(:notification, nil)
+          |> assign(:notification_type, nil)
+          |> assign(:notification_timer, nil)
 
         # 初始化文件上传配置
         socket =
@@ -128,16 +131,40 @@ defmodule MyAppWeb.PublicFormLive.Submit do
       if is_last_page do
         # 提交表单
         case submit_form_response(socket) do
-          {:ok, _response} ->
+          {:ok, response} ->
+            # 使用PubSub通知其他组件表单已提交
+            Phoenix.PubSub.broadcast(
+              MyApp.PubSub,
+              "form:#{form.id}",
+              {:form_submitted, response.id}
+            )
+            
+            # 使用LiveView版本的成功页面而不是控制器版本
             {:noreply,
              socket
-             |> put_flash(:info, "表单提交成功！")
-             |> push_navigate(to: ~p"/public/forms/#{form.id}/success")}
+             |> push_navigate(to: ~p"/public/forms/#{form.id}/success-live")}
 
           {:error, reason} ->
+            # 初始化通知组件（如果尚未初始化）
+            socket = 
+              if is_nil(socket.assigns[:notification]) do
+                socket 
+                |> assign(:notification, nil)
+                |> assign(:notification_type, nil)
+                |> assign(:notification_timer, nil)
+              else
+                socket
+              end
+              
+            # 使用通知组件显示错误
+            socket = MyAppWeb.NotificationComponent.notify(
+              socket, 
+              "表单提交失败: #{error_message(reason)}", 
+              :error
+            )
+            
             {:noreply,
              socket
-             |> put_flash(:error, "表单提交失败: #{error_message(reason)}")
              |> assign(:errors, errors_from_reason(reason, %{}))}
         end
       else

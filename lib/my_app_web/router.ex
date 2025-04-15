@@ -144,6 +144,7 @@ defmodule MyAppWeb.Router do
     live_session :form_submission,
       on_mount: [{MyAppWeb.UserAuth, :ensure_authenticated}] do
       live "/forms/:id/submit", FormLive.Submit, :new
+      live "/forms/:id/success", FormLive.Success, :show
     end
   end
 
@@ -154,6 +155,7 @@ defmodule MyAppWeb.Router do
     live_session :public_form_submission do
       live "/public/forms/:id", PublicFormLive.Show, :show
       live "/public/forms/:id/submit", PublicFormLive.Submit, :new
+      live "/public/forms/:id/success-live", PublicFormLive.Success, :show
     end
 
     get "/public/forms/:id/success", PublicFormController, :success
