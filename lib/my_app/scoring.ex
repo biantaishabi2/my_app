@@ -27,14 +27,24 @@ defmodule MyApp.Scoring do
   需要检查调用用户是否有权限对该表单创建规则。
   """
   def create_score_rule(attrs, user) do
+    # 确保attrs中的键类型一致（统一使用字符串键）
+    prepared_attrs =
+      case attrs do
+        %{__struct__: _} -> attrs  # 如果是结构体，直接使用
+        _ ->
+          # 规范化键类型，将所有键转换为字符串
+          attrs
+          |> Map.put("user_id", user.id)
+          |> Map.delete(:user_id)  # 删除可能存在的原子键user_id
+      end
+
     # First, try to build the changeset and assign the user
     changeset =
       %ScoreRule{}
-      |> ScoreRule.changeset(Map.put(attrs, :user_id, user.id))
+      |> ScoreRule.changeset(prepared_attrs)
 
-    # Check if changeset is valid *before* checking permissions,
-    # but extract form_id first for the check.
-    form_id = get_field(changeset, :form_id) # Use get_field to handle potential nil
+    # 使用get_change更安全地获取form_id
+    form_id = get_field(changeset, :form_id)
 
     # Decide the next step based on form_id presence and changeset validity
     case {form_id, changeset.valid?} do
@@ -87,9 +97,19 @@ defmodule MyApp.Scoring do
   需要检查用户是否有权限修改此规则 (通常基于表单所有权)。
   """
   def update_score_rule(%ScoreRule{} = score_rule, attrs, user) do
+     # 确保键类型一致（这里复用前面的逻辑）
+     prepared_attrs =
+       case attrs do
+         %{__struct__: _} -> attrs  # 如果是结构体，直接使用
+         _ ->
+           # 规范化键类型，统一使用字符串键
+           attrs
+           |> Map.delete(:user_id)  # 删除可能存在的原子键user_id（我们不允许更新用户ID）
+       end
+
      with true <- user_can_modify_form?(score_rule.form_id, user) do
         score_rule
-        |> ScoreRule.changeset(attrs)
+        |> ScoreRule.changeset(prepared_attrs)
         |> Repo.update()
      else
         false -> {:error, :unauthorized}
@@ -229,8 +249,7 @@ defmodule MyApp.Scoring do
               else
                 acc # No points if answer doesn't match
               end
-            # TODO: Handle other scoring methods
-            # Answer not found for this item_id, or unknown scoring method
+            # Answer not found for this item_id
             _ ->
               acc # No points for this item
           end

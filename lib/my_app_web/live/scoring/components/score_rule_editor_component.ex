@@ -97,8 +97,6 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                       class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                     >
                       <option value="exact_match" selected={item["scoring_method"] == "exact_match"}>完全匹配</option>
-                      <option value="contains" selected={item["scoring_method"] == "contains"}>包含关键词</option>
-                      <option value="regex" selected={item["scoring_method"] == "regex"}>正则表达式</option>
                     </select>
                   </form>
                 </div>
