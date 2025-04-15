@@ -38,19 +38,19 @@
         >
           <div class="space-y-4">
             <div>
-              <.input field={@changeset[:name]} type="text" label="规则名称" required />
+              <.input value={@changeset.params["name"] || @changeset.data.name} name="score_rule[name]" type="text" label="规则名称" required />
             </div>
             
             <div>
-              <.input field={@changeset[:description]} type="textarea" label="描述" />
+              <.input value={@changeset.params["description"] || @changeset.data.description} name="score_rule[description]" type="textarea" label="描述" />
             </div>
             
             <div>
-              <.input field={@changeset[:max_score]} type="number" label="最高分值" required min="1" />
+              <.input value={@changeset.params["max_score"] || @changeset.data.max_score} name="score_rule[max_score]" type="number" label="最高分值" required min="1" />
             </div>
             
             <div>
-              <.input field={@changeset[:is_active]} type="checkbox" label="激活此规则" />
+              <.input value={@changeset.params["is_active"] || @changeset.data.is_active} name="score_rule[is_active]" type="checkbox" label="激活此规则" />
             </div>
             
             <div>
@@ -58,8 +58,9 @@
                 module={ScoreRuleEditorComponent}
                 id="rule-editor"
                 rules={@rules}
-                on_change={:update_rules}
+                on_change="update_rules"
                 form_id={@score_rule.form_id}
+                parent={@myself}
               />
             </div>
             

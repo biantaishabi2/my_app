@@ -16,10 +16,12 @@ defmodule MyAppWeb.Scoring.Helpers do
   """
   def get_respondent_name(response) do
     cond do
-      response.respondent_name && response.respondent_name != "" ->
-        response.respondent_name
-      response.user_id ->
-        "用户 #{response.user_id}"
+      Map.get(response, :respondent_name) && Map.get(response, :respondent_name) != "" ->
+        Map.get(response, :respondent_name)
+      Map.get(response, :user_id) ->
+        "用户 #{Map.get(response, :user_id)}"
+      Map.get(response.respondent_info || %{}, "user_id") ->
+        "用户 #{Map.get(response.respondent_info, "user_id")}"
       true ->
         "匿名"
     end

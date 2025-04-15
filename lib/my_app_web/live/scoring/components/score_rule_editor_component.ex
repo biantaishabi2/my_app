@@ -78,7 +78,7 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
                     <option value="">选择问题</option>
                     <%= for form_item <- get_form_items(@form_id) do %>
                       <option value={form_item.id} selected={item["item_id"] == form_item.id}>
-                        <%= form_item.title %>
+                        <%= form_item.label %>
                       </option>
                     <% end %>
                   </select>
@@ -145,8 +145,9 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     rule_items = socket.assigns.rule_items ++ [new_item]
     rules = %{"items" => rule_items}
     
-    if socket.assigns[:on_change] do
-      send(self(), {socket.assigns.on_change, rules})
+    # 修改为使用与update_rule_item相同的模式
+    if socket.assigns[:on_change] && socket.assigns[:parent] do
+      send(self(), {:update_parent, socket.assigns.parent, socket.assigns.on_change, rules})
     end
     
     {:noreply, assign(socket, rule_items: rule_items)}
@@ -157,13 +158,15 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     rule_items = List.delete_at(socket.assigns.rule_items, index)
     rules = %{"items" => rule_items}
     
-    if socket.assigns[:on_change] do
-      send(self(), {socket.assigns.on_change, rules})
+    # 修改为使用与update_rule_item相同的模式
+    if socket.assigns[:on_change] && socket.assigns[:parent] do
+      send(self(), {:update_parent, socket.assigns.parent, socket.assigns.on_change, rules})
     end
     
     {:noreply, assign(socket, rule_items: rule_items)}
   end
   
+  # 处理下拉菜单选择事件，使用phx-change
   def handle_event("update_rule_item", %{"index" => index, "field" => field, "value" => value}, socket) do
     index = String.to_integer(index)
     
@@ -173,15 +176,30 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     
     rules = %{"items" => rule_items}
     
-    if socket.assigns[:on_change] do
-      send(self(), {socket.assigns.on_change, rules})
+    # 使用父组件ID向父组件发送事件
+    if socket.assigns[:on_change] && socket.assigns[:parent] do
+      # 这里修改为直接向父组件发送消息
+      send(self(), {:update_parent, socket.assigns.parent, socket.assigns.on_change, rules})
     end
     
     {:noreply, assign(socket, rule_items: rule_items)}
   end
   
+  # 处理向父组件发送事件的辅助函数
+  def handle_info({:update_parent, parent_id, event, rules}, socket) do
+    # 使用send_update向父组件发送更新
+    send_update(MyAppWeb.Scoring.Components.ScoreRuleFormModalComponent, 
+      id: parent_id, 
+      event: event, 
+      rules: rules
+    )
+    
+    {:noreply, socket}
+  end
+  
   defp get_form_items(form_id) do
-    # 获取表单所有题目项，可能需要在上下文中添加函数
-    MyApp.Forms.list_form_items_for_form(form_id) || []
+    # 获取表单所有题目项
+    form = MyApp.Forms.get_form(form_id)
+    form.items || []
   end
 end
