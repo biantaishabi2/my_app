@@ -239,30 +239,76 @@ defmodule MyApp.Scoring do
           item_id = item["item_id"]
           scoring_method = item["scoring_method"]
           correct_answer = item["correct_answer"]
-          score_value = item["score"] || 0 # Default to 0 if score is missing
+          score_value = String.to_integer(item["score"] || "0") # 确保是整数
 
           user_answer_struct = Map.get(answers_map, item_id)
 
-          # 检查答案是否存在并且是 map 结构
           if user_answer_struct && is_map(user_answer_struct.value) do
             user_answer_value = Map.get(user_answer_struct.value, "value")
-
-            case {user_answer_value, scoring_method} do
-              # 答案不为 nil 且方法是 exact_match
-              {actual_value, "exact_match"} when not is_nil(actual_value) ->
-                # 进行比较，注意类型可能需要转换
-                # 假设 correct_answer 也是字符串
-                if to_string(actual_value) == to_string(correct_answer) do
-                  acc + score_value
-                else
-                  acc
-                end
-              # TODO: 添加对其他 scoring_method (contains, regex 等) 的处理
-              _ ->
-                acc # 其他情况不得分
+            
+            # 找到对应的form_item以获取类型信息
+            form_item = Enum.find(response.form.items || [], fn fi -> fi.id == item_id end)
+            item_type = form_item && form_item.type
+            
+            points = case {item_type, scoring_method} do
+              # 单选题和下拉菜单
+              {type, "exact_match"} when type in [:radio, :dropdown] ->
+                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                
+              # 多选题
+              {:checkbox, "exact_match"} ->
+                # 解析正确答案和用户答案
+                correct_values = parse_checkbox_values(correct_answer)
+                user_values = 
+                  if is_list(user_answer_value), 
+                    do: user_answer_value, 
+                    else: [user_answer_value]
+                    
+                # 转换为字符串进行比较
+                correct_set = MapSet.new(correct_values, &to_string/1)
+                user_set = MapSet.new(user_values, &to_string/1)
+                
+                # 完全匹配才得分
+                if MapSet.equal?(correct_set, user_set), do: score_value, else: 0
+                
+              # 填空题
+              {:fill_in_blank, "exact_match"} ->
+                # 解析正确答案
+                correct_values = 
+                  case Jason.decode(correct_answer) do
+                    {:ok, values} when is_list(values) -> values
+                    _ -> [correct_answer]
+                  end
+                  
+                # 解析用户答案
+                user_values = 
+                  case Jason.decode(user_answer_value) do
+                    {:ok, values} when is_list(values) -> values
+                    _ -> [user_answer_value]
+                  end
+                  
+                # 计算正确的空位数量
+                correct_count = 
+                  Enum.zip(correct_values, user_values)
+                  |> Enum.count(fn {correct, user} -> 
+                       to_string(correct) == to_string(user) 
+                     end)
+                     
+                # 按比例计算得分
+                total_blanks = max(length(correct_values), 1)
+                round(score_value * correct_count / total_blanks)
+                
+              # 默认情况 - 简单文本匹配
+              {_, "exact_match"} ->
+                if to_string(user_answer_value) == to_string(correct_answer), do: score_value, else: 0
+                
+              # 其他评分方法（尚未实现）
+              _ -> 0
             end
+            
+            acc + points
           else
-            # 答案不存在或格式不正确
+            # 用户未回答此题目
             acc
           end
         end)
@@ -341,6 +387,28 @@ defmodule MyApp.Scoring do
   # Validate that the 'items' key in rules exists and is a list
   defp validate_rule_items_format(%{"items" => items}) when is_list(items), do: {:ok, items}
   defp validate_rule_items_format(_rules), do: {:error, :invalid_rule_format}
+  
+  # 解析多选题答案格式
+  defp parse_checkbox_values(value) do
+    cond do
+      # JSON数组
+      is_binary(value) && String.starts_with?(value, "[") ->
+        case Jason.decode(value) do
+          {:ok, values} when is_list(values) -> values
+          _ -> []
+        end
+        
+      # 逗号分隔的字符串
+      is_binary(value) && String.contains?(value, ",") ->
+        String.split(value, ",") |> Enum.map(&String.trim/1)
+        
+      # 单个值
+      is_binary(value) && value != "" -> [value]
+      
+      # 默认情况
+      true -> []
+    end
+  end
   # --- score_response Helper Functions --- END ---
 
   # === Response Score Queries ===

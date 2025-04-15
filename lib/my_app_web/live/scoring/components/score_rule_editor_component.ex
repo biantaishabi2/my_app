@@ -1,6 +1,7 @@
 defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
   use MyAppWeb, :live_component
   alias MyApp.Scoring
+  require Logger
 
   @doc """
   提供交互式界面编辑评分规则的 rules JSON 结构。
@@ -103,16 +104,141 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
 
                 <div>
                   <label class="block text-xs font-medium text-gray-700">正确答案</label>
-                  <form phx-change="update_rule_item" phx-target={@myself}>
-                    <input type="hidden" name="index" value={index} />
-                    <input type="hidden" name="field" value="correct_answer" />
-                    <input
-                      type="text"
-                      name="value"
-                      value={item["correct_answer"]}
-                      class="mt-1 block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                    />
-                  </form>
+                  <% 
+                    form_items = get_form_items(@form_id)
+                    form_item = Enum.find(form_items, fn i -> i.id == item["item_id"] end)
+                    item_type = form_item && form_item.type 
+                  %>
+                  
+                  <%= case item_type do %>
+                    <% :radio -> %>
+                      <form phx-change="update_rule_item" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <input type="hidden" name="field" value="correct_answer" />
+                        <select
+                          name="value"
+                          class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        >
+                          <option value="">选择正确答案</option>
+                          <%= for option <- form_item.options || [] do %>
+                            <option value={option.value} selected={item["correct_answer"] == option.value}>
+                              <%= option.label || option.value %>
+                            </option>
+                          <% end %>
+                        </select>
+                      </form>
+                      
+                    <% :dropdown -> %>
+                      <form phx-change="update_rule_item" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <input type="hidden" name="field" value="correct_answer" />
+                        <select
+                          name="value"
+                          class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        >
+                          <option value="">选择正确答案</option>
+                          <%= for option <- form_item.options || [] do %>
+                            <option value={option.value} selected={item["correct_answer"] == option.value}>
+                              <%= option.label || option.value %>
+                            </option>
+                          <% end %>
+                        </select>
+                      </form>
+                      
+                    <% :checkbox -> %>
+                      <form phx-change="update_checkbox_answers" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <div class="mt-1 space-y-2 border p-2 rounded-md max-h-48 overflow-y-auto">
+                          <%= for option <- form_item.options || [] do %>
+                            <div class="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={"rule_#{index}_option_#{option.id || option.value}"}
+                                name="checkbox_values[]"
+                                value={option.value}
+                                checked={is_checkbox_selected(item["correct_answer"], option.value)}
+                                class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 rounded"
+                              />
+                              <label for={"rule_#{index}_option_#{option.id || option.value}"} class="ml-2 text-sm text-gray-700">
+                                <%= option.label || option.value %>
+                              </label>
+                            </div>
+                          <% end %>
+                          <%= if Enum.empty?(form_item.options || []) do %>
+                            <p class="text-xs text-gray-500 italic">此选项无可用选项</p>
+                          <% end %>
+                        </div>
+                      </form>
+                      
+                    <% :rating -> %>
+                      <form phx-change="update_rule_item" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <input type="hidden" name="field" value="correct_answer" />
+                        <% max_rating = form_item && form_item.max_rating || 5 %>
+                        <div class="flex flex-wrap gap-2 mt-1">
+                          <%= for i <- 1..max_rating do %>
+                            <button
+                              type="button" 
+                              phx-click="set_rating_value"
+                              phx-value-index={index}
+                              phx-value-rating={i}
+                              phx-target={@myself}
+                              class={"px-3 py-1 text-sm font-medium rounded-md focus:outline-none #{if to_string(item["correct_answer"]) == to_string(i), do: "bg-yellow-400 text-gray-900", else: "bg-gray-200 text-gray-700 hover:bg-gray-300"}"}
+                            >
+                              <%= i %>星
+                            </button>
+                          <% end %>
+                        </div>
+                      </form>
+                      
+                    <% :date -> %>
+                      <form phx-change="update_rule_item" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <input type="hidden" name="field" value="correct_answer" />
+                        <input
+                          type="date"
+                          name="value"
+                          value={item["correct_answer"]}
+                          class="mt-1 block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        />
+                      </form>
+                      
+                    <% :fill_in_blank -> %>
+                      <% blank_count = form_item && form_item.blank_count || 1 %>
+                      <div class="mt-1 space-y-2 border p-2 rounded-md">
+                        <p class="text-xs text-gray-500">填空题答案设置（共<%= blank_count %>个空位）：</p>
+                        
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                          <%= for i <- 1..blank_count do %>
+                            <div class="flex items-center gap-2">
+                              <span class="text-sm font-medium text-gray-700 min-w-[60px]">空位<%= i %>:</span>
+                              <input
+                                type="text"
+                                id={"blank_#{index}_#{i-1}"}
+                                value={get_blank_answer(item["correct_answer"], i-1)}
+                                phx-blur="update_blank_answer"
+                                phx-target={@myself}
+                                phx-value-index={index}
+                                phx-value-blank={i-1}
+                                class="flex-1 px-3 py-1 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                              />
+                            </div>
+                          <% end %>
+                        </div>
+                      </div>
+                      
+                    <% _ -> %>
+                      <form phx-change="update_rule_item" phx-target={@myself}>
+                        <input type="hidden" name="index" value={index} />
+                        <input type="hidden" name="field" value="correct_answer" />
+                        <input
+                          type="text"
+                          name="value"
+                          value={item["correct_answer"]}
+                          class="mt-1 block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        />
+                      </form>
+                  <% end %>
                 </div>
 
                 <div>
@@ -222,6 +348,106 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
       {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
     end
   end
+  
+  # 处理复选框答案更新
+  def handle_event("update_checkbox_answers", %{"index" => index, "checkbox_values" => values}, socket) do
+    index = String.to_integer(index)
+    
+    # 更新为JSON格式
+    new_answer = Jason.encode!(values)
+    
+    # 更新规则项
+    rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
+      Map.put(item, "correct_answer", new_answer)
+    end)
+    
+    rules = %{"items" => rule_items}
+    
+    # 保存规则
+    save_rules_to_database(socket, rules)
+    
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
+  end
+  
+  # 处理没有选中复选框的情况
+  def handle_event("update_checkbox_answers", %{"index" => index}, socket) do
+    index = String.to_integer(index)
+    
+    # 空数组
+    new_answer = "[]"
+    
+    # 更新规则项
+    rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
+      Map.put(item, "correct_answer", new_answer)
+    end)
+    
+    rules = %{"items" => rule_items}
+    
+    # 保存规则
+    save_rules_to_database(socket, rules)
+    
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
+  end
+  
+  # 处理评分控件值选择
+  def handle_event("set_rating_value", %{"index" => index, "rating" => rating}, socket) do
+    index = String.to_integer(index)
+    
+    # 更新规则项
+    rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
+      Map.put(item, "correct_answer", rating)
+    end)
+    
+    rules = %{"items" => rule_items}
+    
+    # 保存规则
+    save_rules_to_database(socket, rules)
+    
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
+  end
+  
+  # 处理填空题答案更新
+  def handle_event("update_blank_answer", %{"index" => index, "blank" => blank_index, "value" => value}, socket) do
+    index = String.to_integer(index)
+    blank_index = String.to_integer(blank_index)
+    
+    # 获取当前规则项
+    rule_item = Enum.at(socket.assigns.rule_items, index)
+    current_answer = rule_item["correct_answer"] || "[]"
+    
+    # 解析当前答案
+    current_values = 
+      case Jason.decode(current_answer) do
+        {:ok, values} when is_list(values) -> values
+        _ -> if String.starts_with?(current_answer, "["), do: [], else: [current_answer]
+      end
+    
+    # 确保数组足够长
+    padded_values = 
+      if length(current_values) <= blank_index do
+        current_values ++ List.duplicate("", blank_index - length(current_values) + 1)
+      else
+        current_values
+      end
+    
+    # 更新指定空位答案
+    new_values = List.replace_at(padded_values, blank_index, value)
+    
+    # 更新为JSON格式
+    new_answer = Jason.encode!(new_values)
+    
+    # 更新规则项
+    rule_items = List.update_at(socket.assigns.rule_items, index, fn item ->
+      Map.put(item, "correct_answer", new_answer)
+    end)
+    
+    rules = %{"items" => rule_items}
+    
+    # 保存规则
+    save_rules_to_database(socket, rules)
+    
+    {:noreply, assign(socket, rule_items: rule_items, rules: rules)}
+  end
 
   # 直接保存规则到数据库
   defp save_rules_to_database(socket, rules) do
@@ -257,5 +483,52 @@ defmodule MyAppWeb.Scoring.Components.ScoreRuleEditorComponent do
     # 获取表单所有题目项
     form = MyApp.Forms.get_form(form_id)
     form.items || []
+  end
+  
+  # 检查复选框选项是否被选中
+  defp is_checkbox_selected(correct_answer, option_value) do
+    cond do
+      # JSON数组格式
+      is_binary(correct_answer) && String.starts_with?(correct_answer, "[") ->
+        case Jason.decode(correct_answer) do
+          {:ok, values} when is_list(values) -> 
+            # 确保比较时都是字符串
+            Enum.any?(values, fn val -> to_string(val) == to_string(option_value) end)
+          _ -> false
+        end
+        
+      # 逗号分隔的值
+      is_binary(correct_answer) && String.contains?(correct_answer, ",") ->
+        values = String.split(correct_answer, ",") |> Enum.map(&String.trim/1)
+        Enum.any?(values, fn val -> to_string(val) == to_string(option_value) end)
+        
+      # 单个值比较
+      is_binary(correct_answer) -> 
+        to_string(correct_answer) == to_string(option_value)
+        
+      # 默认情况
+      true -> false
+    end
+  end
+  
+  # 获取填空题特定空位的答案
+  defp get_blank_answer(correct_answer, blank_index) do
+    cond do
+      # JSON数组格式
+      is_binary(correct_answer) && String.starts_with?(correct_answer, "[") ->
+        case Jason.decode(correct_answer) do
+          {:ok, values} when is_list(values) -> 
+            Enum.at(values, blank_index, "")
+          _ -> 
+            if blank_index == 0, do: correct_answer, else: ""
+        end
+        
+      # 单个值（用于第一个空位）
+      is_binary(correct_answer) && blank_index == 0 -> 
+        correct_answer
+        
+      # 其他情况
+      true -> ""
+    end
   end
 end
